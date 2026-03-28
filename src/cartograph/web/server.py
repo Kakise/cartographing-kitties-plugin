@@ -39,6 +39,7 @@ class GraphExplorerHandler(BaseHTTPRequestHandler):
             (r"^/api/search$", self._api_search),
             (r"^/api/files$", self._api_files),
             (r"^/api/directories$", self._api_directories),
+            (r"^/api/tree$", self._api_tree),
         ]
 
         for pattern, handler in routes:
@@ -178,7 +179,8 @@ class GraphExplorerHandler(BaseHTTPRequestHandler):
     def _api_graph(self, params: dict[str, list[str]]) -> None:
         store = self.store
         conn = store._conn
-        limit = min(_safe_int(params, "limit", 300), 500)
+        full = params.get("full", [None])[0] == "true"
+        limit = 10000 if full else min(_safe_int(params, "limit", 300), 500)
         directory = params.get("directory", [None])[0]
         file_path = params.get("file_path", [None])[0]
 
@@ -277,6 +279,70 @@ class GraphExplorerHandler(BaseHTTPRequestHandler):
             result.append(d)
 
         self._json_response({"directories": result})
+
+    def _api_tree(self, params: dict[str, list[str]]) -> None:
+        """Return recursive directory tree with node counts at each level."""
+        conn = self.store._conn
+        rows = conn.execute(
+            "SELECT file_path, COUNT(*) as cnt FROM nodes "
+            "WHERE kind != 'file' AND file_path IS NOT NULL "
+            "GROUP BY file_path"
+        ).fetchall()
+
+        def _make_node(name: str, node_type: str, node_count: int = 0) -> dict[str, Any]:
+            return {
+                "name": name,
+                "type": node_type,
+                "node_count": node_count,
+                "children": list[dict[str, Any]](),
+            }
+
+        root = _make_node("(root)", "directory")
+
+        for row in rows:
+            file_path: str = row[0]
+            count: int = row[1]
+            parts = file_path.split("/")
+
+            current = root
+            # Walk/create directory path
+            for part in parts[:-1]:
+                children: list[dict[str, Any]] = current["children"]
+                child: dict[str, Any] | None = None
+                for c in children:
+                    if c["name"] == part and c["type"] == "directory":
+                        child = c
+                        break
+                if child is None:
+                    child = _make_node(part, "directory")
+                    children.append(child)
+                current = child
+
+            # Add file leaf
+            children_list: list[dict[str, Any]] = current["children"]
+            children_list.append(_make_node(parts[-1], "file", count))
+
+        # Recursively sum node_count
+        def _sum_counts(node: dict[str, Any]) -> int:
+            if node["type"] == "file":
+                return int(node["node_count"])
+            children_inner: list[dict[str, Any]] = node["children"]
+            total = sum(_sum_counts(c) for c in children_inner)
+            node["node_count"] = total
+            return total
+
+        _sum_counts(root)
+
+        # Sort children alphabetically at each level
+        def _sort_tree(node: dict[str, Any]) -> None:
+            children_sort: list[dict[str, Any]] = node["children"]
+            children_sort.sort(key=lambda c: (0 if c["type"] == "directory" else 1, c["name"]))
+            for c in children_sort:
+                _sort_tree(c)
+
+        _sort_tree(root)
+
+        self._json_response({"tree": root})
 
     def _api_files(self, params: dict[str, list[str]]) -> None:
         conn = self.store._conn

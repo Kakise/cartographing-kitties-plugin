@@ -204,6 +204,63 @@ class TestApiGraph:
         assert len(data["nodes"]) <= 2
 
 
+class TestApiTree:
+    def test_returns_recursive_tree(self, server_url: str):
+        status, data = get(server_url, "/api/tree")
+        assert status == 200
+        assert "tree" in data
+        tree = data["tree"]
+        assert tree["name"] == "(root)"
+        assert tree["type"] == "directory"
+        assert tree["node_count"] > 0
+        assert len(tree["children"]) > 0
+
+    def test_tree_node_counts_sum_correctly(self, server_url: str):
+        status, data = get(server_url, "/api/tree")
+        assert status == 200
+        tree = data["tree"]
+
+        def verify_sums(node):
+            if node["type"] == "file":
+                return node["node_count"]
+            child_sum = sum(verify_sums(c) for c in node["children"])
+            assert node["node_count"] == child_sum, (
+                f"{node['name']}: node_count={node['node_count']} != child_sum={child_sum}"
+            )
+            return child_sum
+
+        verify_sums(tree)
+
+    def test_tree_children_are_sorted(self, server_url: str):
+        status, data = get(server_url, "/api/tree")
+        assert status == 200
+        tree = data["tree"]
+
+        def check_sorted(node):
+            dirs = [c for c in node["children"] if c["type"] == "directory"]
+            # Directories come before files
+            dir_end = len(dirs)
+            for i, c in enumerate(node["children"]):
+                if i < dir_end:
+                    assert c["type"] == "directory"
+                else:
+                    assert c["type"] == "file"
+            for c in node["children"]:
+                check_sorted(c)
+
+        check_sorted(tree)
+
+    def test_full_graph_bypasses_limit(self, server_url: str):
+        status, data = get(server_url, "/api/graph?full=true")
+        assert status == 200
+        assert len(data["nodes"]) > 0
+        # full=true should ignore default 300/500 cap
+        node_ids = {n["id"] for n in data["nodes"]}
+        for edge in data["edges"]:
+            assert edge["source_id"] in node_ids
+            assert edge["target_id"] in node_ids
+
+
 class TestApiFiles:
     def test_returns_files(self, server_url: str):
         status, data = get(server_url, "/api/files")
