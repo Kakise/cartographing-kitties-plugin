@@ -46,7 +46,10 @@ jobs:
         run: uv run codespell src
 
       - name: Run type checking
-        run: uv run basedpyright --level error
+        run: |
+          output=$(uv run basedpyright --level error 2>&1)
+          echo "$output"
+          echo "$output" | tail -1 | grep -q "0 errors" || exit 1
 
       - name: Run tests
         run: uv run pytest
