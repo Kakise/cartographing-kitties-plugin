@@ -1,6 +1,11 @@
 """Cartograph: AST-powered codebase intelligence framework for AI coding agents."""
 
-__version__ = "0.1.0"
+from importlib.metadata import PackageNotFoundError, version
+
+try:
+    __version__ = version("cartographing-kittens")
+except PackageNotFoundError:
+    __version__ = "0.0.0-dev"
 
 
 def main() -> None:
