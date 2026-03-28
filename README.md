@@ -17,7 +17,7 @@ It is also a **Claude Code plugin** with a complete engineering workflow framewo
 **Step 2 — Install the plugin:**
 
 ```
-/plugin install cartograph
+/plugin install kitty
 ```
 
 This installs the MCP server, all 9 skills, and all 9 agents. Cartographing Kittens tools become available immediately.
@@ -37,7 +37,7 @@ Then add to your MCP client config (`.mcp.json`):
 ```json
 {
   "mcpServers": {
-    "cartograph": {
+    "kitty": {
       "command": "uvx",
       "args": ["cartographing-kittens"],
       "env": {
@@ -146,10 +146,10 @@ Findings are merged, deduplicated, and presented by severity (P0-P3).
 
 ### Full autonomous mode
 
-Skip all interaction and let Cartograph handle everything:
+Skip all interaction and let Cartographing Kittens handle everything:
 
 ```
-/cartograph:lfg Add rate limiting to the API
+/kitty:lfg Add rate limiting to the API
 ```
 
 This chains plan, work, and review automatically with agent swarms at every step.
@@ -158,43 +158,43 @@ This chains plan, work, and review automatically with agent swarms at every step
 
 1. **Index first** — Run `index_codebase` at the start of a conversation if you're unsure about graph freshness. All workflow skills do this automatically.
 
-2. **Annotate for semantic search** — `search` works on node names by default. Run `cartograph:annotate` to add summaries and tags for domain queries like "find auth code".
+2. **Annotate for semantic search** — `search` works on node names by default. Run `kitty:annotate` to add summaries and tags for domain queries like "find auth code".
 
-3. **Use impact analysis before changes** — Before modifying shared code, run `cartograph:impact` or ask "what depends on X?" to understand the blast radius.
+3. **Use impact analysis before changes** — Before modifying shared code, run `kitty:impact` or ask "what depends on X?" to understand the blast radius.
 
-4. **Let swarms do the work** — Workflow skills dispatch agents in parallel automatically. For large features, `cartograph:work` runs independent implementation units simultaneously.
+4. **Let swarms do the work** — Workflow skills dispatch agents in parallel automatically. For large features, `kitty:work` runs independent implementation units simultaneously.
 
-5. **Review with structure** — `cartograph:review` finds issues that text-based reviews miss: unupdated dependents, broken contracts, circular dependencies, test coverage gaps.
+5. **Review with structure** — `kitty:review` finds issues that text-based reviews miss: unupdated dependents, broken contracts, circular dependencies, test coverage gaps.
 
 ## Agents
 
 ### Research Agents
 
-Dispatched by `cartograph:brainstorm` and `cartograph:plan` for codebase understanding.
+Dispatched by `kitty:brainstorm` and `kitty:plan` for codebase understanding.
 
-| Agent | Purpose |
-|-------|---------|
-| `cartograph-researcher` | General codebase exploration — architecture, stack, modules, relationships |
-| `cartograph-pattern-analyst` | Find existing patterns and conventions to follow |
-| `cartograph-impact-analyst` | Blast radius and dependency chain analysis |
-| `cartograph-flow-analyzer` | Trace call chains and data flow through the graph |
+| Agent | Cat Role | Purpose |
+|-------|----------|---------|
+| `librarian-kitten-researcher` | Librarian Kitten | General codebase exploration — architecture, stack, modules, relationships |
+| `librarian-kitten-pattern` | Librarian Kitten | Find existing patterns and conventions to follow |
+| `librarian-kitten-impact` | Librarian Kitten | Blast radius and dependency chain analysis |
+| `librarian-kitten-flow` | Librarian Kitten | Trace call chains and data flow through the graph |
 
-### Review Agents
+### Review Agents (Expert Kittens)
 
-Dispatched by `cartograph:review` for structural code review.
+Dispatched by `kitty:review` for structural code review.
 
 | Agent | When | Purpose |
 |-------|------|---------|
-| `cartograph-correctness-reviewer` | Always | Logic errors, edge cases, state bugs |
-| `cartograph-testing-reviewer` | Always | Test coverage gaps via dependency graph |
-| `cartograph-impact-reviewer` | 3+ files changed | Blast radius — unreviewed downstream effects |
-| `cartograph-structure-reviewer` | New files created | Naming, architecture, import hygiene |
+| `expert-kitten-correctness` | Always | Logic errors, edge cases, state bugs |
+| `expert-kitten-testing` | Always | Test coverage gaps via dependency graph |
+| `expert-kitten-impact` | 3+ files changed | Blast radius — unreviewed downstream effects |
+| `expert-kitten-structure` | New files created | Naming, architecture, import hygiene |
 
-### Annotation Agent
+### Cartographing Kitten
 
 | Agent | Purpose |
 |-------|---------|
-| `cartograph-annotator` | Batch annotation specialist — processes nodes with summaries, tags, and roles |
+| `cartographing-kitten` | Batch annotation specialist — processes nodes with summaries, tags, and roles |
 
 ## MCP Tools
 
@@ -227,6 +227,15 @@ Dispatched by `cartograph:review` for structural code review.
 | `get_pending_annotations` | Get nodes needing annotation, with source code context. |
 | `submit_annotations` | Write summaries, tags, and roles back to the graph. |
 
+### Memory (Litter-Box & Treat-Box)
+
+| Tool | Description |
+|------|-------------|
+| `add_litter_box_entry` | Record a failure, anti-pattern, or thing to avoid. Auto-exports to `.pawprints/litter-box.md`. |
+| `query_litter_box` | Query negative knowledge. Filter by category, search in descriptions. |
+| `add_treat_box_entry` | Record a best practice, validated pattern, or thing to always do. Auto-exports to `.pawprints/treat-box.md`. |
+| `query_treat_box` | Query positive knowledge. Filter by category, search in descriptions. |
+
 ## MCP Prompts
 
 Guided workflows that MCP clients can invoke directly:
@@ -239,7 +248,7 @@ Guided workflows that MCP clients can invoke directly:
 
 ## How It Works
 
-Cartograph builds a knowledge graph in three phases:
+Cartographing Kittens builds a knowledge graph in three phases:
 
 **Phase 1 — Parse.** Each source file is parsed with tree-sitter. The extractor walks the AST and emits `Definition`, `Import`, and `CallSite` objects.
 
@@ -252,7 +261,7 @@ Cartograph builds a knowledge graph in three phases:
 - **Qualified names** use `::` separator: `module.path::ClassName::method_name`
 - **Edge kinds**: `imports`, `calls`, `inherits`, `contains`, `depends_on`
 - **Node kinds**: `module`, `class`, `function`, `method`, `variable`
-- Graph stored at `.cartograph/graph.db` in the project root
+- Graph stored at `.pawprints/graph.db` in the project root
 
 ## Development
 

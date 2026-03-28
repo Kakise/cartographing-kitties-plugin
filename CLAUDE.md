@@ -10,8 +10,9 @@ AST-powered codebase intelligence framework for AI coding agents.
 | Indexing | `src/cartograph/indexing/` | File discovery, incremental change detection, cross-file resolution |
 | Storage | `src/cartograph/storage/` | SQLite graph database with FTS5 search and recursive CTE traversal |
 | Annotation | `src/cartograph/annotation/` | LLM-driven semantic enrichment (summaries, tags, roles) |
-| MCP Server | `src/cartograph/server/` | FastMCP server — 9 tools, 3 prompts |
-| Server Tools | `src/cartograph/server/tools/` | Tool implementations (index, query, analysis, annotate) |
+| Memory | `src/cartograph/memory/` | Litter-box (negative) and treat-box (positive) persistent memory |
+| MCP Server | `src/cartograph/server/` | FastMCP server — 13 tools, 3 prompts |
+| Server Tools | `src/cartograph/server/tools/` | Tool implementations (index, query, analysis, annotate, memory) |
 | Server Prompts | `src/cartograph/server/prompts/` | Prompt implementations (explore, refactor, annotate) |
 
 ## Conventions
