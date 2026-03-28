@@ -61,10 +61,18 @@ immediate neighbors — what it imports, calls, inherits from, and what calls/im
 ```json
 {
   "found": true,
-  "node": { "id": 42, "kind": "class", "name": "UserService", "qualified_name": "services.user::UserService", ... },
+  "node": {
+    "id": 42, "kind": "class", "name": "UserService",
+    "qualified_name": "services.user::UserService",
+    "file_path": "services/user.py", "start_line": 15, "end_line": 89,
+    "language": "python", "summary": "Handles user CRUD with caching",
+    "annotation_status": "annotated",
+    "tags": ["service", "database", "validation"],
+    "role": "Business logic layer"
+  },
   "neighbors": [
-    { "direction": "outgoing", "edge_kind": "imports", "node": { ... } },
-    { "direction": "incoming", "edge_kind": "calls", "node": { ... } }
+    { "direction": "outgoing", "edge_kind": "imports", "node": { "...same fields..." } },
+    { "direction": "incoming", "edge_kind": "calls", "node": { "...same fields..." } }
   ]
 }
 ```
@@ -97,7 +105,13 @@ Useful for understanding what a piece of code needs to work.
   "source": { "id": 42, "qualified_name": "services.user::UserService" },
   "count": 15,
   "dependencies": [
-    { "id": 43, "kind": "class", "name": "User", "qualified_name": "models::User", "file_path": "models.py", "depth": 1 },
+    {
+      "id": 43, "kind": "class", "name": "User", "qualified_name": "models::User",
+      "file_path": "models.py", "start_line": 5, "end_line": 30, "language": "python",
+      "summary": "Core user data model", "annotation_status": "annotated",
+      "tags": ["models", "database"], "role": "Data model",
+      "depth": 1
+    },
     ...
   ]
 }
@@ -134,7 +148,13 @@ impact analysis tool — use it before making changes to understand blast radius
   "target": { "id": 10, "qualified_name": "models::User" },
   "count": 8,
   "dependents": [
-    { "id": 42, "kind": "class", "name": "UserService", "qualified_name": "services.user::UserService", "file_path": "services/user.py", "depth": 1 },
+    {
+      "id": 42, "kind": "class", "name": "UserService", "qualified_name": "services.user::UserService",
+      "file_path": "services/user.py", "start_line": 15, "end_line": 89, "language": "python",
+      "summary": "Handles user CRUD with caching", "annotation_status": "annotated",
+      "tags": ["service", "database"], "role": "Business logic layer",
+      "depth": 1
+    },
     ...
   ]
 }
@@ -169,7 +189,12 @@ Most useful after annotation has enriched nodes with summaries and tags.
 {
   "count": 5,
   "results": [
-    { "id": 12, "kind": "class", "name": "AuthMiddleware", "qualified_name": "middleware::AuthMiddleware", "summary": "Validates JWT tokens...", ... },
+    {
+      "id": 12, "kind": "class", "name": "AuthMiddleware",
+      "qualified_name": "middleware::AuthMiddleware",
+      "summary": "Validates JWT tokens...", "annotation_status": "annotated",
+      "tags": ["auth", "middleware"], "role": "Security layer", ...
+    },
     ...
   ]
 }
@@ -208,6 +233,8 @@ contents" tool — use it before editing a file you're unfamiliar with.
   "nodes": [
     {
       "id": 42, "kind": "class", "name": "UserService", "qualified_name": "services.user::UserService",
+      "summary": "Handles user CRUD with caching", "annotation_status": "annotated",
+      "tags": ["service", "database"], "role": "Business logic layer",
       "edges": [
         { "direction": "outgoing", "kind": "imports", "target_id": 10 },
         { "direction": "incoming", "kind": "calls", "source_id": 88 }

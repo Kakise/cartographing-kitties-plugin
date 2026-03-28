@@ -37,11 +37,13 @@ code structure before implementing.
 
 For each implementation unit, the worker agent follows this protocol:
 
-**Cartograph-first context loading:**
-1. Call `get_file_structure` on every file listed in the unit's Files section
-2. Call `query_node` on key symbols to understand their neighbors
-3. Read the unit's "Patterns to follow" files
-4. Only then start implementing
+**Cartograph-first context loading (orchestrator pre-computes):**
+
+The orchestrator pre-computes graph context for each worker before dispatch:
+1. Call `get_file_structure` on every file in the unit's Files section
+2. Call `query_node` on key symbols in those files
+3. Format as subgraph context (Annotation Status, Target Nodes, Neighbors sections)
+4. Include in the worker's task prompt alongside the plan unit
 
 **Implementation loop:**
 ```
@@ -61,7 +63,8 @@ For each task:
 For each worker agent, provide:
 - The full plan file path
 - The specific unit (Goal, Files, Approach, Patterns, Test scenarios, Verification)
-- Instruction: "Start by calling get_file_structure and query_node on the target files before implementing"
+- The pre-computed graph context (file structures, node data with summaries, roles, and tags)
+- Instruction: "Review the graph context provided, understand the purpose of each file/symbol from summaries and roles, then implement"
 
 **Swarm mode (Agent Teams):**
 1. Create team with TaskCreate
@@ -103,7 +106,7 @@ Carry forward execution notes from the plan:
 
 ### Tips
 
-- Workers should prefer Cartograph tools over grep/glob for understanding code
-- Use `find_dependents` after modifications to check for unintended breakage
+- Workers should prefer the pre-computed graph context for understanding code structure, falling back to Read/Grep for source-level detail
+- The orchestrator should call `find_dependents` after worker completion to check for unintended breakage
 - Commit after each complete unit, not at the end
 - If a unit reveals a plan gap, create a new task rather than deviating

@@ -110,7 +110,8 @@ def get_file_structure(file_path: str) -> dict[str, Any]:
 
 def _summarise_node(node: dict[str, Any]) -> dict[str, Any]:
     """Return a concise representation of a node for tool responses."""
-    return {
+    props = node.get("properties") or {}
+    result = {
         "id": node["id"],
         "kind": node["kind"],
         "name": node["name"],
@@ -121,4 +122,10 @@ def _summarise_node(node: dict[str, Any]) -> dict[str, Any]:
         "language": node.get("language"),
         "summary": node.get("summary"),
         "annotation_status": node.get("annotation_status"),
+        "tags": props.get("tags", []),
+        "role": props.get("role", ""),
     }
+    # Include depth when present (set by transitive traversal queries).
+    if "depth" in node:
+        result["depth"] = node["depth"]
+    return result

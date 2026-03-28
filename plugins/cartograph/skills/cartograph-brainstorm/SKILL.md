@@ -28,12 +28,50 @@ Ask one question at a time.
 
 ### Phase 2: Research Swarm
 
-Dispatch these agents in **parallel** to understand the codebase context:
+**Build the subgraph context before dispatching agents:**
 
-- **`cartograph-researcher`** — Scope: architecture, technology stack, module organization
-- **`cartograph-pattern-analyst`** — Scope: existing patterns relevant to the feature area
+1. **Annotation status** — Call `annotation_status()`. Record total nodes, annotated count, and coverage percentage.
 
-Pass each agent the feature description as context.
+2. **Search for relevant nodes** — Call `search` with 2-4 feature-area keywords extracted from the feature description. Collect matching qualified names, file paths, summaries, tags, and roles.
+
+3. **File structures** — Call `get_file_structure` on the top 3-5 files identified by search results. Capture node listings with kinds, summaries, tags, and roles.
+
+4. **Key symbol details** — Call `query_node` on the 3-5 most important symbols from search results (classes, entry points, core functions). Capture their metadata and neighbors.
+
+**Format the context as structured text:**
+
+```
+## Subgraph Context
+
+### Annotation Status
+- Total nodes: N
+- Annotated: N (X%)
+- Pending: N
+
+### Target Nodes (from search)
+- `qualified::name` — kind: X, role: Y, tags: [a, b], summary: "..."
+  File: path/to/file.py
+- ...
+
+### File Structures
+#### path/to/file.py
+- `module::Class` (class) — role: Y, summary: "..."
+  - `module::Class::method` (method) — role: Y, summary: "..."
+- ...
+
+### Key Symbol Details
+#### `qualified::name`
+- Kind: X, Role: Y, Tags: [a, b]
+- Summary: "..."
+- Neighbors:
+  - calls -> `other::symbol` (role: Z)
+  - imports -> `another::module` (role: W)
+```
+
+**Dispatch these agents in parallel**, passing each the feature description AND the formatted subgraph context:
+
+- **`cartograph-researcher`** — Pass: full subgraph context (annotation status, target nodes, file structures, symbol details). Scope: architecture, technology stack, module organization
+- **`cartograph-pattern-analyst`** — Pass: search results and file structures from the subgraph context. Scope: existing patterns relevant to the feature area
 
 Collect findings: technology stack, relevant patterns, key files, existing conventions.
 

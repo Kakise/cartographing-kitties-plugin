@@ -21,49 +21,65 @@ descriptions so that `search` returns meaningful results for domain queries.
 
 ## Workflow
 
-### 1. Check status
+The annotate skill orchestrator owns all MCP tool calls. The annotator agent receives
+pre-fetched context and returns annotation results as JSON.
+
+### 1. Ensure fresh graph
+
+Call `index_codebase(full=false)` to ensure the graph is up to date.
+
+### 2. Check status
 
 Call `annotation_status()` to see how many nodes are pending, annotated, and failed.
 If `pending` is 0, annotation is complete.
 
-### 2. Get a batch
+### 3. Fetch a batch
 
-Call `get_pending_annotations(batch_size=10)` to receive nodes with:
+Call `get_pending_annotations(batch_size=N)` to receive pending nodes with:
 - Source code and file context
 - Neighbor information (what calls/imports the node)
 - The seed taxonomy of suggested tags
 
-### 3. Generate annotations
+### 4. Format context for the annotator agent
 
-For each node, read the source code and context, then produce:
+Prepare the batch data as structured context for the annotator agent:
+- Include each node's qualified name, source code, file path, and metadata
+- Include neighbor context (callers, callees, imports) from the batch
+- Include the seed taxonomy reference
 
-- **summary** (str): One specific sentence. "Validates JWT tokens and extracts user claims"
-  is better than "Handles validation".
-- **tags** (list[str]): Use seed taxonomy when it fits, create new tags when needed.
-  Good tags: domain ("authentication"), layer ("middleware"), pattern ("factory").
-- **role** (str): The node's job title. "Request handler", "Data access layer",
-  "Input validator", "Configuration manager".
+### 5. Dispatch annotator agent
 
-If a node is too complex or ambiguous to annotate confidently, set `failed: true`.
+Spawn the `cartograph-annotator` agent with the formatted batch data. The agent
+analyzes each node and returns a JSON array of annotation results:
+```json
+[
+  {"qualified_name": "...", "summary": "...", "tags": [...], "role": "...", "failed": false},
+  ...
+]
+```
 
-### 4. Submit
+### 6. Submit results
 
-Call `submit_annotations(annotations=[...])` with the generated annotations.
+Receive the annotator's JSON array and call `submit_annotations(annotations=[...])` to
+write the results back to the graph.
 
-### 5. Repeat
+### 7. Repeat
 
-Loop steps 2-4 until `annotation_status` shows `pending: 0`.
+Check if more nodes are pending with `annotation_status()`. If `pending > 0`, loop
+back to step 3 and fetch the next batch.
 
 ## Parallel processing for large codebases
 
-For codebases with **50+ pending nodes**, use parallel subagents:
+For codebases with **50+ pending nodes**, use parallel annotator agents:
 
 1. Check total pending count with `annotation_status`
-2. Spawn 2-3 `cartograph-annotator` agents, each processing its own batch
-3. Each agent independently calls `get_pending_annotations` → generates → `submit_annotations`
-4. Batches don't overlap — the server tracks which nodes are pending
+2. Fetch multiple non-overlapping batches via `get_pending_annotations`
+3. Format each batch as context and dispatch 2-3 `cartograph-annotator` agents in parallel
+4. Collect JSON results from each agent
+5. Call `submit_annotations` for each agent's results
+6. The orchestrator always owns the MCP calls — agents never call MCP tools directly
 
-See the `cartograph-annotator` agent definition for the subagent contract.
+See the `cartograph-annotator` agent definition for the agent's input/output contract.
 
 ## Seed taxonomy
 

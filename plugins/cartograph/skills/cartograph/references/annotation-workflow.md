@@ -88,3 +88,43 @@ The server provides a default set of tags. Use these when they fit:
 
 Don't limit yourself to these — if the code is about "payment processing" or
 "websocket management", create that tag. The taxonomy grows organically.
+
+## Consuming annotations
+
+Annotations are not just for search — they are consumed by all Cartograph agents
+through the orchestrator-mediated architecture.
+
+### How it works
+
+1. **Annotator writes** — The annotate skill orchestrator dispatches the annotator
+   agent with pre-fetched pending nodes. The agent returns annotation JSON, and the
+   orchestrator calls `submit_annotations` to write results to the graph.
+
+2. **Graph stores** — Summaries go to the `summary` column (indexed by FTS5 for search).
+   Tags and roles go to the `properties` JSON column.
+
+3. **Tools surface** — All node-returning MCP tools (`query_node`, `search`,
+   `get_file_structure`, `find_dependencies`, `find_dependents`) include `tags`,
+   `role`, `summary`, and `annotation_status` in every node response.
+
+4. **Orchestrators query** — Skill orchestrators (review, plan, work, brainstorm)
+   call MCP tools to build annotated subgraph context before dispatching agents.
+
+5. **Agents consume** — Agents receive pre-computed graph context as structured text,
+   including summaries, roles, and tags for all relevant nodes. They use this to:
+   - Understand node purpose without reading full source files
+   - Classify code by domain layer using roles
+   - Group blast radius by role/tag for semantic impact assessment
+   - Check contracts across relationships between changed nodes
+
+### The subgraph context format
+
+Orchestrators format graph data into a standard text structure with sections for:
+- Annotation Status (coverage counts)
+- Changed/Target Nodes (with summaries, roles, tags)
+- Edges Between Changed Nodes (contracts to verify)
+- Neighbors (1-hop callers/callees with annotations)
+- Transitive Dependents (blast radius with depth and roles)
+- Transitive Dependencies (upstream context)
+
+See `subgraph-context-format.md` for the full specification.
