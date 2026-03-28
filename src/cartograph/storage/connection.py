@@ -1,0 +1,32 @@
+"""SQLite connection factory for the Cartograph graph store."""
+
+from __future__ import annotations
+
+import sqlite3
+from pathlib import Path
+
+from cartograph.storage.schema import SCHEMA_SQL
+
+
+def create_connection(db_path: str | Path) -> sqlite3.Connection:
+    """Create and configure a SQLite connection with optimized settings.
+
+    Opens the database at *db_path* (created if it does not exist), applies
+    performance pragmas, enables foreign keys, and ensures the schema is
+    present.
+    """
+    db_path = str(db_path)
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+
+    # Performance and reliability pragmas
+    conn.execute("PRAGMA journal_mode = WAL")
+    conn.execute("PRAGMA synchronous = NORMAL")
+    conn.execute("PRAGMA cache_size = -65536")  # 64 MB
+    conn.execute("PRAGMA foreign_keys = ON")
+    conn.execute("PRAGMA busy_timeout = 5000")
+
+    # Create schema if not exists
+    conn.executescript(SCHEMA_SQL)
+
+    return conn

@@ -1,0 +1,43 @@
+name: Publish
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.10.2"
+          enable-cache: true
+          python-version: "3.12"
+
+      - name: Set up Python
+        run: uv python install
+
+      - name: Install all dependencies
+        run: uv sync --all-extras
+
+      - name: Run tests
+        run: uv run pytest
+
+      - name: Build package
+        run: uv build
+
+      - name: Publish to PyPI
+        run: uv publish --trusted-publishing always
+
+      - name: Validate plugin structure
+        run: python -c "import json; d=json.load(open('.claude-plugin/plugin.json')); assert 'mcpServers' in d; print('Plugin structure valid')"

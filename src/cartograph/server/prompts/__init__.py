@@ -1,0 +1,1 @@
+"""Cartograph MCP server prompts."""
