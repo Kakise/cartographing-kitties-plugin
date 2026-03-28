@@ -1,4 +1,4 @@
-"""HTTP server for the Cartograph web graph explorer."""
+"""HTTP server for the Cartographing Kittens web graph explorer."""
 
 from __future__ import annotations
 
@@ -411,7 +411,7 @@ def run_server(store: GraphStore, port: int = 3333) -> None:
     handler_class = make_handler_class(store)
 
     server = HTTPServer(("127.0.0.1", port), handler_class)
-    print(f"Cartograph Graph Explorer running at http://127.0.0.1:{port}")
+    print(f"Cartographing Kittens running at http://127.0.0.1:{port}")
     print("Press Ctrl+C to stop.")
     try:
         server.serve_forever()

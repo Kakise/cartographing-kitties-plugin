@@ -53,7 +53,7 @@ def _build_tool_call(request_id: int, tool_name: str, arguments: dict) -> str:
 def _run_server(messages: list[str], project_root: str, timeout: int = 30) -> list[dict]:
     """Start the MCP server, send messages, and return parsed JSON-RPC responses."""
     input_data = "\n".join(messages)
-    env = {**os.environ, "CARTOGRAPH_PROJECT_ROOT": project_root}
+    env = {**os.environ, "KITTY_PROJECT_ROOT": project_root}
 
     result = subprocess.run(
         [sys.executable, "-m", "cartograph.server.main"],
@@ -95,7 +95,7 @@ def _parse_tool_result(response: dict) -> dict:
 
 @pytest.fixture()
 def sample_project(tmp_path: Path) -> Path:
-    """Copy sample project to tmp so the server can write .cartograph/ in it."""
+    """Copy sample project to tmp so the server can write .pawprints/ in it."""
     dest = tmp_path / "sample_project"
     shutil.copytree(FIXTURE_DIR, dest)
     return dest

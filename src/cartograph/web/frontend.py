@@ -1,11 +1,11 @@
-"""Single-file HTML frontend for the Cartograph Graph Explorer."""
+"""Single-file HTML frontend for the Cartographing Kittens Graph Explorer."""
 
 FRONTEND_HTML = r"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Cartograph Graph Explorer</title>
+<title>Cartographing Kittens</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 :root {
@@ -102,7 +102,7 @@ body { font: 14px/1.6 -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; b
 
 <div class="sidebar">
   <div class="sidebar-header">
-    <h1>Cartograph</h1>
+    <h1>Cartographing Kittens</h1>
     <p>Graph Explorer</p>
   </div>
   <div class="stats" id="stats"></div>

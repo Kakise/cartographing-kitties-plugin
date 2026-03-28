@@ -102,7 +102,7 @@ class TestFrontend:
     def test_serves_html(self, server_url: str):
         status, data = get(server_url, "/")
         assert status == 200
-        assert "Cartograph" in data["_html"]
+        assert "Cartographing Kittens" in data["_html"]
 
 
 class TestApiStats:

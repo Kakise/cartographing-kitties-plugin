@@ -1,4 +1,4 @@
-# Cartograph
+# Cartographing Kittens
 
 AST-powered codebase intelligence framework for AI coding agents.
 
@@ -19,39 +19,39 @@ AST-powered codebase intelligence framework for AI coding agents.
 - Qualified names use `::` separator: `module.path::ClassName::method_name`
 - Edge kinds: `imports`, `calls`, `inherits`, `contains`, `depends_on`
 - Node kinds: `module`, `class`, `function`, `method`, `variable`
-- Graph stored at `.cartograph/graph.db` in project root
+- Graph stored at `.pawprints/graph.db` in project root
 - Indexing is incremental by default — only changed files are re-parsed
 
 ## Plugin Structure (Marketplace Layout)
 
 ```
 plugins/
-  cartograph/                    # Plugin root (marketplace layout)
+  kitty/                         # Plugin root (marketplace layout)
     .claude-plugin/plugin.json   # Plugin manifest (uvx-based MCP server)
     skills/
-      cartograph/                # Router skill — delegates to sub-skills
+      kitty/                     # Router skill — delegates to sub-skills
         SKILL.md
         references/
           tool-reference.md      # Detailed tool parameter docs
           annotation-workflow.md # Annotation workflow guide
-      cartograph-explore/        # Structural exploration
-      cartograph-impact/         # Impact analysis and refactoring
-      cartograph-annotate/       # Annotation workflow
-      cartograph-brainstorm/     # Requirements gathering with research swarms
-      cartograph-plan/           # Technical planning with 4 research agents
-      cartograph-work/           # Execution with Cartograph-first workers
-      cartograph-review/         # Multi-agent review with structural analysis
-      cartograph-lfg/            # Full autonomous pipeline (plan → work → review)
+      kitty-explore/             # Structural exploration
+      kitty-impact/              # Impact analysis and refactoring
+      kitty-annotate/            # Annotation workflow
+      kitty-brainstorm/          # Requirements gathering with research swarms
+      kitty-plan/                # Technical planning with 4 research agents
+      kitty-work/                # Execution with Cartographing Kittens-first workers
+      kitty-review/              # Multi-agent review with structural analysis
+      kitty-lfg/                 # Full autonomous pipeline (plan → work → review)
     agents/
-      cartograph-annotator.md    # Batch annotation specialist
-      cartograph-researcher.md   # General codebase researcher
-      cartograph-pattern-analyst.md # Pattern and convention finder
-      cartograph-impact-analyst.md  # Blast radius analyzer
-      cartograph-flow-analyzer.md   # Call chain and data flow tracer
-      cartograph-correctness-reviewer.md # Logic errors, edge cases (always-on)
-      cartograph-testing-reviewer.md     # Test coverage gaps (always-on)
-      cartograph-impact-reviewer.md      # Blast radius review (conditional)
-      cartograph-structure-reviewer.md   # Architecture review (conditional)
+      cartographing-kitten.md    # Batch annotation specialist
+      librarian-kitten-researcher.md   # General codebase researcher
+      librarian-kitten-pattern.md # Pattern and convention finder
+      librarian-kitten-impact.md  # Blast radius analyzer
+      librarian-kitten-flow.md   # Call chain and data flow tracer
+      expert-kitten-correctness.md # Logic errors, edge cases (always-on)
+      expert-kitten-testing.md     # Test coverage gaps (always-on)
+      expert-kitten-impact.md      # Blast radius review (conditional)
+      expert-kitten-structure.md   # Architecture review (conditional)
 src/cartograph/                  # Python source (MCP server + core library)
 tests/                           # Test suite
 ```
@@ -59,45 +59,45 @@ tests/                           # Test suite
 ## Workflow Pipeline
 
 ```
-cartograph:brainstorm → cartograph:plan → cartograph:work → cartograph:review
+kitty:brainstorm → kitty:plan → kitty:work → kitty:review
 ```
 
-Or use `cartograph:lfg` for full autonomous execution (plan → work → review).
+Or use `kitty:lfg` for full autonomous execution (plan → work → review).
 
 ### When to use each skill
 
 | Situation | Skill |
 |-----------|-------|
-| Exploring code structure | `cartograph:explore` |
-| Understanding change impact | `cartograph:impact` |
-| Enabling semantic search | `cartograph:annotate` |
-| Gathering requirements for a feature | `cartograph:brainstorm` |
-| Planning implementation | `cartograph:plan` |
-| Building features | `cartograph:work` |
-| Reviewing code changes | `cartograph:review` |
-| Full autonomous pipeline | `cartograph:lfg` |
+| Exploring code structure | `kitty:explore` |
+| Understanding change impact | `kitty:impact` |
+| Enabling semantic search | `kitty:annotate` |
+| Gathering requirements for a feature | `kitty:brainstorm` |
+| Planning implementation | `kitty:plan` |
+| Building features | `kitty:work` |
+| Reviewing code changes | `kitty:review` |
+| Full autonomous pipeline | `kitty:lfg` |
 
 ### How skills dispatch agents
 
-**cartograph:brainstorm** dispatches in parallel:
-- `cartograph-researcher` (architecture, stack)
-- `cartograph-pattern-analyst` (existing patterns)
+**kitty:brainstorm** dispatches in parallel:
+- `librarian-kitten-researcher` (architecture, stack)
+- `librarian-kitten-pattern` (existing patterns)
 
-**cartograph:plan** dispatches in parallel:
-- `cartograph-researcher` (architecture)
-- `cartograph-pattern-analyst` (patterns)
-- `cartograph-flow-analyzer` (call chains)
-- `cartograph-impact-analyst` (blast radius)
+**kitty:plan** dispatches in parallel:
+- `librarian-kitten-researcher` (architecture)
+- `librarian-kitten-pattern` (patterns)
+- `librarian-kitten-flow` (call chains)
+- `librarian-kitten-impact` (blast radius)
 
-**cartograph:work** dispatches workers per implementation unit:
+**kitty:work** dispatches workers per implementation unit:
 - Each worker calls `get_file_structure` + `query_node` before implementing
 - Independent units run as parallel swarm
 
-**cartograph:review** dispatches in parallel:
-- `cartograph-correctness-reviewer` (always)
-- `cartograph-testing-reviewer` (always)
-- `cartograph-impact-reviewer` (when 3+ files changed)
-- `cartograph-structure-reviewer` (when new files created)
+**kitty:review** dispatches in parallel:
+- `expert-kitten-correctness` (always)
+- `expert-kitten-testing` (always)
+- `expert-kitten-impact` (when 3+ files changed)
+- `expert-kitten-structure` (when new files created)
 
 ## Agent Output Contracts
 
@@ -121,9 +121,9 @@ Review agents return JSON:
 }
 ```
 
-## Cartograph-First Principle
+## Cartographing Kittens-First Principle
 
-All agents and skills use Cartograph MCP tools as primary codebase intelligence:
+All agents and skills use Cartographing Kittens MCP tools as primary codebase intelligence:
 
 | Need | Tool | NOT |
 |------|------|----|

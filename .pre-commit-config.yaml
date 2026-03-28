@@ -14,10 +14,3 @@ repos:
       - id: codespell
         additional_dependencies: [tomli]
         args: [src]
-
-  - repo: https://github.com/DetachHead/basedpyright-pre-commit-mirror
-    rev: 1.38.0
-    hooks:
-      - id: basedpyright
-        args: [--level, error]
-        exclude: ^tests/

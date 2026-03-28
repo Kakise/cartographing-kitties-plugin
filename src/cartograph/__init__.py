@@ -14,11 +14,10 @@ def serve() -> None:
     """CLI entry point — starts the web graph explorer (kitty-graph command)."""
     import argparse
     import sys
-    from pathlib import Path
 
     parser = argparse.ArgumentParser(
         prog="kitty-graph",
-        description="Interactive web explorer for the Cartograph code graph",
+        description="Interactive web explorer for the Cartographing Kittens code graph",
     )
     parser.add_argument(
         "--port",
@@ -35,7 +34,10 @@ def serve() -> None:
 
     args = parser.parse_args()
 
-    db_path = Path(args.project_root) / ".cartograph" / "graph.db"
+    from cartograph.compat import resolve_db_dir
+
+    db_dir = resolve_db_dir(args.project_root)
+    db_path = db_dir / "graph.db"
     if not db_path.exists():
         print(
             f"No graph database found at {db_path}\n"

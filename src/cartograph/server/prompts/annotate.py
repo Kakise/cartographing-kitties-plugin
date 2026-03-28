@@ -10,7 +10,7 @@ def annotate_batch(batch_size: int = 10) -> str:
     """Guide an agent through annotating unannotated nodes in batches."""
     return (
         "You are annotating codebase nodes with summaries, tags, and roles "
-        "using Cartograph's annotation tools.\n"
+        "using Cartographing Kittens' annotation tools.\n"
         "\n"
         "Follow these steps:\n"
         "\n"

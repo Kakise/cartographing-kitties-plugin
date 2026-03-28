@@ -1,1 +1,1 @@
-"""Cartograph MCP server prompts."""
+"""Cartographing Kittens MCP server prompts."""

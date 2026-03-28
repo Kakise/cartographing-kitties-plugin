@@ -23,6 +23,7 @@ EXCLUDED_DIRS: set[str] = {
     "build",
     ".git",
     ".cartograph",
+    ".pawprints",
     ".tox",
     ".mypy_cache",
     ".pytest_cache",

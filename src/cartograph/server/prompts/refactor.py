@@ -9,7 +9,7 @@ from cartograph.server.main import mcp
 def plan_refactor(target: str) -> str:
     """Guide an agent through planning a safe refactor of a symbol or file."""
     return (
-        f"You are planning a refactor of '{target}' using Cartograph's "
+        f"You are planning a refactor of '{target}' using Cartographing Kittens' "
         "structural analysis tools.\n"
         "\n"
         "Follow these steps:\n"

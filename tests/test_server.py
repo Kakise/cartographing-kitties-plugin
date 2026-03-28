@@ -352,5 +352,9 @@ class TestStdioToolDiscovery:
             "find_dependents",
             "get_pending_annotations",
             "submit_annotations",
+            "add_litter_box_entry",
+            "query_litter_box",
+            "add_treat_box_entry",
+            "query_treat_box",
         }
         assert tool_names == expected_tools

@@ -64,4 +64,22 @@ CREATE INDEX IF NOT EXISTS idx_nodes_annotation_status ON nodes(annotation_statu
 CREATE INDEX IF NOT EXISTS idx_edges_source ON edges(source_id);
 CREATE INDEX IF NOT EXISTS idx_edges_target ON edges(target_id);
 CREATE INDEX IF NOT EXISTS idx_edges_kind ON edges(kind);
+
+CREATE TABLE IF NOT EXISTS litter_box (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    category TEXT NOT NULL CHECK(category IN ('failure','anti-pattern','unsupported','regression','never-do')),
+    description TEXT NOT NULL,
+    context TEXT DEFAULT '',
+    created_at TEXT DEFAULT (datetime('now')),
+    source_agent TEXT DEFAULT ''
+);
+
+CREATE TABLE IF NOT EXISTS treat_box (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    category TEXT NOT NULL CHECK(category IN ('best-practice','validated-pattern','always-do','convention','optimization')),
+    description TEXT NOT NULL,
+    context TEXT DEFAULT '',
+    created_at TEXT DEFAULT (datetime('now')),
+    source_agent TEXT DEFAULT ''
+);
 """

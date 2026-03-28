@@ -1,1 +1,1 @@
-"""Cartograph web explorer — local HTTP server for browsing the codebase graph."""
+"""Cartographing Kittens web explorer — local HTTP server for browsing the codebase graph."""
