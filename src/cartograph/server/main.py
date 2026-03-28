@@ -1,13 +1,13 @@
-"""Cartograph MCP server entry point."""
+"""Cartographing Kittens MCP server entry point."""
 
 from __future__ import annotations
 
-import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
 
+from cartograph.compat import resolve_db_dir, resolve_project_root
 from cartograph.storage import GraphStore, create_connection
 
 # Module-level state shared with tool modules.
@@ -20,15 +20,15 @@ async def lifespan(server: FastMCP):
     """Open GraphStore on startup, close on shutdown."""
     global _store, _root
 
-    db_dir = Path(os.environ.get("CARTOGRAPH_PROJECT_ROOT", ".")) / ".cartograph"
-    db_dir.mkdir(parents=True, exist_ok=True)
+    project_root = resolve_project_root()
+    db_dir = resolve_db_dir(project_root)
     db_path = db_dir / "graph.db"
 
     conn = create_connection(db_path)
     store = GraphStore(conn)
 
     _store = store
-    _root = Path(os.environ.get("CARTOGRAPH_PROJECT_ROOT", ".")).resolve()
+    _root = project_root
 
     try:
         yield
@@ -38,7 +38,7 @@ async def lifespan(server: FastMCP):
         _root = None
 
 
-mcp = FastMCP("cartograph", lifespan=lifespan)
+mcp = FastMCP("kitty", lifespan=lifespan)
 
 # When run via `python -m cartograph.server.main`, Python creates separate
 # `__main__` and `cartograph.server.main` module objects. Tool modules import
@@ -59,6 +59,7 @@ import cartograph.server.prompts.refactor  # noqa: E402, F401
 import cartograph.server.tools.analysis  # noqa: E402, F401
 import cartograph.server.tools.annotate  # noqa: E402, F401
 import cartograph.server.tools.index  # noqa: E402, F401
+import cartograph.server.tools.memory  # noqa: E402, F401
 import cartograph.server.tools.query  # noqa: E402, F401
 
 if __name__ == "__main__":

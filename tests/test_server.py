@@ -205,6 +205,88 @@ class TestSubmitAnnotations:
         status = annotation_status()
         assert status["annotated"] > 0
 
+    def test_annotations_surface_in_query_node(self, indexed_store: GraphStore):
+        """After submitting annotations, query_node returns tags and role."""
+        pending = get_pending_annotations(batch_size=1)
+        qname = pending["batch"][0]["qualified_name"]
+
+        submit_annotations(
+            [{"qualified_name": qname, "summary": "A test node", "tags": ["api", "testing"], "role": "Test handler"}]
+        )
+
+        result = query_node(qname)
+        assert result["found"] is True
+        assert result["node"]["tags"] == ["api", "testing"]
+        assert result["node"]["role"] == "Test handler"
+        assert result["node"]["summary"] == "A test node"
+
+    def test_annotations_surface_in_find_dependents(self, indexed_store: GraphStore):
+        """After submitting annotations, find_dependents returns tags, role, summary."""
+        # Annotate a node that has dependents.
+        pending = get_pending_annotations(batch_size=5)
+        for node in pending["batch"]:
+            submit_annotations(
+                [{"qualified_name": node["qualified_name"], "summary": "Annotated", "tags": ["database"], "role": "Data layer"}]
+            )
+
+        result = find_dependents("file::src/models/user.py")
+        if result["found"] and result["dependents"]:
+            dep = result["dependents"][0]
+            assert "tags" in dep
+            assert "role" in dep
+            assert "summary" in dep
+
+    def test_annotations_surface_in_find_dependencies(self, indexed_store: GraphStore):
+        """After submitting annotations, find_dependencies returns tags, role, summary."""
+        pending = get_pending_annotations(batch_size=5)
+        for node in pending["batch"]:
+            submit_annotations(
+                [{"qualified_name": node["qualified_name"], "summary": "Annotated", "tags": ["utilities"], "role": "Helper"}]
+            )
+
+        result = find_dependencies("file::src/main.py")
+        if result["found"] and result["dependencies"]:
+            dep = result["dependencies"][0]
+            assert "tags" in dep
+            assert "role" in dep
+            assert "summary" in dep
+
+    def test_annotations_surface_in_search(self, indexed_store: GraphStore):
+        """After submitting annotations, search returns tags and role."""
+        pending = get_pending_annotations(batch_size=1)
+        qname = pending["batch"][0]["qualified_name"]
+
+        submit_annotations(
+            [{"qualified_name": qname, "summary": "Searchable node", "tags": ["config"], "role": "Configuration"}]
+        )
+
+        result = search("Searchable")
+        assert result["count"] > 0
+        found = result["results"][0]
+        assert "tags" in found
+        assert "role" in found
+
+    def test_annotations_surface_in_get_file_structure(self, indexed_store: GraphStore):
+        """After submitting annotations, get_file_structure returns tags and role."""
+        pending = get_pending_annotations(batch_size=10)
+        for node in pending["batch"]:
+            submit_annotations(
+                [{"qualified_name": node["qualified_name"], "summary": "Annotated", "tags": ["models"], "role": "Data model"}]
+            )
+
+        result = get_file_structure("src/models/user.py")
+        assert result["found"] is True
+        for node in result["nodes"]:
+            assert "tags" in node
+            assert "role" in node
+
+    def test_unannotated_nodes_have_empty_tags_and_role(self, indexed_store: GraphStore):
+        """Unannotated nodes return tags: [] and role: ''."""
+        result = query_node("User")
+        assert result["found"] is True
+        assert result["node"]["tags"] == []
+        assert result["node"]["role"] == ""
+
     def test_handles_invalid_qualified_name(self, indexed_store: GraphStore):
         annotations = [
             {
@@ -270,5 +352,9 @@ class TestStdioToolDiscovery:
             "find_dependents",
             "get_pending_annotations",
             "submit_annotations",
+            "add_litter_box_entry",
+            "query_litter_box",
+            "add_treat_box_entry",
+            "query_treat_box",
         }
         assert tool_names == expected_tools

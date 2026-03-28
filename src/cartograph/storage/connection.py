@@ -8,7 +8,7 @@ from pathlib import Path
 from cartograph.storage.schema import SCHEMA_SQL
 
 
-def create_connection(db_path: str | Path) -> sqlite3.Connection:
+def create_connection(db_path: str | Path, *, check_same_thread: bool = True) -> sqlite3.Connection:
     """Create and configure a SQLite connection with optimized settings.
 
     Opens the database at *db_path* (created if it does not exist), applies
@@ -16,7 +16,7 @@ def create_connection(db_path: str | Path) -> sqlite3.Connection:
     present.
     """
     db_path = str(db_path)
-    conn = sqlite3.connect(db_path)
+    conn = sqlite3.connect(db_path, check_same_thread=check_same_thread)
     conn.row_factory = sqlite3.Row
 
     # Performance and reliability pragmas

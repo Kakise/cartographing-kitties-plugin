@@ -22,7 +22,7 @@ def explore_codebase(focus: str = "") -> str:
         )
 
     return (
-        "You are exploring a codebase using Cartograph's structural tools.\n"
+        "You are exploring a codebase using Cartographing Kittens' structural tools.\n"
         "\n"
         "Follow these steps:\n"
         "\n"

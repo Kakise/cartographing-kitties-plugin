@@ -40,4 +40,4 @@ jobs:
         run: uv publish --trusted-publishing always
 
       - name: Validate plugin structure
-        run: python -c "import json; d=json.load(open('plugins/cartograph/.claude-plugin/plugin.json')); assert 'name' in d; assert 'mcpServers' in d; print('Plugin structure valid')"
+        run: python -c "import json; d=json.load(open('plugins/kitty/.claude-plugin/plugin.json')); assert 'name' in d; assert 'mcpServers' in d; print('Plugin structure valid')"

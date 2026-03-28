@@ -1,4 +1,5 @@
-# Cartograph database files
+# Cartographing Kittens database files
+.pawprints/
 .cartograph/
 
 # Python

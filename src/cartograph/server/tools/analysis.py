@@ -6,6 +6,7 @@ from typing import Any
 
 import cartograph.server.main as _main
 from cartograph.server.main import mcp
+from cartograph.server.tools.query import _summarise_node
 
 
 def _resolve_node(name: str) -> dict[str, Any] | None:
@@ -42,17 +43,7 @@ def find_dependencies(
         "found": True,
         "source": {"id": node["id"], "qualified_name": node["qualified_name"]},
         "count": len(deps),
-        "dependencies": [
-            {
-                "id": d["id"],
-                "kind": d["kind"],
-                "name": d["name"],
-                "qualified_name": d["qualified_name"],
-                "file_path": d.get("file_path"),
-                "depth": d.get("depth"),
-            }
-            for d in deps
-        ],
+        "dependencies": [_summarise_node(d) for d in deps],
     }
 
 
@@ -77,15 +68,5 @@ def find_dependents(
         "found": True,
         "target": {"id": node["id"], "qualified_name": node["qualified_name"]},
         "count": len(deps),
-        "dependents": [
-            {
-                "id": d["id"],
-                "kind": d["kind"],
-                "name": d["name"],
-                "qualified_name": d["qualified_name"],
-                "file_path": d.get("file_path"),
-                "depth": d.get("depth"),
-            }
-            for d in deps
-        ],
+        "dependents": [_summarise_node(d) for d in deps],
     }
