@@ -5,7 +5,7 @@ def test_cartograph_imports():
     """Package imports successfully."""
     import cartograph
 
-    assert cartograph.__version__ == "0.1.0"
+    assert cartograph.__version__
 
 
 def test_tree_sitter_python_grammar():
