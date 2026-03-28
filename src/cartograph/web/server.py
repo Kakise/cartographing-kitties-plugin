@@ -11,6 +11,14 @@ from urllib.parse import parse_qs, urlparse
 from cartograph.storage import GraphStore
 
 
+def _safe_int(params: dict[str, list[str]], key: str, default: int) -> int:
+    """Parse an integer query parameter, returning *default* on bad input."""
+    try:
+        return int(params.get(key, [str(default)])[0])
+    except (ValueError, IndexError):
+        return default
+
+
 class GraphExplorerHandler(BaseHTTPRequestHandler):
     """Request handler that serves the graph explorer API and frontend."""
 
@@ -27,6 +35,7 @@ class GraphExplorerHandler(BaseHTTPRequestHandler):
             (r"^/api/nodes$", self._api_nodes),
             (r"^/api/nodes/(\d+)$", self._api_node_detail),
             (r"^/api/edges$", self._api_edges),
+            (r"^/api/graph$", self._api_graph),
             (r"^/api/search$", self._api_search),
             (r"^/api/files$", self._api_files),
         ]
@@ -83,8 +92,8 @@ class GraphExplorerHandler(BaseHTTPRequestHandler):
     def _api_nodes(self, params: dict[str, list[str]]) -> None:
         store = self.store
         kind = params.get("kind", [None])[0]
-        limit = min(int(params.get("limit", ["50"])[0]), 500)
-        offset = int(params.get("offset", ["0"])[0])
+        limit = min(_safe_int(params, "limit", 50), 500)
+        offset = _safe_int(params, "offset", 0)
 
         query = "SELECT * FROM nodes"
         args: list[Any] = []
@@ -145,9 +154,15 @@ class GraphExplorerHandler(BaseHTTPRequestHandler):
 
         kwargs: dict[str, Any] = {}
         if source_id:
-            kwargs["source_id"] = int(source_id)
+            try:
+                kwargs["source_id"] = int(source_id)
+            except ValueError:
+                pass
         if target_id:
-            kwargs["target_id"] = int(target_id)
+            try:
+                kwargs["target_id"] = int(target_id)
+            except ValueError:
+                pass
         if kind:
             kwargs["kind"] = kind
 
@@ -159,6 +174,38 @@ class GraphExplorerHandler(BaseHTTPRequestHandler):
             }
         )
 
+    def _api_graph(self, params: dict[str, list[str]]) -> None:
+        store = self.store
+        conn = store._conn
+        limit = min(_safe_int(params, "limit", 300), 500)
+
+        rows = conn.execute(
+            "SELECT * FROM nodes ORDER BY file_path, start_line LIMIT ?", [limit]
+        ).fetchall()
+        nodes = [self._node_to_dict(row) for row in rows]
+
+        node_ids = {node["id"] for node in nodes}
+        edges: list[dict[str, Any]] = []
+        if node_ids:
+            placeholders = ",".join("?" for _ in node_ids)
+            edge_rows = conn.execute(
+                f"SELECT * FROM edges WHERE source_id IN ({placeholders}) "  # noqa: S608
+                f"AND target_id IN ({placeholders})",
+                [*node_ids, *node_ids],
+            ).fetchall()
+            edges = [
+                {
+                    "id": row["id"],
+                    "source_id": row["source_id"],
+                    "target_id": row["target_id"],
+                    "kind": row["kind"],
+                    "weight": row["weight"],
+                }
+                for row in edge_rows
+            ]
+
+        self._json_response({"nodes": nodes, "edges": edges})
+
     def _api_search(self, params: dict[str, list[str]]) -> None:
         store = self.store
         query = params.get("q", [""])[0]
@@ -167,7 +214,7 @@ class GraphExplorerHandler(BaseHTTPRequestHandler):
             return
 
         kind = params.get("kind", [None])[0]
-        limit = min(int(params.get("limit", ["20"])[0]), 100)
+        limit = min(_safe_int(params, "limit", 20), 100)
 
         results = store.search(query, kind=kind, limit=limit)
         self._json_response(

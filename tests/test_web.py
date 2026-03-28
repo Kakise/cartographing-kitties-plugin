@@ -182,6 +182,28 @@ class TestApiEdges:
         assert "edges" in data
 
 
+class TestApiGraph:
+    def test_returns_nodes_and_edges(self, server_url: str):
+        status, data = get(server_url, "/api/graph")
+        assert status == 200
+        assert "nodes" in data
+        assert "edges" in data
+        assert len(data["nodes"]) > 0
+
+    def test_edges_only_connect_returned_nodes(self, server_url: str):
+        status, data = get(server_url, "/api/graph")
+        assert status == 200
+        node_ids = {n["id"] for n in data["nodes"]}
+        for edge in data["edges"]:
+            assert edge["source_id"] in node_ids
+            assert edge["target_id"] in node_ids
+
+    def test_respects_limit(self, server_url: str):
+        status, data = get(server_url, "/api/graph?limit=2")
+        assert status == 200
+        assert len(data["nodes"]) <= 2
+
+
 class TestApiFiles:
     def test_returns_files(self, server_url: str):
         status, data = get(server_url, "/api/files")
@@ -189,6 +211,22 @@ class TestApiFiles:
         assert len(data["files"]) > 0
         assert "file_path" in data["files"][0]
         assert "node_count" in data["files"][0]
+
+
+class TestServeEntrypoint:
+    def test_missing_db_exits_with_error(self, tmp_path: Path):
+        """serve() exits with code 1 when graph.db is missing."""
+        import subprocess
+        import sys
+
+        result = subprocess.run(
+            [sys.executable, "-c", "import cartograph; cartograph.serve()"],
+            capture_output=True,
+            text=True,
+            cwd=str(tmp_path),
+        )
+        assert result.returncode == 1
+        assert "No graph database found" in result.stderr
 
 
 class TestAnnotatedNodes:
