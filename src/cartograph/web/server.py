@@ -38,6 +38,7 @@ class GraphExplorerHandler(BaseHTTPRequestHandler):
             (r"^/api/graph$", self._api_graph),
             (r"^/api/search$", self._api_search),
             (r"^/api/files$", self._api_files),
+            (r"^/api/directories$", self._api_directories),
         ]
 
         for pattern, handler in routes:
@@ -178,10 +179,26 @@ class GraphExplorerHandler(BaseHTTPRequestHandler):
         store = self.store
         conn = store._conn
         limit = min(_safe_int(params, "limit", 300), 500)
+        directory = params.get("directory", [None])[0]
+        file_path = params.get("file_path", [None])[0]
 
-        rows = conn.execute(
-            "SELECT * FROM nodes ORDER BY file_path, start_line LIMIT ?", [limit]
-        ).fetchall()
+        if file_path:
+            rows = conn.execute(
+                "SELECT * FROM nodes WHERE file_path = ? "
+                "AND kind != 'file' ORDER BY start_line LIMIT ?",
+                [file_path, limit],
+            ).fetchall()
+        elif directory:
+            rows = conn.execute(
+                "SELECT * FROM nodes WHERE file_path LIKE ? "
+                "AND kind != 'file' ORDER BY file_path, start_line LIMIT ?",
+                [directory + "/%", limit],
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT * FROM nodes ORDER BY file_path, start_line LIMIT ?", [limit]
+            ).fetchall()
+
         nodes = [self._node_to_dict(row) for row in rows]
 
         node_ids = {node["id"] for node in nodes}
@@ -223,6 +240,43 @@ class GraphExplorerHandler(BaseHTTPRequestHandler):
                 "results": [self._node_to_dict_from_store(r) for r in results],
             }
         )
+
+    def _api_directories(self, params: dict[str, list[str]]) -> None:
+        """Return directory-level aggregation for the overview treemap."""
+        conn = self.store._conn
+
+        # Group files by directory, count nodes per directory
+        rows = conn.execute(
+            "SELECT file_path, kind, COUNT(*) as cnt FROM nodes "
+            "WHERE kind != 'file' AND file_path IS NOT NULL "
+            "GROUP BY file_path, kind"
+        ).fetchall()
+
+        dirs: dict[str, dict[str, Any]] = {}
+        for row in rows:
+            fp = row[0]
+            parts = fp.split("/")
+            dir_path = "/".join(parts[:-1]) if len(parts) > 1 else "(root)"
+            if dir_path not in dirs:
+                dirs[dir_path] = {
+                    "path": dir_path,
+                    "node_count": 0,
+                    "file_count": 0,
+                    "files": set(),
+                    "kinds": {},
+                }
+            dirs[dir_path]["node_count"] += row[2]
+            dirs[dir_path]["files"].add(fp)
+            kind = row[1]
+            dirs[dir_path]["kinds"][kind] = dirs[dir_path]["kinds"].get(kind, 0) + row[2]
+
+        result = []
+        for d in sorted(dirs.values(), key=lambda x: x["path"]):
+            d["file_count"] = len(d["files"])
+            del d["files"]
+            result.append(d)
+
+        self._json_response({"directories": result})
 
     def _api_files(self, params: dict[str, list[str]]) -> None:
         conn = self.store._conn
