@@ -58,17 +58,29 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Validate plugin.json
-        run: python -c "import json, sys; d=json.load(open('.claude-plugin/plugin.json')); assert 'name' in d; assert 'mcpServers' in d; print('plugin.json valid')"
+        run: python -c "import json, sys; d=json.load(open('plugins/cartograph/.claude-plugin/plugin.json')); assert 'name' in d; assert 'mcpServers' in d; print('plugin.json valid')"
+
+      - name: Validate marketplace.json
+        run: python -c "import json, sys; d=json.load(open('.claude-plugin/marketplace.json')); assert 'name' in d; assert 'plugins' in d; print('marketplace.json valid')"
 
       - name: Validate skill files exist
         run: |
-          test -f skills/cartograph/SKILL.md
-          test -f skills/cartograph-explore/SKILL.md
-          test -f skills/cartograph-impact/SKILL.md
-          test -f skills/cartograph-annotate/SKILL.md
+          count=$(find plugins/cartograph/skills -mindepth 1 -maxdepth 1 -type d -exec test -f {}/SKILL.md \; -print | wc -l | tr -d ' ')
+          echo "Found $count skills"
+          if [ "$count" -lt 9 ]; then
+            echo "ERROR: Expected at least 9 skills, found $count"
+            find plugins/cartograph/skills -mindepth 1 -maxdepth 1 -type d | sort
+            exit 1
+          fi
           echo "All skill files present"
 
       - name: Validate agent files exist
         run: |
-          test -f agents/cartograph-annotator.md
+          count=$(find plugins/cartograph/agents -name '*.md' -type f | wc -l | tr -d ' ')
+          echo "Found $count agents"
+          if [ "$count" -lt 9 ]; then
+            echo "ERROR: Expected at least 9 agents, found $count"
+            find plugins/cartograph/agents -name '*.md' -type f | sort
+            exit 1
+          fi
           echo "All agent files present"
