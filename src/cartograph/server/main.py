@@ -13,6 +13,8 @@ from cartograph.storage import GraphStore, create_connection
 # Module-level state shared with tool modules.
 _store: GraphStore | None = None
 _root: Path | None = None
+_last_diff: dict | None = None
+_last_index_version: int | None = None
 
 
 @asynccontextmanager
@@ -61,6 +63,7 @@ import cartograph.server.tools.annotate  # noqa: E402, F401
 import cartograph.server.tools.index  # noqa: E402, F401
 import cartograph.server.tools.memory  # noqa: E402, F401
 import cartograph.server.tools.query  # noqa: E402, F401
+import cartograph.server.tools.reactive  # noqa: E402, F401
 
 if __name__ == "__main__":
     mcp.run(transport="stdio")

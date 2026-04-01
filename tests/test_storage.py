@@ -404,3 +404,594 @@ class TestReindexPreservesAnnotations:
             ]
         )
         assert graph_store.get_node_by_name("mod.x")["annotation_status"] == "annotated"
+
+
+# ------------------------------------------------------------------
+# 13. Stale annotation detection
+# ------------------------------------------------------------------
+
+
+class TestFindStaleNodes:
+    def test_no_stale_when_no_annotated_nodes(self, graph_store: GraphStore):
+        graph_store.upsert_nodes([_make_node("a", content_hash="abc")])
+        assert graph_store.find_stale_nodes() == []
+
+    def test_annotated_with_matching_hash_not_stale(self, graph_store: GraphStore):
+        graph_store.upsert_nodes(
+            [
+                _make_node(
+                    "a",
+                    annotation_status="annotated",
+                    content_hash="abc",
+                    annotated_content_hash="abc",
+                ),
+            ]
+        )
+        assert graph_store.find_stale_nodes() == []
+
+    def test_annotated_with_different_hash_is_stale(self, graph_store: GraphStore):
+        graph_store.upsert_nodes(
+            [
+                _make_node(
+                    "a",
+                    annotation_status="annotated",
+                    content_hash="new_hash",
+                    annotated_content_hash="old_hash",
+                ),
+            ]
+        )
+        stale = graph_store.find_stale_nodes()
+        assert len(stale) == 1
+        assert stale[0]["name"] == "a"
+
+    def test_annotated_with_null_annotated_hash_is_stale(self, graph_store: GraphStore):
+        """Pre-migration nodes with annotated_content_hash=NULL are stale."""
+        graph_store.upsert_nodes(
+            [
+                _make_node(
+                    "a",
+                    annotation_status="annotated",
+                    content_hash="abc",
+                    annotated_content_hash=None,
+                ),
+            ]
+        )
+        stale = graph_store.find_stale_nodes()
+        assert len(stale) == 1
+
+    def test_pending_nodes_not_stale(self, graph_store: GraphStore):
+        """Pending nodes are never stale regardless of hashes."""
+        graph_store.upsert_nodes(
+            [
+                _make_node("a", annotation_status="pending", content_hash="x", annotated_content_hash="y"),
+            ]
+        )
+        assert graph_store.find_stale_nodes() == []
+
+    def test_annotated_without_content_hash_not_stale(self, graph_store: GraphStore):
+        """Annotated nodes with NULL content_hash are not stale (no basis for comparison)."""
+        graph_store.upsert_nodes(
+            [
+                _make_node("a", annotation_status="annotated", content_hash=None),
+            ]
+        )
+        assert graph_store.find_stale_nodes() == []
+
+    def test_file_paths_filter(self, graph_store: GraphStore):
+        graph_store.upsert_nodes(
+            [
+                _make_node(
+                    "a",
+                    file_path="a.py",
+                    qualified_name="mod_a.a",
+                    annotation_status="annotated",
+                    content_hash="new",
+                    annotated_content_hash="old",
+                ),
+                _make_node(
+                    "b",
+                    file_path="b.py",
+                    qualified_name="mod_b.b",
+                    annotation_status="annotated",
+                    content_hash="new",
+                    annotated_content_hash="old",
+                ),
+            ]
+        )
+        stale = graph_store.find_stale_nodes(file_paths=["a.py"])
+        assert len(stale) == 1
+        assert stale[0]["name"] == "a"
+
+    def test_limit(self, graph_store: GraphStore):
+        for i in range(5):
+            graph_store.upsert_nodes(
+                [
+                    _make_node(
+                        f"n{i}",
+                        qualified_name=f"mod.n{i}",
+                        annotation_status="annotated",
+                        content_hash="new",
+                        annotated_content_hash="old",
+                    ),
+                ]
+            )
+        stale = graph_store.find_stale_nodes(limit=3)
+        assert len(stale) == 3
+
+
+# ------------------------------------------------------------------
+# Ranking
+# ------------------------------------------------------------------
+
+
+class TestRankByInDegree:
+    def test_ranks_by_incoming_edges(self, graph_store: GraphStore):
+        """Node with more incoming edges should rank higher."""
+        ids = graph_store.upsert_nodes(
+            [
+                _make_node("popular", qualified_name="mod.popular"),
+                _make_node("caller1", qualified_name="mod.caller1"),
+                _make_node("caller2", qualified_name="mod.caller2"),
+                _make_node("lonely", qualified_name="mod.lonely"),
+            ]
+        )
+        # Two edges pointing to 'popular', none to 'lonely'.
+        graph_store.upsert_edges(
+            [
+                {"source_id": ids[1], "target_id": ids[0], "kind": "calls"},
+                {"source_id": ids[2], "target_id": ids[0], "kind": "calls"},
+            ]
+        )
+        ranked = graph_store.rank_by_in_degree()
+        assert ranked[0]["name"] == "popular"
+        assert ranked[0]["in_degree"] == 2
+        assert ranked[0]["out_degree"] == 0
+
+    def test_isolated_node_has_zero_in_degree(self, graph_store: GraphStore):
+        graph_store.upsert_nodes([_make_node("solo", qualified_name="mod.solo")])
+        ranked = graph_store.rank_by_in_degree()
+        assert len(ranked) == 1
+        assert ranked[0]["in_degree"] == 0
+
+    def test_kind_filter(self, graph_store: GraphStore):
+        graph_store.upsert_nodes(
+            [
+                _make_node("MyClass", kind="class", qualified_name="mod.MyClass"),
+                _make_node("my_func", kind="function", qualified_name="mod.my_func"),
+            ]
+        )
+        ranked = graph_store.rank_by_in_degree(kind="class")
+        assert len(ranked) == 1
+        assert ranked[0]["name"] == "MyClass"
+
+    def test_scope_file_paths(self, graph_store: GraphStore):
+        graph_store.upsert_nodes(
+            [
+                _make_node("a", file_path="a.py", qualified_name="a.a"),
+                _make_node("b", file_path="b.py", qualified_name="b.b"),
+            ]
+        )
+        ranked = graph_store.rank_by_in_degree(scope_file_paths=["a.py"])
+        assert len(ranked) == 1
+        assert ranked[0]["name"] == "a"
+
+    def test_limit(self, graph_store: GraphStore):
+        graph_store.upsert_nodes(
+            [
+                _make_node(f"f{i}", qualified_name=f"mod.f{i}")
+                for i in range(10)
+            ]
+        )
+        ranked = graph_store.rank_by_in_degree(limit=3)
+        assert len(ranked) == 3
+
+    def test_out_degree_computed(self, graph_store: GraphStore):
+        """out_degree subquery should count outgoing edges."""
+        ids = graph_store.upsert_nodes(
+            [
+                _make_node("hub", qualified_name="mod.hub"),
+                _make_node("t1", qualified_name="mod.t1"),
+                _make_node("t2", qualified_name="mod.t2"),
+            ]
+        )
+        graph_store.upsert_edges(
+            [
+                {"source_id": ids[0], "target_id": ids[1], "kind": "calls"},
+                {"source_id": ids[0], "target_id": ids[2], "kind": "calls"},
+            ]
+        )
+        ranked = graph_store.rank_by_in_degree()
+        hub = next(r for r in ranked if r["name"] == "hub")
+        assert hub["out_degree"] == 2
+
+
+class TestRankByTransitive:
+    def test_transitive_ranking(self, graph_store: GraphStore):
+        """A -> B -> C: C has 2 transitive dependents, B has 1."""
+        ids = graph_store.upsert_nodes(
+            [
+                _make_node("A", qualified_name="mod.A"),
+                _make_node("B", qualified_name="mod.B"),
+                _make_node("C", qualified_name="mod.C"),
+            ]
+        )
+        graph_store.upsert_edges(
+            [
+                {"source_id": ids[0], "target_id": ids[1], "kind": "calls"},
+                {"source_id": ids[1], "target_id": ids[2], "kind": "calls"},
+            ]
+        )
+        ranked = graph_store.rank_by_transitive(
+            scope_qnames=["mod.B", "mod.C"]
+        )
+        assert ranked[0]["name"] == "C"
+        assert ranked[0]["transitive_count"] == 2
+        assert ranked[1]["name"] == "B"
+        assert ranked[1]["transitive_count"] == 1
+
+
+# ------------------------------------------------------------------
+# Context summary
+# ------------------------------------------------------------------
+
+
+class TestContextSummary:
+    def test_returns_nodes_with_in_degree(self, graph_store: GraphStore):
+        ids = graph_store.upsert_nodes(
+            [
+                _make_node("A", qualified_name="mod.A", file_path="src/a.py"),
+                _make_node("B", qualified_name="mod.B", file_path="src/a.py"),
+                _make_node("C", qualified_name="mod.C", file_path="src/b.py"),
+            ]
+        )
+        graph_store.upsert_edges(
+            [
+                {"source_id": ids[0], "target_id": ids[1], "kind": "calls"},
+                {"source_id": ids[2], "target_id": ids[1], "kind": "calls"},
+            ]
+        )
+        rows = graph_store.context_summary()
+        assert len(rows) == 3
+        b_row = next(r for r in rows if r["name"] == "B")
+        assert b_row["in_degree"] == 2
+        a_row = next(r for r in rows if r["name"] == "A")
+        assert a_row["in_degree"] == 0
+
+    def test_filter_by_file_paths(self, graph_store: GraphStore):
+        graph_store.upsert_nodes(
+            [
+                _make_node("A", qualified_name="mod.A", file_path="src/a.py"),
+                _make_node("B", qualified_name="mod.B", file_path="src/b.py"),
+            ]
+        )
+        rows = graph_store.context_summary(file_paths=["src/a.py"])
+        assert len(rows) == 1
+        assert rows[0]["name"] == "A"
+
+    def test_filter_by_qualified_names(self, graph_store: GraphStore):
+        graph_store.upsert_nodes(
+            [
+                _make_node("A", qualified_name="mod.A"),
+                _make_node("B", qualified_name="mod.B"),
+            ]
+        )
+        rows = graph_store.context_summary(qualified_names=["mod.A"])
+        assert len(rows) == 1
+        assert rows[0]["qualified_name"] == "mod.A"
+
+    def test_max_nodes_limits_output(self, graph_store: GraphStore):
+        graph_store.upsert_nodes(
+            [
+                _make_node("A", qualified_name="mod.A"),
+                _make_node("B", qualified_name="mod.B"),
+                _make_node("C", qualified_name="mod.C"),
+            ]
+        )
+        rows = graph_store.context_summary(max_nodes=2)
+        assert len(rows) == 2
+
+    def test_ordered_by_in_degree_descending(self, graph_store: GraphStore):
+        ids = graph_store.upsert_nodes(
+            [
+                _make_node("A", qualified_name="mod.A"),
+                _make_node("B", qualified_name="mod.B"),
+            ]
+        )
+        # B has 1 incoming edge, A has 0.
+        graph_store.upsert_edges(
+            [{"source_id": ids[0], "target_id": ids[1], "kind": "calls"}]
+        )
+        rows = graph_store.context_summary()
+        assert rows[0]["name"] == "B"
+        assert rows[0]["in_degree"] == 1
+        assert rows[1]["name"] == "A"
+        assert rows[1]["in_degree"] == 0
+
+
+# ------------------------------------------------------------------
+# Snapshot and diff
+# ------------------------------------------------------------------
+
+
+class TestSnapshotNodes:
+    def test_snapshot_all_nodes(self, graph_store: GraphStore):
+        graph_store.upsert_nodes(
+            [
+                _make_node("a", qualified_name="mod.a", content_hash="h1"),
+                _make_node("b", qualified_name="mod.b", content_hash="h2"),
+            ]
+        )
+        snap = graph_store.snapshot_nodes()
+        assert len(snap) == 2
+        assert "mod.a" in snap
+        assert snap["mod.a"]["content_hash"] == "h1"
+
+    def test_snapshot_filtered_by_file_paths(self, graph_store: GraphStore):
+        graph_store.upsert_nodes(
+            [
+                _make_node("a", file_path="a.py", qualified_name="a.a", content_hash="h1"),
+                _make_node("b", file_path="b.py", qualified_name="b.b", content_hash="h2"),
+            ]
+        )
+        snap = graph_store.snapshot_nodes(file_paths=["a.py"])
+        assert len(snap) == 1
+        assert "a.a" in snap
+
+    def test_snapshot_empty_db(self, graph_store: GraphStore):
+        snap = graph_store.snapshot_nodes()
+        assert snap == {}
+
+
+class TestSnapshotEdges:
+    def test_snapshot_all_edges(self, graph_store: GraphStore):
+        ids = graph_store.upsert_nodes(
+            [
+                _make_node("a", qualified_name="mod.a"),
+                _make_node("b", qualified_name="mod.b"),
+            ]
+        )
+        graph_store.upsert_edges(
+            [{"source_id": ids[0], "target_id": ids[1], "kind": "calls"}]
+        )
+        edges = graph_store.snapshot_edges()
+        assert len(edges) == 1
+        assert edges[0]["source"] == "mod.a"
+        assert edges[0]["target"] == "mod.b"
+        assert edges[0]["kind"] == "calls"
+
+    def test_snapshot_edges_filtered_by_file_paths(self, graph_store: GraphStore):
+        ids = graph_store.upsert_nodes(
+            [
+                _make_node("a", file_path="a.py", qualified_name="a.a"),
+                _make_node("b", file_path="b.py", qualified_name="b.b"),
+                _make_node("c", file_path="c.py", qualified_name="c.c"),
+            ]
+        )
+        graph_store.upsert_edges(
+            [
+                {"source_id": ids[0], "target_id": ids[1], "kind": "calls"},
+                {"source_id": ids[1], "target_id": ids[2], "kind": "calls"},
+            ]
+        )
+        edges = graph_store.snapshot_edges(file_paths=["a.py"])
+        # Should include the edge from a.py -> b.py (a.py is an endpoint).
+        assert len(edges) == 1
+        assert edges[0]["source"] == "a.a"
+
+
+class TestComputeDiff:
+    def test_nodes_added(self, graph_store: GraphStore):
+        before: dict[str, dict] = {}
+        after = {"mod.a": {"kind": "function", "name": "a", "file_path": "a.py", "content_hash": "h1"}}
+        diff = graph_store.compute_diff(before, after, [], [])
+        assert len(diff["nodes_added"]) == 1
+        assert diff["nodes_added"][0]["qualified_name"] == "mod.a"
+        assert diff["summary"]["nodes_added"] == 1
+
+    def test_nodes_removed(self, graph_store: GraphStore):
+        before = {"mod.a": {"kind": "function", "name": "a", "file_path": "a.py", "content_hash": "h1"}}
+        after: dict[str, dict] = {}
+        diff = graph_store.compute_diff(before, after, [], [])
+        assert len(diff["nodes_removed"]) == 1
+        assert diff["nodes_removed"][0]["qualified_name"] == "mod.a"
+        assert diff["summary"]["nodes_removed"] == 1
+
+    def test_nodes_modified(self, graph_store: GraphStore):
+        before = {"mod.a": {"kind": "function", "name": "a", "file_path": "a.py", "content_hash": "h1"}}
+        after = {"mod.a": {"kind": "function", "name": "a", "file_path": "a.py", "content_hash": "h2"}}
+        diff = graph_store.compute_diff(before, after, [], [])
+        assert len(diff["nodes_modified"]) == 1
+        assert diff["nodes_modified"][0]["changes"] == ["content_hash_changed"]
+        assert diff["summary"]["nodes_modified"] == 1
+
+    def test_unchanged_nodes_not_in_diff(self, graph_store: GraphStore):
+        node = {"kind": "function", "name": "a", "file_path": "a.py", "content_hash": "h1"}
+        before = {"mod.a": node}
+        after = {"mod.a": dict(node)}
+        diff = graph_store.compute_diff(before, after, [], [])
+        assert len(diff["nodes_modified"]) == 0
+
+    def test_edges_added_and_removed(self, graph_store: GraphStore):
+        before_edges = [{"source": "mod.a", "target": "mod.b", "kind": "calls"}]
+        after_edges = [{"source": "mod.a", "target": "mod.c", "kind": "calls"}]
+        diff = graph_store.compute_diff({}, {}, before_edges, after_edges)
+        assert len(diff["edges_added"]) == 1
+        assert diff["edges_added"][0]["target"] == "mod.c"
+        assert len(diff["edges_removed"]) == 1
+        assert diff["edges_removed"][0]["target"] == "mod.b"
+
+    def test_empty_diff(self, graph_store: GraphStore):
+        diff = graph_store.compute_diff({}, {}, [], [])
+        assert diff["summary"]["nodes_added"] == 0
+        assert diff["summary"]["nodes_removed"] == 0
+        assert diff["summary"]["nodes_modified"] == 0
+        assert diff["summary"]["edges_added"] == 0
+        assert diff["summary"]["edges_removed"] == 0
+
+
+# ------------------------------------------------------------------
+# Validate nodes
+# ------------------------------------------------------------------
+
+
+class TestValidateNodes:
+    def test_clean_graph_no_issues(self, graph_store: GraphStore):
+        """A well-formed graph produces no issues."""
+        ids = graph_store.upsert_nodes(
+            [
+                _make_node("file", kind="file", qualified_name="file::a.py", file_path="a.py"),
+                _make_node("fn", qualified_name="mod.fn", file_path="a.py"),
+            ]
+        )
+        graph_store.upsert_edges(
+            [{"source_id": ids[0], "target_id": ids[1], "kind": "contains"}]
+        )
+        issues = graph_store.validate_nodes()
+        assert issues == []
+
+    def test_orphan_nodes_detected(self, graph_store: GraphStore):
+        """Non-file node with no incoming edges is an orphan."""
+        graph_store.upsert_nodes([_make_node("orphan", qualified_name="mod.orphan")])
+        issues = graph_store.validate_nodes(checks=["orphan_nodes"])
+        assert len(issues) == 1
+        assert issues[0]["check"] == "orphan_nodes"
+        assert issues[0]["node"] == "mod.orphan"
+        assert issues[0]["severity"] == "warning"
+
+    def test_file_nodes_not_orphans(self, graph_store: GraphStore):
+        """File and module nodes are excluded from orphan check."""
+        graph_store.upsert_nodes(
+            [
+                _make_node("f", kind="file", qualified_name="file::f.py", file_path="f.py"),
+                _make_node("m", kind="module", qualified_name="mod.m", file_path="f.py"),
+            ]
+        )
+        issues = graph_store.validate_nodes(checks=["orphan_nodes"])
+        assert issues == []
+
+    def test_stale_annotations_detected(self, graph_store: GraphStore):
+        """Annotated node with mismatched content_hash is stale."""
+        graph_store.upsert_nodes(
+            [
+                _make_node(
+                    "stale",
+                    qualified_name="mod.stale",
+                    annotation_status="annotated",
+                    content_hash="new",
+                    annotated_content_hash="old",
+                )
+            ]
+        )
+        issues = graph_store.validate_nodes(checks=["stale_annotations"])
+        assert len(issues) == 1
+        assert issues[0]["check"] == "stale_annotations"
+        assert issues[0]["node"] == "mod.stale"
+        assert issues[0]["severity"] == "warning"
+
+    def test_stale_annotations_null_annotated_hash(self, graph_store: GraphStore):
+        """Pre-migration node with NULL annotated_content_hash is stale."""
+        graph_store.upsert_nodes(
+            [
+                _make_node(
+                    "old",
+                    qualified_name="mod.old",
+                    annotation_status="annotated",
+                    content_hash="abc",
+                    annotated_content_hash=None,
+                )
+            ]
+        )
+        issues = graph_store.validate_nodes(checks=["stale_annotations"])
+        assert len(issues) == 1
+        assert issues[0]["node"] == "mod.old"
+
+    def test_matching_hash_not_stale(self, graph_store: GraphStore):
+        """Annotated node with matching hashes is not stale."""
+        graph_store.upsert_nodes(
+            [
+                _make_node(
+                    "fresh",
+                    qualified_name="mod.fresh",
+                    annotation_status="annotated",
+                    content_hash="same",
+                    annotated_content_hash="same",
+                )
+            ]
+        )
+        issues = graph_store.validate_nodes(checks=["stale_annotations"])
+        assert issues == []
+
+    def test_dangling_edges_detected(self, graph_store: GraphStore):
+        """Edges referencing non-existent nodes are dangling."""
+        ids = graph_store.upsert_nodes(
+            [
+                _make_node("a", qualified_name="mod.a"),
+                _make_node("b", qualified_name="mod.b"),
+            ]
+        )
+        graph_store.upsert_edges(
+            [{"source_id": ids[0], "target_id": ids[1], "kind": "calls"}]
+        )
+        # Bypass FK by disabling enforcement temporarily and deleting a node.
+        graph_store._conn.execute("PRAGMA foreign_keys = OFF")
+        graph_store._conn.execute("DELETE FROM nodes WHERE id = ?", (ids[1],))
+        graph_store._conn.commit()
+        graph_store._conn.execute("PRAGMA foreign_keys = ON")
+
+        issues = graph_store.validate_nodes(checks=["dangling_edges"])
+        assert len(issues) == 1
+        assert issues[0]["check"] == "dangling_edges"
+        assert issues[0]["severity"] == "error"
+
+    def test_scope_file_paths(self, graph_store: GraphStore):
+        """File path scope limits orphan check."""
+        graph_store.upsert_nodes(
+            [
+                _make_node("a", file_path="a.py", qualified_name="a.a"),
+                _make_node("b", file_path="b.py", qualified_name="b.b"),
+            ]
+        )
+        issues = graph_store.validate_nodes(file_paths=["a.py"], checks=["orphan_nodes"])
+        nodes = [i["node"] for i in issues]
+        assert "a.a" in nodes
+        assert "b.b" not in nodes
+
+    def test_scope_qualified_names(self, graph_store: GraphStore):
+        """Qualified name scope limits stale check."""
+        graph_store.upsert_nodes(
+            [
+                _make_node(
+                    "a",
+                    qualified_name="mod.a",
+                    annotation_status="annotated",
+                    content_hash="new",
+                    annotated_content_hash="old",
+                ),
+                _make_node(
+                    "b",
+                    qualified_name="mod.b",
+                    annotation_status="annotated",
+                    content_hash="new",
+                    annotated_content_hash="old",
+                ),
+            ]
+        )
+        issues = graph_store.validate_nodes(
+            qualified_names=["mod.a"], checks=["stale_annotations"]
+        )
+        nodes = [i["node"] for i in issues]
+        assert "mod.a" in nodes
+        assert "mod.b" not in nodes
+
+    def test_checks_filter(self, graph_store: GraphStore):
+        """Only requested checks are run."""
+        graph_store.upsert_nodes([_make_node("orphan", qualified_name="mod.orphan")])
+        # Only run stale_annotations — should not find the orphan.
+        issues = graph_store.validate_nodes(checks=["stale_annotations"])
+        assert all(i["check"] == "stale_annotations" for i in issues)
+
+    def test_all_checks_run_by_default(self, graph_store: GraphStore):
+        """None checks means all three run."""
+        issues = graph_store.validate_nodes()
+        # No issues on empty graph, but the method should not error.
+        assert isinstance(issues, list)

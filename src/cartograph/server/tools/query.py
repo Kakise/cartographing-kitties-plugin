@@ -8,27 +8,8 @@ import cartograph.server.main as _main
 from cartograph.server.main import mcp
 
 
-@mcp.tool()
-def query_node(name: str) -> dict[str, Any]:
-    """Find a node by name or qualified name. Returns node details with immediate neighbors."""
-    store = _main._store
-    if store is None:
-        return {"error": "Server not initialised"}
-
-    # Try exact qualified name match first.
-    node = store.get_node_by_name(name)
-
-    # Fall back to partial name match.
-    if node is None:
-        matches = store.find_nodes(name=name)
-        if matches:
-            node = matches[0]
-
-    if node is None:
-        return {"found": False, "message": f"No node found matching '{name}'"}
-
-    # Gather immediate neighbors.
-    node_id = node["id"]
+def _gather_neighbors(store: Any, node_id: int) -> list[dict[str, Any]]:
+    """Return immediate neighbor dicts for *node_id*."""
     outgoing = store.get_edges(source_id=node_id)
     incoming = store.get_edges(target_id=node_id)
 
@@ -53,12 +34,116 @@ def query_node(name: str) -> dict[str, Any]:
                     "node": _summarise_node(source),
                 }
             )
+    return neighbors
+
+
+@mcp.tool()
+def query_node(name: str) -> dict[str, Any]:
+    """Find a node by name or qualified name. Returns node details with immediate neighbors."""
+    store = _main._store
+    if store is None:
+        return {"error": "Server not initialised"}
+
+    # Try exact qualified name match first.
+    node = store.get_node_by_name(name)
+
+    # Fall back to partial name match.
+    if node is None:
+        matches = store.find_nodes(name=name)
+        if matches:
+            node = matches[0]
+
+    if node is None:
+        return {"found": False, "message": f"No node found matching '{name}'"}
 
     return {
         "found": True,
         "node": _summarise_node(node),
-        "neighbors": neighbors,
+        "neighbors": _gather_neighbors(store, node["id"]),
     }
+
+
+@mcp.tool()
+def batch_query_nodes(names: list[str], include_neighbors: bool = True) -> dict[str, Any]:
+    """Query multiple nodes in one call. Returns found nodes with optional neighbors."""
+    store = _main._store
+    if store is None:
+        return {"error": "Server not initialised"}
+
+    found_nodes: list[dict[str, Any]] = []
+    not_found: list[str] = []
+    for name in names:
+        node = store.get_node_by_name(name)
+        if node is None:
+            matches = store.find_nodes(name=name)
+            node = matches[0] if matches else None
+        if node is None:
+            not_found.append(name)
+            continue
+        result = _summarise_node(node)
+        if include_neighbors:
+            result["neighbors"] = _gather_neighbors(store, node["id"])
+        found_nodes.append(result)
+    return {"found": len(found_nodes), "not_found": not_found, "nodes": found_nodes}
+
+
+@mcp.tool()
+def get_context_summary(
+    file_paths: list[str] | None = None,
+    qualified_names: list[str] | None = None,
+    include_edges: bool = False,
+    max_nodes: int = 50,
+) -> dict[str, Any]:
+    """Get a compact grouped summary of nodes, optionally with edges between them."""
+    store = _main._store
+    if store is None:
+        return {"error": "Server not initialised"}
+
+    rows = store.context_summary(
+        file_paths=file_paths, qualified_names=qualified_names, max_nodes=max_nodes
+    )
+
+    # Group by file_path.
+    groups: dict[str, list[dict[str, Any]]] = {}
+    node_ids: set[int] = set()
+    for row in rows:
+        props = row.get("properties") or {}
+        entry = {
+            "qualified_name": row["qualified_name"],
+            "kind": row["kind"],
+            "name": row["name"],
+            "role": props.get("role", ""),
+            "summary": row.get("summary"),
+            "in_degree": row.get("in_degree", 0),
+            "tags": props.get("tags", []),
+        }
+        fp = row.get("file_path") or ""
+        groups.setdefault(fp, []).append(entry)
+        node_ids.add(row["id"])
+
+    result: dict[str, Any] = {
+        "total_nodes": len(rows),
+        "groups": groups,
+    }
+
+    if include_edges and node_ids:
+        edges: list[dict[str, Any]] = []
+        for nid in node_ids:
+            for edge in store.get_edges(source_id=nid):
+                if edge["target_id"] in node_ids:
+                    src = store.get_node(nid)
+                    tgt = store.get_node(edge["target_id"])
+                    if src and tgt:
+                        edges.append(
+                            {
+                                "from": src["qualified_name"],
+                                "to": tgt["qualified_name"],
+                                "kind": edge["kind"],
+                            }
+                        )
+        result["edges"] = edges
+
+    return result
 
 
 @mcp.tool()

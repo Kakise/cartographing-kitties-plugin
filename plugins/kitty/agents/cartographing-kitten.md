@@ -97,3 +97,18 @@ orchestrator handles submission. Format:
 After the JSON array, include a brief completion summary:
 - How many annotations generated
 - How many marked as failed
+
+## `needs_more_context` Protocol
+
+If the provided batch context is insufficient to annotate specific nodes accurately (e.g., missing neighbor data, unclear purpose without seeing callers), you may include a `needs_more_context` section after your JSON array. The orchestrator will fulfill these requests and re-dispatch you with enriched context (max 1 follow-up pass).
+
+```json
+{
+  "needs_more_context": [
+    {"tool": "query_node", "args": {"name": "some_module::unclear_function"}},
+    {"tool": "get_file_structure", "args": {"file_path": "src/some/file.py"}}
+  ]
+}
+```
+
+Only request context for nodes you would otherwise mark as `failed` due to insufficient context. Do not request context speculatively.

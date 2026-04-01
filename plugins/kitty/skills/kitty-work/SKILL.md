@@ -42,20 +42,26 @@ For each implementation unit, the worker agent follows this protocol:
 The orchestrator pre-computes graph context for each worker before dispatch:
 1. Call `get_file_structure` on every file in the unit's Files section
 2. Call `query_node` on key symbols in those files
-3. Format as subgraph context (Annotation Status, Target Nodes, Neighbors sections)
-4. Include in the worker's task prompt alongside the plan unit
+3. Call `find_dependents(name=key_symbol, max_depth=2)` per key symbol being modified — workers know what they might break (blast radius awareness)
+4. Call `find_dependencies(name=key_symbol, max_depth=2)` per key symbol — workers understand upstream constraints
+5. Call `annotation_status()` — warn worker if target area has low annotation coverage (<30%)
+6. Call `rank_nodes(scope=unit_files)` — workers know which nodes need extra care (importance ranking)
+7. Format as subgraph context (Annotation Status, Target Nodes, Neighbors, Dependents, Dependencies, Importance sections)
+8. Include in the worker's task prompt alongside the plan unit
 
-**Implementation loop:**
+**Implementation loop (Observe → Understand → Act → Validate → Compound):**
 ```
 For each task:
-  1. Mark task in-progress
-  2. Load Cartographing Kittens context (above)
-  3. Read referenced files from plan
-  4. Implement following existing conventions
-  5. Write tests matching plan's test scenarios
-  6. Run tests — fix failures immediately
-  7. Mark task completed
-  8. Commit if logical unit is complete
+  1. OBSERVE — Mark task in-progress, load Cartographing Kittens context (above)
+  2. UNDERSTAND — Review blast radius, upstream constraints, and importance rankings
+  3. ACT — Read referenced files, implement following existing conventions, write tests
+  4. VALIDATE — Run tests, fix failures immediately
+     Post-implementation structural validation:
+       a. Call index_codebase() to re-index changed files
+       b. Call graph_diff(file_paths=changed_files) to see structural changes
+       c. Call validate_graph(scope=changed_files) to check for new issues
+     If graph_diff or validate_graph reveal unexpected breakage, fix before proceeding
+  5. COMPOUND — Mark task completed, commit if logical unit is complete
 ```
 
 **Subagent dispatch template:**

@@ -152,11 +152,36 @@ For each changed node, list its callers and callees with summaries and roles:
 ...
 ```
 
+### Stage 3h: Structural Pre-checks (new tools)
+
+#### 3h-i. Validate Graph Structure
+
+Call `validate_graph(scope=changed_files)` to detect structural issues in the changed area:
+- Circular dependencies introduced by the change
+- Orphaned nodes (symbols with no edges)
+- Missing edges that should exist
+
+Include any issues found in the subgraph context block under a `### Structural Health` section.
+
+#### 3h-ii. Rank Nodes by Importance
+
+Call `rank_nodes(scope=changed_files)` to score each changed symbol by structural importance.
+Include importance scores in the subgraph context — reviewers focus P0 attention on
+high-importance nodes (a bug in a highly-connected symbol has wider blast radius).
+
+Add an `Importance` column to the `### Changed Nodes` table in the subgraph context.
+
+#### 3h-iii. Semantic Discovery
+
+Call `search(query=feature_keywords)` using 2-3 keywords extracted from the intent summary.
+Identify semantically related code that might be affected but is NOT in the dependency graph.
+Include any discovered nodes in a `### Semantically Related (not in dependency graph)` section.
+
 ### Stage 4: Index & Dispatch Review Swarm
 
 1. Call `index_codebase(full=false)` to ensure the graph reflects current changes
 2. Dispatch reviewer agents in **parallel**, passing each agent: the diff, file list,
-   intent summary, **subgraph context block** (from Stage 3), and plan (if provided):
+   intent summary, **subgraph context block** (from Stage 3, including importance scores, structural health, and semantic matches), and plan (if provided):
 
 **Always-on (every review):**
 - **`expert-kitten-correctness`** — Logic errors, edge cases, state bugs

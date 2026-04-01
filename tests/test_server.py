@@ -12,10 +12,17 @@ import pytest
 # The tool modules read state from cartograph.server.main module-level vars.
 import cartograph.server.main as server_main
 from cartograph.indexing import Indexer
-from cartograph.server.tools.analysis import find_dependencies, find_dependents
-from cartograph.server.tools.annotate import get_pending_annotations, submit_annotations
+from cartograph.server.tools.analysis import find_dependencies, find_dependents, rank_nodes
+from cartograph.server.tools.annotate import find_stale_annotations, get_pending_annotations, submit_annotations
 from cartograph.server.tools.index import annotation_status, index_codebase
-from cartograph.server.tools.query import get_file_structure, query_node, search
+from cartograph.server.tools.query import (
+    batch_query_nodes,
+    get_context_summary,
+    get_file_structure,
+    query_node,
+    search,
+)
+from cartograph.server.tools.reactive import graph_diff, validate_graph
 from cartograph.storage import GraphStore, create_connection
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "sample_python_project"
@@ -37,6 +44,7 @@ def graph_store(tmp_path: Path):
     store.close()
     server_main._store = None
     server_main._root = None
+    server_main._last_diff = None
 
 
 @pytest.fixture()
@@ -303,6 +311,228 @@ class TestSubmitAnnotations:
         assert result["written"] == 0
 
 
+class TestFindStaleAnnotations:
+    def test_no_stale_when_no_annotations(self, indexed_store: GraphStore):
+        result = find_stale_annotations()
+        assert result["count"] == 0
+        assert result["stale_nodes"] == []
+
+    def test_detects_stale_after_content_change(self, indexed_store: GraphStore):
+        """Annotate a node, then simulate re-index with changed content_hash."""
+        pending = get_pending_annotations(batch_size=1)
+        assert pending["count"] > 0
+        qname = pending["batch"][0]["qualified_name"]
+
+        submit_annotations(
+            [{"qualified_name": qname, "summary": "Original summary", "tags": ["test"], "role": "test"}]
+        )
+
+        # Verify not stale yet.
+        result = find_stale_annotations()
+        stale_qnames = {n["qualified_name"] for n in result["stale_nodes"]}
+        assert qname not in stale_qnames
+
+        # Simulate content change by updating content_hash directly.
+        conn = indexed_store._conn  # noqa: SLF001
+        conn.execute(
+            "UPDATE nodes SET content_hash = 'changed_hash' WHERE qualified_name = ?",
+            (qname,),
+        )
+        conn.commit()
+
+        # Now it should be stale.
+        result = find_stale_annotations()
+        stale_qnames = {n["qualified_name"] for n in result["stale_nodes"]}
+        assert qname in stale_qnames
+        stale_node = next(n for n in result["stale_nodes"] if n["qualified_name"] == qname)
+        assert stale_node["reason"] == "content_hash_changed"
+
+    def test_pre_migration_node_detected_as_stale(self, indexed_store: GraphStore):
+        """Annotated node with NULL annotated_content_hash is stale."""
+        conn = indexed_store._conn  # noqa: SLF001
+        conn.execute(
+            """
+            INSERT INTO nodes (kind, name, qualified_name, file_path, start_line, end_line,
+                               language, annotation_status, content_hash, annotated_content_hash)
+            VALUES ('function', 'old_func', 'mod.old_func', 'old.py', 1, 10,
+                    'python', 'annotated', 'abc123', NULL)
+            """
+        )
+        conn.commit()
+
+        result = find_stale_annotations()
+        stale_qnames = {n["qualified_name"] for n in result["stale_nodes"]}
+        assert "mod.old_func" in stale_qnames
+
+    def test_file_paths_filter(self, indexed_store: GraphStore):
+        """file_paths parameter limits scope of stale detection."""
+        conn = indexed_store._conn  # noqa: SLF001
+        for name, fp in [("f1", "a.py"), ("f2", "b.py")]:
+            conn.execute(
+                """
+                INSERT INTO nodes (kind, name, qualified_name, file_path, start_line, end_line,
+                                   language, annotation_status, content_hash, annotated_content_hash)
+                VALUES ('function', ?, ?, ?, 1, 10, 'python', 'annotated', 'new_hash', 'old_hash')
+                """,
+                (name, f"mod.{name}", fp),
+            )
+        conn.commit()
+
+        result = find_stale_annotations(file_paths=["a.py"])
+        stale_qnames = {n["qualified_name"] for n in result["stale_nodes"]}
+        assert "mod.f1" in stale_qnames
+        assert "mod.f2" not in stale_qnames
+
+    def test_annotation_status_includes_stale_count(self, indexed_store: GraphStore):
+        """annotation_status tool returns stale count."""
+        result = annotation_status()
+        assert "stale" in result
+        assert result["stale"] == 0
+
+        conn = indexed_store._conn  # noqa: SLF001
+        conn.execute(
+            """
+            INSERT INTO nodes (kind, name, qualified_name, file_path, start_line, end_line,
+                               language, annotation_status, content_hash, annotated_content_hash)
+            VALUES ('function', 'stale_fn', 'mod.stale_fn', 'stale.py', 1, 10,
+                    'python', 'annotated', 'new', 'old')
+            """
+        )
+        conn.commit()
+
+        result = annotation_status()
+        assert result["stale"] == 1
+
+
+class TestRankNodes:
+    def test_rank_by_in_degree(self, indexed_store: GraphStore):
+        result = rank_nodes()
+        assert "ranked" in result
+        assert isinstance(result["ranked"], list)
+        # Results should be ordered by score descending.
+        scores = [r["score"] for r in result["ranked"]]
+        assert scores == sorted(scores, reverse=True)
+
+    def test_rank_returns_degree_fields(self, indexed_store: GraphStore):
+        result = rank_nodes()
+        if result["ranked"]:
+            entry = result["ranked"][0]
+            assert "score" in entry
+            assert "in_degree" in entry
+            assert "out_degree" in entry
+            assert "qualified_name" in entry
+
+    def test_rank_kind_filter(self, indexed_store: GraphStore):
+        result = rank_nodes(kind="class")
+        for entry in result["ranked"]:
+            assert entry["kind"] == "class"
+
+    def test_rank_limit(self, indexed_store: GraphStore):
+        result = rank_nodes(limit=1)
+        assert len(result["ranked"]) <= 1
+
+    def test_rank_scope_file_path(self, indexed_store: GraphStore):
+        result = rank_nodes(scope=["src/models/user.py"])
+        for entry in result["ranked"]:
+            assert entry["file_path"] == "src/models/user.py"
+
+    def test_rank_transitive_algorithm(self, indexed_store: GraphStore):
+        result = rank_nodes(algorithm="transitive")
+        assert "ranked" in result
+        scores = [r["score"] for r in result["ranked"]]
+        assert scores == sorted(scores, reverse=True)
+
+    def test_rank_unknown_algorithm(self, indexed_store: GraphStore):
+        result = rank_nodes(algorithm="unknown")
+        assert "error" in result
+
+    def test_rank_isolated_node_has_zero_score(self, graph_store: GraphStore):
+        """A node with no edges should have score 0."""
+        graph_store.upsert_nodes(
+            [
+                {
+                    "kind": "function",
+                    "name": "lonely",
+                    "qualified_name": "mod::lonely",
+                    "file_path": "src/mod.py",
+                    "start_line": 1,
+                    "end_line": 5,
+                    "language": "python",
+                }
+            ]
+        )
+        result = rank_nodes()
+        assert len(result["ranked"]) == 1
+        assert result["ranked"][0]["score"] == 0
+        assert result["ranked"][0]["in_degree"] == 0
+
+
+class TestGraphDiff:
+    def test_graph_diff_before_index_returns_error(self, graph_store: GraphStore):
+        """graph_diff before any indexing returns an error."""
+        server_main._last_diff = None
+        result = graph_diff()
+        assert "error" in result
+
+    def test_graph_diff_after_index(self, graph_store: GraphStore):
+        """After first index, graph_diff shows all nodes as added."""
+        result = index_codebase(full=True)
+        assert result["diff_available"] is True
+        assert result["diff_summary"]["nodes_added"] > 0
+
+        diff = graph_diff()
+        assert "error" not in diff
+        assert len(diff["nodes_added"]) > 0
+        assert diff["summary"]["nodes_added"] > 0
+        # First index: nothing removed or modified.
+        assert len(diff["nodes_removed"]) == 0
+        assert len(diff["nodes_modified"]) == 0
+
+    def test_graph_diff_incremental_no_changes(self, indexed_store: GraphStore):
+        """Incremental re-index with no changes produces empty diff."""
+        result = index_codebase(full=False)
+        assert result["diff_available"] is True
+        assert result["diff_summary"]["nodes_added"] == 0
+        assert result["diff_summary"]["nodes_removed"] == 0
+        assert result["diff_summary"]["nodes_modified"] == 0
+
+        diff = graph_diff()
+        assert "error" not in diff
+        assert len(diff["nodes_added"]) == 0
+        assert len(diff["nodes_removed"]) == 0
+        assert len(diff["nodes_modified"]) == 0
+
+    def test_graph_diff_file_paths_filter(self, graph_store: GraphStore):
+        """file_paths filter limits diff to specific files."""
+        index_codebase(full=True)
+        diff_all = graph_diff()
+        diff_filtered = graph_diff(file_paths=["src/models/user.py"])
+
+        # Filtered diff should have <= nodes than full diff.
+        assert len(diff_filtered["nodes_added"]) <= len(diff_all["nodes_added"])
+        # All nodes in filtered diff should be from the requested file.
+        for n in diff_filtered["nodes_added"]:
+            assert n["file_path"] == "src/models/user.py"
+
+    def test_graph_diff_include_edges_false(self, graph_store: GraphStore):
+        """include_edges=False omits edge-level diff."""
+        index_codebase(full=True)
+        diff = graph_diff(include_edges=False)
+        assert "edges_added" not in diff
+        assert "edges_removed" not in diff
+        assert "edges_added" not in diff.get("summary", {})
+
+    def test_index_codebase_returns_diff_summary(self, graph_store: GraphStore):
+        """index_codebase return includes diff_available and diff_summary."""
+        result = index_codebase(full=True)
+        assert "diff_available" in result
+        assert result["diff_available"] is True
+        assert "diff_summary" in result
+        assert "nodes_added" in result["diff_summary"]
+        assert "nodes_removed" in result["diff_summary"]
+        assert "nodes_modified" in result["diff_summary"]
+
+
 class TestStdioToolDiscovery:
     """Regression test for the module-identity-split bug that caused empty tools/list."""
 
@@ -356,5 +586,274 @@ class TestStdioToolDiscovery:
             "query_litter_box",
             "add_treat_box_entry",
             "query_treat_box",
+            "find_stale_annotations",
+            "graph_diff",
+            "rank_nodes",
+            "batch_query_nodes",
+            "get_context_summary",
+            "validate_graph",
         }
         assert tool_names == expected_tools
+
+
+class TestBatchQueryNodes:
+    def test_batch_query_found(self, indexed_store: GraphStore):
+        result = batch_query_nodes(["User", "UserService"])
+        assert result["found"] == 2
+        assert result["not_found"] == []
+        assert len(result["nodes"]) == 2
+        names = {n["name"] for n in result["nodes"]}
+        assert "User" in names
+        assert "UserService" in names
+
+    def test_batch_query_not_found(self, indexed_store: GraphStore):
+        result = batch_query_nodes(["nonexistent_thing"])
+        assert result["found"] == 0
+        assert result["not_found"] == ["nonexistent_thing"]
+        assert result["nodes"] == []
+
+    def test_batch_query_mixed(self, indexed_store: GraphStore):
+        result = batch_query_nodes(["User", "nonexistent_thing"])
+        assert result["found"] == 1
+        assert result["not_found"] == ["nonexistent_thing"]
+        assert result["nodes"][0]["name"] == "User"
+
+    def test_batch_query_with_neighbors(self, indexed_store: GraphStore):
+        result = batch_query_nodes(["UserService"], include_neighbors=True)
+        assert result["found"] == 1
+        assert "neighbors" in result["nodes"][0]
+        assert isinstance(result["nodes"][0]["neighbors"], list)
+
+    def test_batch_query_without_neighbors(self, indexed_store: GraphStore):
+        result = batch_query_nodes(["UserService"], include_neighbors=False)
+        assert result["found"] == 1
+        assert "neighbors" not in result["nodes"][0]
+
+    def test_batch_query_consistent_with_query_node(self, indexed_store: GraphStore):
+        """batch_query_nodes should return the same node data as query_node."""
+        single = query_node("User")
+        batch = batch_query_nodes(["User"])
+        assert single["node"]["qualified_name"] == batch["nodes"][0]["qualified_name"]
+        assert single["node"]["kind"] == batch["nodes"][0]["kind"]
+
+    def test_batch_query_by_qualified_name(self, indexed_store: GraphStore):
+        result = batch_query_nodes(["models.user::User"])
+        assert result["found"] == 1
+        assert result["nodes"][0]["qualified_name"] == "models.user::User"
+
+
+class TestGetContextSummary:
+    def test_context_summary_by_file(self, indexed_store: GraphStore):
+        result = get_context_summary(file_paths=["src/models/user.py"])
+        assert "error" not in result
+        assert result["total_nodes"] > 0
+        assert "src/models/user.py" in result["groups"]
+        for entry in result["groups"]["src/models/user.py"]:
+            assert "qualified_name" in entry
+            assert "kind" in entry
+            assert "in_degree" in entry
+
+    def test_context_summary_with_edges(self, indexed_store: GraphStore):
+        result = get_context_summary(
+            file_paths=["src/models/user.py"], include_edges=True
+        )
+        assert "edges" in result
+        assert isinstance(result["edges"], list)
+
+    def test_context_summary_without_edges(self, indexed_store: GraphStore):
+        result = get_context_summary(file_paths=["src/models/user.py"])
+        assert "edges" not in result
+
+    def test_context_summary_max_nodes(self, indexed_store: GraphStore):
+        result = get_context_summary(max_nodes=2)
+        assert result["total_nodes"] <= 2
+
+    def test_context_summary_by_qualified_names(self, indexed_store: GraphStore):
+        result = get_context_summary(qualified_names=["models.user::User"])
+        assert result["total_nodes"] >= 1
+        all_qnames = [
+            entry["qualified_name"]
+            for entries in result["groups"].values()
+            for entry in entries
+        ]
+        assert "models.user::User" in all_qnames
+
+    def test_context_summary_no_filter_returns_nodes(self, indexed_store: GraphStore):
+        result = get_context_summary()
+        assert result["total_nodes"] > 0
+
+
+class TestValidateGraph:
+    def test_validate_no_store_returns_error(self, graph_store: GraphStore):
+        server_main._store = None
+        result = validate_graph()
+        assert "error" in result
+        server_main._store = graph_store
+
+    def test_validate_clean_graph(self, indexed_store: GraphStore):
+        result = validate_graph()
+        assert "error" not in result
+        assert result["summary"]["checks_run"] == 3
+        assert result["summary"]["errors"] == 0
+
+    def test_validate_detects_orphan_nodes(self, graph_store: GraphStore):
+        """A non-file node with no incoming edges is an orphan."""
+        graph_store.upsert_nodes(
+            [
+                {
+                    "kind": "function",
+                    "name": "orphan_fn",
+                    "qualified_name": "mod::orphan_fn",
+                    "file_path": "src/mod.py",
+                    "start_line": 1,
+                    "end_line": 5,
+                    "language": "python",
+                }
+            ]
+        )
+        result = validate_graph(checks=["orphan_nodes"])
+        assert result["passed"] is False
+        assert any(i["check"] == "orphan_nodes" for i in result["issues"])
+        orphan = next(i for i in result["issues"] if i["check"] == "orphan_nodes")
+        assert orphan["node"] == "mod::orphan_fn"
+        assert orphan["severity"] == "warning"
+
+    def test_validate_detects_stale_annotations(self, graph_store: GraphStore):
+        """Node with changed content_hash after annotation is stale."""
+        graph_store.upsert_nodes(
+            [
+                {
+                    "kind": "function",
+                    "name": "stale_fn",
+                    "qualified_name": "mod::stale_fn",
+                    "file_path": "src/mod.py",
+                    "start_line": 1,
+                    "end_line": 5,
+                    "language": "python",
+                    "annotation_status": "annotated",
+                    "content_hash": "new_hash",
+                    "annotated_content_hash": "old_hash",
+                }
+            ]
+        )
+        result = validate_graph(checks=["stale_annotations"])
+        assert result["passed"] is False
+        stale = [i for i in result["issues"] if i["check"] == "stale_annotations"]
+        assert len(stale) == 1
+        assert stale[0]["node"] == "mod::stale_fn"
+        assert stale[0]["severity"] == "warning"
+
+    def test_validate_scope_file_path(self, graph_store: GraphStore):
+        """Scope limits checks to specific files."""
+        graph_store.upsert_nodes(
+            [
+                {
+                    "kind": "function",
+                    "name": "a",
+                    "qualified_name": "a::a",
+                    "file_path": "src/a.py",
+                    "start_line": 1,
+                    "end_line": 5,
+                    "language": "python",
+                },
+                {
+                    "kind": "function",
+                    "name": "b",
+                    "qualified_name": "b::b",
+                    "file_path": "src/b.py",
+                    "start_line": 1,
+                    "end_line": 5,
+                    "language": "python",
+                },
+            ]
+        )
+        result = validate_graph(scope=["src/a.py"], checks=["orphan_nodes"])
+        orphan_nodes = [i["node"] for i in result["issues"] if i["check"] == "orphan_nodes"]
+        assert "a::a" in orphan_nodes
+        assert "b::b" not in orphan_nodes
+
+    def test_validate_scope_qualified_name(self, graph_store: GraphStore):
+        """Scope with qualified names limits checks."""
+        graph_store.upsert_nodes(
+            [
+                {
+                    "kind": "function",
+                    "name": "a",
+                    "qualified_name": "mod::a",
+                    "file_path": "src/mod.py",
+                    "start_line": 1,
+                    "end_line": 5,
+                    "language": "python",
+                    "annotation_status": "annotated",
+                    "content_hash": "new",
+                    "annotated_content_hash": "old",
+                },
+                {
+                    "kind": "function",
+                    "name": "b",
+                    "qualified_name": "mod::b",
+                    "file_path": "src/mod.py",
+                    "start_line": 6,
+                    "end_line": 10,
+                    "language": "python",
+                    "annotation_status": "annotated",
+                    "content_hash": "new",
+                    "annotated_content_hash": "old",
+                },
+            ]
+        )
+        result = validate_graph(scope=["mod::a"], checks=["stale_annotations"])
+        stale_nodes = [i["node"] for i in result["issues"]]
+        assert "mod::a" in stale_nodes
+        assert "mod::b" not in stale_nodes
+
+    def test_validate_checks_filter(self, graph_store: GraphStore):
+        """Only requested checks are run."""
+        result = validate_graph(checks=["dangling_edges"])
+        assert result["summary"]["checks_run"] == 1
+
+    def test_validate_defaults_to_last_diff_scope(self, graph_store: GraphStore):
+        """When scope is None and _last_diff exists, use changed files."""
+        graph_store.upsert_nodes(
+            [
+                {
+                    "kind": "function",
+                    "name": "a",
+                    "qualified_name": "a::a",
+                    "file_path": "src/a.py",
+                    "start_line": 1,
+                    "end_line": 5,
+                    "language": "python",
+                },
+                {
+                    "kind": "function",
+                    "name": "b",
+                    "qualified_name": "b::b",
+                    "file_path": "src/b.py",
+                    "start_line": 1,
+                    "end_line": 5,
+                    "language": "python",
+                },
+            ]
+        )
+        server_main._last_diff = {
+            "nodes_added": [{"file_path": "src/a.py", "qualified_name": "a::a"}],
+            "nodes_removed": [],
+            "nodes_modified": [],
+        }
+        result = validate_graph(checks=["orphan_nodes"])
+        orphan_nodes = [i["node"] for i in result["issues"] if i["check"] == "orphan_nodes"]
+        assert "a::a" in orphan_nodes
+        assert "b::b" not in orphan_nodes
+        server_main._last_diff = None
+
+    def test_validate_return_format(self, graph_store: GraphStore):
+        """Return value has the expected structure."""
+        result = validate_graph()
+        assert "passed" in result
+        assert "issues" in result
+        assert "summary" in result
+        assert "checks_run" in result["summary"]
+        assert "errors" in result["summary"]
+        assert "warnings" in result["summary"]
+        assert "passed" in result["summary"]

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -172,13 +173,15 @@ class Indexer:
     def index_all(self) -> IndexStats:
         """Full index: discover all files, parse, extract, resolve, store."""
         stats = IndexStats()
+        version = self.graph_store.increment_graph_version()
         files = discover_files(self.root_path)
-        self._index_files(files, stats)
+        self._index_files(files, stats, graph_version=version)
         return stats
 
     def index_changed(self) -> IndexStats:
         """Incremental index: only process changed files."""
         stats = IndexStats()
+        version = self.graph_store.increment_graph_version()
         changes = detect_changes(self.root_path, self.graph_store)
 
         # Delete removed files
@@ -195,11 +198,11 @@ class Indexer:
         # Index new + modified files
         files_to_index = changes.new + changes.modified
         if files_to_index:
-            self._index_files(files_to_index, stats)
+            self._index_files(files_to_index, stats, graph_version=version)
 
         return stats
 
-    def _index_files(self, files: list[Path], stats: IndexStats) -> None:
+    def _index_files(self, files: list[Path], stats: IndexStats, *, graph_version: int = 0) -> None:
         """Core indexing logic for a list of files.
 
         1. Parse each file, extract definitions/imports/calls
@@ -270,6 +273,14 @@ class Indexer:
             # Content hash
             content_hash = compute_file_hash(abs_path)
 
+            # Read file source for definition-level content hashing
+            try:
+                source_lines = abs_path.read_text(encoding="utf-8", errors="replace").splitlines(
+                    True
+                )
+            except Exception:
+                source_lines = []
+
             # File node
             file_qname = f"file::{rel_str}"
             file_qnames[rel_str] = file_qname
@@ -283,6 +294,7 @@ class Indexer:
                     "end_line": None,
                     "language": language,
                     "content_hash": content_hash,
+                    "graph_version": graph_version,
                 }
             )
 
@@ -296,6 +308,14 @@ class Indexer:
                 else:
                     qname = f"{module_path}::{defn.qualified_name}"
 
+                # Compute definition-level content hash from source lines.
+                def_hash = None
+                if source_lines and defn.start_line and defn.end_line:
+                    start = max(0, defn.start_line - 1)
+                    end = min(len(source_lines), defn.end_line)
+                    snippet = "".join(source_lines[start:end])
+                    def_hash = hashlib.sha256(snippet.encode("utf-8")).hexdigest()
+
                 all_nodes.append(
                     {
                         "kind": defn.kind,
@@ -305,6 +325,8 @@ class Indexer:
                         "start_line": defn.start_line,
                         "end_line": defn.end_line,
                         "language": defn.language,
+                        "content_hash": def_hash,
+                        "graph_version": graph_version,
                     }
                 )
 

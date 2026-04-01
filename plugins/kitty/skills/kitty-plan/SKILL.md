@@ -36,15 +36,17 @@ Call `index_codebase(full=false)` to ensure the graph is fresh.
 
 2. **Search for target nodes** — Call `search` with 2-4 feature-area keywords extracted from the feature description or requirements. Collect the matching qualified names, file paths, summaries, tags, and roles.
 
-3. **File structures** — Call `get_file_structure` on the top 3-5 files identified by search results. Capture the full node listings with their kinds, summaries, tags, and roles.
+3. **Context summary** — Call `get_context_summary(file_paths=[top 3-5 files from search])` for a token-efficient overview of file structures, node listings, and key metadata. This replaces N x `get_file_structure` calls.
 
-4. **Key symbol details** — Call `query_node` on the 3-5 most important symbols from search results (classes, entry points, core functions). Capture their metadata, neighbors, and edge kinds.
+4. **Key symbol details** — Call `batch_query_nodes(names=[3-5 most important symbols], include_neighbors=true)` for detailed info on multiple symbols at once. This replaces N x `query_node` calls.
 
-5. **Dependency context** — Call `find_dependencies` on the primary target symbols (depth 2-3) to understand what the target area relies on. Call `find_dependents` on the same symbols (depth 2-3) to understand what relies on the target area.
+5. **Importance ranking** — Call `rank_nodes(scope=target_files, limit=10)` to identify the most structurally important symbols in the target area. Include importance scores in the context passed to research agents.
 
-6. **Flow-specific context** — Call `find_dependencies(edge_kinds=["calls"])` on entry points at depth 3-4 to pre-compute the call chains the flow-analyzer needs.
+6. **Dependency context** — Call `find_dependencies` on the primary target symbols (depth 2-3) to understand what the target area relies on. Call `find_dependents` on the same symbols (depth 2-3) to understand what relies on the target area.
 
-7. **Impact-specific context** — Call `find_dependents` on the symbols most likely to be changed, at depth 3-4, to pre-compute the transitive blast radius the impact-analyst needs.
+7. **Flow-specific context** — Call `find_dependencies(edge_kinds=["calls"])` on entry points at depth 3-4 to pre-compute the call chains the flow-analyzer needs.
+
+8. **Impact-specific context** — Call `find_dependents` on the symbols most likely to be changed, at depth 3-4, to pre-compute the transitive blast radius the impact-analyst needs.
 
 **Format the context as structured text using this template:**
 
@@ -75,6 +77,12 @@ Call `index_codebase(full=false)` to ensure the graph is fresh.
   - calls -> `other::symbol` (role: Z)
   - imports -> `another::module` (role: W)
   - inherits -> `base::Class` (role: V)
+
+### Importance Ranking (from rank_nodes)
+| Qualified Name | Score | Kind | Role |
+|---|---|---|---|
+| critical::symbol | 0.95 | class | core |
+| important::helper | 0.72 | function | utility |
 
 ### Transitive Dependencies (what target area depends on)
 - Depth 1: `dep::symbol` (kind, role)
