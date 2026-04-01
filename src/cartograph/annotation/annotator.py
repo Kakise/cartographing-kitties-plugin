@@ -281,6 +281,7 @@ def write_annotations(
                     "summary": result.summary,
                     "annotation_status": "annotated",
                     "content_hash": node.get("content_hash"),
+                    "annotated_content_hash": node.get("content_hash"),
                     "properties": {
                         **existing_props,
                         "tags": tags,

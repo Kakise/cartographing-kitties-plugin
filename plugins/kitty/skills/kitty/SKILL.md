@@ -25,7 +25,13 @@ functions, classes, modules, imports, calls, and inheritance — not just text m
 | What imports/calls/inherits X? | Cartographing Kittens (`find_dependents`, `query_node`) |
 | What does X depend on? | Cartographing Kittens (`find_dependencies`) |
 | What's in this file and how does it connect? | Cartographing Kittens (`get_file_structure`) |
+| Token-efficient overview of multiple files | Cartographing Kittens (`get_context_summary`) |
+| Look up multiple symbols at once | Cartographing Kittens (`batch_query_nodes`) |
 | What breaks if I change Y? | Cartographing Kittens (`find_dependents`) |
+| What's most important in this area? | Cartographing Kittens (`rank_nodes`) |
+| Structural diff after changes | Cartographing Kittens (`graph_diff`) |
+| Structural health checks | Cartographing Kittens (`validate_graph`) |
+| Stale annotations after code changes | Cartographing Kittens (`find_stale_annotations`) |
 | Code by concept/domain ("authentication", "payment") | Cartographing Kittens (`search`) — after annotation |
 | A specific string/pattern/TODO | grep/glob |
 
@@ -34,25 +40,45 @@ functions, classes, modules, imports, calls, and inheritance — not just text m
 When you get a request, follow this mental model and delegate to the appropriate sub-skill:
 
 1. **Structural/relational question?** (definitions, imports, call chains, file contents, class hierarchy)
-   → Use **`kitty:explore`** — start with `query_node` or `get_file_structure`.
+   → Use **`kitty:explore`** — uses `get_context_summary`, `batch_query_nodes`, `rank_nodes` for efficient multi-file/multi-symbol exploration.
 
 2. **Planning a change?** (blast radius, what breaks, dependency analysis)
-   → Use **`kitty:impact`** — start with `find_dependents`.
+   → Use **`kitty:impact`** — uses `find_dependents`, `find_dependencies`, `rank_nodes`, `validate_graph` for comprehensive impact context.
 
-3. **Semantic/domain question?** ("find all auth code", "what handles payments?")
+3. **Verifying structural health?** (cycles, orphans, missing edges)
+   → Use `validate_graph(scope=...)` directly, or **`kitty:impact`** for full analysis.
+
+4. **What's most important here?** (key symbols, high-connectivity nodes)
+   → Use `rank_nodes(scope=..., kind=..., limit=N)` directly, or through **`kitty:explore`**.
+
+5. **What changed structurally?** (after code modifications)
+   → Use `graph_diff(file_paths=[...])` after `index_codebase()` to see structural diffs.
+
+6. **Semantic/domain question?** ("find all auth code", "what handles payments?")
    → Check `annotation_status`. If many nodes are pending, use **`kitty:annotate`**
-   first, then `search`.
+   first, then `search`. Use `find_stale_annotations` to detect outdated annotations.
 
-4. **Plain text search?** (string literal, error message, TODO)
+7. **Plain text search?** (string literal, error message, TODO)
    → Fall back to grep/glob. Cartographing Kittens isn't a text search engine.
 
 ## Tool skills
 
 | Sub-skill | Purpose |
 |---|---|
-| `kitty:explore` | Structural exploration — browse definitions, imports, relationships |
-| `kitty:impact` | Impact analysis — blast radius, dependency chains, refactor planning |
+| `kitty:explore` | Structural exploration — browse definitions, imports, relationships, importance |
+| `kitty:impact` | Impact analysis — blast radius, dependency chains, importance, structural health |
 | `kitty:annotate` | Enrich graph with summaries and tags for semantic search |
+
+## Direct tools (for ad-hoc use outside sub-skills)
+
+| Tool | Purpose |
+|---|---|
+| `graph_diff` | Structural diff after indexing — see what changed |
+| `validate_graph` | Structural health checks — cycles, orphans, missing edges |
+| `batch_query_nodes` | Multi-node query — look up several symbols at once |
+| `get_context_summary` | Token-efficient context — overview of files and symbols |
+| `find_stale_annotations` | Detect annotations invalidated by code changes |
+| `rank_nodes` | Importance scoring — find the most connected/critical symbols |
 
 ## Workflow skills
 

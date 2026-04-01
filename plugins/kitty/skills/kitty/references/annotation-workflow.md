@@ -89,6 +89,66 @@ The server provides a default set of tags. Use these when they fit:
 Don't limit yourself to these — if the code is about "payment processing" or
 "websocket management", create that tag. The taxonomy grows organically.
 
+## Stale Annotation Re-annotation
+
+After code changes, previously annotated nodes may have outdated summaries, tags, and
+roles. The graph tracks this automatically via content hashing — when source code changes
+but the annotation does not, the node is marked stale.
+
+### 1. Detect staleness
+
+```
+annotation_status()
+```
+
+Check the `stale` count. If `stale` is 0, all annotations are current. If `stale` > 0,
+proceed.
+
+### 2. Find stale nodes
+
+```
+find_stale_annotations()
+```
+
+Returns nodes whose `content_hash` no longer matches their `annotated_content_hash`.
+Each node includes a `reason` field (e.g. `"content_hash_changed"`).
+
+### 3. Re-fetch context
+
+```
+get_pending_annotations(batch_size=10)
+```
+
+Stale nodes appear as pending for re-annotation. This returns them with their updated
+source code, file context, and neighbor information.
+
+### 4. Re-annotate
+
+```
+submit_annotations(annotations=[
+  {
+    "qualified_name": "services.user::UserService",
+    "summary": "Updated summary reflecting new validation logic",
+    "tags": ["service", "database", "validation"],
+    "role": "Business logic layer"
+  },
+  ...
+])
+```
+
+On success, `submit_annotations` updates the `annotated_content_hash` to match the
+current `content_hash`, clearing the staleness.
+
+### 5. Verify
+
+```
+annotation_status()
+```
+
+The `stale` count should now be 0. If not, repeat from step 2 for remaining nodes.
+
+---
+
 ## Consuming annotations
 
 Annotations are not just for search — they are consumed by all Cartographing Kittensing Kittens agents

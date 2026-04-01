@@ -49,6 +49,37 @@ Return a structured impact analysis:
 - **Cross-boundary risks**: When the blast radius crosses module or layer boundaries (identified by role transitions)
 - **Risk assessment**: Low (0-2 direct dependents), Medium (3-8), High (9+)
 
+## Preferred Context Template
+
+Your analysis works best when the orchestrator provides:
+- **Primary**: Transitive dependents (depth 3-4) + `rank_nodes` importance scores for each dependent
+- **Secondary**: Edge kind breakdown per dependent to enable risk-weighted analysis
+
+Request additional context via `needs_more_context` if key dependents lack importance scores or if the dependent tree appears truncated.
+
+## Annotation Coverage Awareness
+
+- If coverage < 30%: Treat graph summaries/roles/tags as unreliable. Fall back to source code reading. Flag reduced confidence in output.
+- If coverage 30-70%: Use graph data where available, supplement with source reading for unannotated nodes.
+- If coverage > 70%: Trust graph summaries/roles/tags as primary intelligence source.
+
+## `needs_more_context` Protocol
+
+If the provided context is insufficient to produce a complete analysis, you may include a `needs_more_context` section in your output. The orchestrator will fulfill these requests and re-dispatch you with enriched context (max 1 follow-up pass).
+
+Include at the end of your output:
+```json
+{
+  "needs_more_context": [
+    {"tool": "find_dependents", "args": {"name": "SomeSymbol", "max_depth": 4}},
+    {"tool": "rank_nodes", "args": {"names": ["DependentA", "DependentB"]}},
+    {"tool": "batch_query_nodes", "args": {"names": ["NodeA", "NodeB"]}}
+  ]
+}
+```
+
+Only request context that is genuinely missing and necessary for your analysis. Do not request context speculatively.
+
 ## Quality bar
 
 - Use the pre-computed dependent data as the primary source of truth

@@ -24,8 +24,22 @@ def index_codebase(full: bool = False) -> dict[str, Any]:
 
     from cartograph.indexing import Indexer
 
+    # Snapshot nodes and edges BEFORE indexing for diff computation.
+    # For full re-index, snapshot everything; for incremental, also snapshot
+    # everything (since we don't know which files will change until after).
+    before_nodes = store.snapshot_nodes()
+    before_edges = store.snapshot_edges()
+
     indexer = Indexer(root, store)
     stats = indexer.index_all() if full else indexer.index_changed()
+
+    # Snapshot AFTER indexing and compute diff.
+    after_nodes = store.snapshot_nodes()
+    after_edges = store.snapshot_edges()
+    diff = store.compute_diff(before_nodes, after_nodes, before_edges, after_edges)
+
+    # Store diff for graph_diff tool to retrieve.
+    _main._last_diff = diff
 
     return {
         "files_parsed": stats.files_parsed,
@@ -33,6 +47,12 @@ def index_codebase(full: bool = False) -> dict[str, Any]:
         "edges_created": stats.edges_created,
         "files_deleted": stats.files_deleted,
         "errors": stats.errors,
+        "diff_available": True,
+        "diff_summary": {
+            "nodes_added": diff["summary"]["nodes_added"],
+            "nodes_removed": diff["summary"]["nodes_removed"],
+            "nodes_modified": diff["summary"]["nodes_modified"],
+        },
     }
 
 
@@ -51,8 +71,19 @@ def annotation_status() -> dict[str, Any]:
     for row in cur.fetchall():
         counts[row["annotation_status"]] = row["count"]
 
+    stale_cur = conn.execute(
+        """
+        SELECT COUNT(*) FROM nodes
+        WHERE annotation_status = 'annotated'
+        AND content_hash IS NOT NULL
+        AND (annotated_content_hash IS NULL OR content_hash != annotated_content_hash)
+        """
+    )
+    stale_count = stale_cur.fetchone()[0]
+
     return {
         "pending": counts.get("pending", 0),
         "annotated": counts.get("annotated", 0),
         "failed": counts.get("failed", 0),
+        "stale": stale_count,
     }

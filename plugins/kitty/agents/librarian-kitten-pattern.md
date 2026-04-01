@@ -42,6 +42,37 @@ Return a structured pattern analysis:
 - **Anti-patterns**: Any inconsistencies or deviations from the dominant pattern
 - **Recommendation**: Which pattern to follow and why
 
+## Preferred Context Template
+
+Your analysis works best when the orchestrator provides:
+- **Primary**: Search results + file structures + `batch_query_nodes` for multi-symbol detail on pattern anchors (base classes, interfaces, mixins)
+- **Secondary**: Symbol details with neighbor relationships to assess pattern adoption breadth
+
+Request additional context via `needs_more_context` if you identify pattern anchors whose adopters are not included in the provided context.
+
+## Annotation Coverage Awareness
+
+- If coverage < 30%: Treat graph summaries/roles/tags as unreliable. Fall back to source code reading. Flag reduced confidence in output.
+- If coverage 30-70%: Use graph data where available, supplement with source reading for unannotated nodes.
+- If coverage > 70%: Trust graph summaries/roles/tags as primary intelligence source.
+
+## `needs_more_context` Protocol
+
+If the provided context is insufficient to produce a complete analysis, you may include a `needs_more_context` section in your output. The orchestrator will fulfill these requests and re-dispatch you with enriched context (max 1 follow-up pass).
+
+Include at the end of your output:
+```json
+{
+  "needs_more_context": [
+    {"tool": "find_dependents", "args": {"name": "BaseClass", "max_depth": 2}},
+    {"tool": "batch_query_nodes", "args": {"names": ["PatternA", "PatternB"]}},
+    {"tool": "get_file_structure", "args": {"file_path": "src/some/file.py"}}
+  ]
+}
+```
+
+Only request context that is genuinely missing and necessary for your analysis. Do not request context speculatively.
+
 ## Quality bar
 
 - Quantify pattern adoption (e.g., "12 of 15 service classes follow this pattern")

@@ -42,8 +42,9 @@ class GraphStore:
                 """
                 INSERT INTO nodes (kind, name, qualified_name, file_path,
                                    start_line, end_line, language, summary,
-                                   annotation_status, content_hash, properties)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                   annotation_status, content_hash, properties,
+                                   annotated_content_hash, graph_version)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(qualified_name) DO UPDATE SET
                     kind = excluded.kind,
                     name = excluded.name,
@@ -70,6 +71,13 @@ class GraphStore:
                         THEN nodes.properties
                         ELSE excluded.properties
                     END,
+                    annotated_content_hash = CASE
+                        WHEN nodes.annotation_status IN ('annotated', 'failed')
+                             AND excluded.annotation_status = 'pending'
+                        THEN nodes.annotated_content_hash
+                        ELSE excluded.annotated_content_hash
+                    END,
+                    graph_version = excluded.graph_version,
                     updated_at = datetime('now')
                 """,
                 (
@@ -84,6 +92,8 @@ class GraphStore:
                     node.get("annotation_status", "pending"),
                     node.get("content_hash"),
                     props,
+                    node.get("annotated_content_hash"),
+                    node.get("graph_version", 0),
                 ),
             )
             ids.append(cur.lastrowid)  # type: ignore[arg-type]
@@ -133,11 +143,13 @@ class GraphStore:
                 props = json.dumps(props)
             self._conn.execute(
                 """
-                INSERT INTO edges (source_id, target_id, kind, weight, properties)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO edges (source_id, target_id, kind, weight, properties,
+                                   updated_at)
+                VALUES (?, ?, ?, ?, ?, datetime('now'))
                 ON CONFLICT(source_id, target_id, kind) DO UPDATE SET
                     weight = excluded.weight,
-                    properties = excluded.properties
+                    properties = excluded.properties,
+                    updated_at = datetime('now')
                 """,
                 (
                     edge["source_id"],
@@ -278,6 +290,163 @@ class GraphStore:
         return [_row_to_dict(r) for r in cur.fetchall()]
 
     # ------------------------------------------------------------------
+    # Stale annotation detection
+    # ------------------------------------------------------------------
+
+    def find_stale_nodes(
+        self,
+        file_paths: list[str] | None = None,
+        limit: int = 50,
+    ) -> list[dict[str, Any]]:
+        """Find annotated nodes whose content has changed since annotation.
+
+        A node is stale when ``annotation_status = 'annotated'`` and either
+        ``annotated_content_hash`` is NULL (pre-migration node) or it differs
+        from the current ``content_hash``.
+        """
+        clauses: list[str] = [
+            "annotation_status = 'annotated'",
+            "content_hash IS NOT NULL",
+            "(annotated_content_hash IS NULL OR content_hash != annotated_content_hash)",
+        ]
+        params: list[Any] = []
+        if file_paths:
+            placeholders = ", ".join("?" for _ in file_paths)
+            clauses.append(f"file_path IN ({placeholders})")
+            params.extend(file_paths)
+        params.append(limit)
+        where = " AND ".join(clauses)
+        cur = self._conn.execute(
+            f"SELECT * FROM nodes WHERE {where} LIMIT ?",
+            params,  # noqa: S608
+        )
+        return [_row_to_dict(r) for r in cur.fetchall()]
+
+    # ------------------------------------------------------------------
+    # Context summary
+    # ------------------------------------------------------------------
+
+    def context_summary(
+        self,
+        file_paths: list[str] | None = None,
+        qualified_names: list[str] | None = None,
+        max_nodes: int = 50,
+    ) -> list[dict[str, Any]]:
+        """Return nodes with in_degree counts, filtered by file paths or qualified names.
+
+        Results are ordered by in_degree descending and limited to *max_nodes*.
+        """
+        clauses: list[str] = []
+        params: list[Any] = []
+
+        if file_paths:
+            placeholders = ", ".join("?" for _ in file_paths)
+            clauses.append(f"n.file_path IN ({placeholders})")
+            params.extend(file_paths)
+        if qualified_names:
+            placeholders = ", ".join("?" for _ in qualified_names)
+            clauses.append(f"n.qualified_name IN ({placeholders})")
+            params.extend(qualified_names)
+
+        where = " AND ".join(clauses) if clauses else "1=1"
+        params.append(max_nodes)
+
+        sql = f"""
+            SELECT n.*, COALESCE(ec.cnt, 0) AS in_degree
+            FROM nodes n
+            LEFT JOIN (
+                SELECT target_id, COUNT(*) AS cnt
+                FROM edges
+                GROUP BY target_id
+            ) ec ON ec.target_id = n.id
+            WHERE {where}
+            ORDER BY in_degree DESC
+            LIMIT ?
+        """
+        cur = self._conn.execute(sql, params)
+        return [_row_to_dict(r) for r in cur.fetchall()]
+
+    # ------------------------------------------------------------------
+    # Ranking
+    # ------------------------------------------------------------------
+
+    def rank_by_in_degree(
+        self,
+        scope_file_paths: list[str] | None = None,
+        scope_qnames: list[str] | None = None,
+        kind: str | None = None,
+        limit: int = 20,
+    ) -> list[dict[str, Any]]:
+        """Return nodes ranked by incoming edge count (in-degree).
+
+        Each returned dict has extra keys ``in_degree`` and ``out_degree``.
+        """
+        clauses: list[str] = []
+        params: list[Any] = []
+
+        if scope_file_paths:
+            placeholders = ", ".join("?" for _ in scope_file_paths)
+            clauses.append(f"n.file_path IN ({placeholders})")
+            params.extend(scope_file_paths)
+
+        if scope_qnames:
+            placeholders = ", ".join("?" for _ in scope_qnames)
+            clauses.append(f"n.qualified_name IN ({placeholders})")
+            params.extend(scope_qnames)
+
+        if kind is not None:
+            clauses.append("n.kind = ?")
+            params.append(kind)
+
+        where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+        params.append(limit)
+
+        sql = f"""
+            SELECT n.*,
+                   COUNT(e.id) AS in_degree,
+                   (SELECT COUNT(*) FROM edges e2 WHERE e2.source_id = n.id) AS out_degree
+            FROM nodes n
+            LEFT JOIN edges e ON e.target_id = n.id
+            {where}
+            GROUP BY n.id
+            ORDER BY in_degree DESC
+            LIMIT ?
+        """
+        cur = self._conn.execute(sql, params)
+        return [_row_to_dict(r) for r in cur.fetchall()]
+
+    def rank_by_transitive(
+        self,
+        scope_qnames: list[str] | None = None,
+        limit: int = 20,
+    ) -> list[dict[str, Any]]:
+        """Return nodes ranked by transitive reverse-dependency count.
+
+        If *scope_qnames* is provided, only those nodes are considered.
+        Otherwise all nodes are considered (capped at 50 to avoid expensive
+        recursive queries).
+        """
+        if scope_qnames:
+            nodes: list[dict[str, Any]] = []
+            for qn in scope_qnames[:50]:
+                node = self.get_node_by_name(qn)
+                if node is not None:
+                    nodes.append(node)
+        else:
+            # Grab top candidates by raw in-degree first, then refine.
+            nodes = self.rank_by_in_degree(limit=50)
+
+        scored: list[dict[str, Any]] = []
+        for node in nodes:
+            rdeps = self.reverse_dependencies(node["id"])
+            node_copy = dict(node)
+            node_copy["transitive_count"] = len(rdeps)
+            scored.append(node_copy)
+
+        scored.sort(key=lambda n: n["transitive_count"], reverse=True)
+        return scored[:limit]
+
+    # ------------------------------------------------------------------
     # Re-indexing support
     # ------------------------------------------------------------------
 
@@ -310,8 +479,9 @@ class GraphStore:
                     """
                     INSERT INTO nodes (kind, name, qualified_name, file_path,
                                        start_line, end_line, language, summary,
-                                       annotation_status, content_hash, properties)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                       annotation_status, content_hash, properties,
+                                       annotated_content_hash, graph_version)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT(qualified_name) DO UPDATE SET
                         kind = excluded.kind,
                         name = excluded.name,
@@ -338,6 +508,13 @@ class GraphStore:
                             THEN nodes.properties
                             ELSE excluded.properties
                         END,
+                        annotated_content_hash = CASE
+                            WHEN nodes.annotation_status IN ('annotated', 'failed')
+                                 AND excluded.annotation_status = 'pending'
+                            THEN nodes.annotated_content_hash
+                            ELSE excluded.annotated_content_hash
+                        END,
+                        graph_version = excluded.graph_version,
                         updated_at = datetime('now')
                     """,
                     (
@@ -352,6 +529,8 @@ class GraphStore:
                         node.get("annotation_status", "pending"),
                         node.get("content_hash"),
                         props,
+                        node.get("annotated_content_hash"),
+                        node.get("graph_version", 0),
                     ),
                 )
                 ids.append(cur.lastrowid)  # type: ignore[arg-type]
@@ -366,11 +545,13 @@ class GraphStore:
                     props = json.dumps(props)
                 self._conn.execute(
                     """
-                    INSERT INTO edges (source_id, target_id, kind, weight, properties)
-                    VALUES (?, ?, ?, ?, ?)
+                    INSERT INTO edges (source_id, target_id, kind, weight, properties,
+                                       updated_at)
+                    VALUES (?, ?, ?, ?, ?, datetime('now'))
                     ON CONFLICT(source_id, target_id, kind) DO UPDATE SET
                         weight = excluded.weight,
-                        properties = excluded.properties
+                        properties = excluded.properties,
+                        updated_at = datetime('now')
                     """,
                     (
                         edge["source_id"],
@@ -380,6 +561,337 @@ class GraphStore:
                         props,
                     ),
                 )
+
+    # ------------------------------------------------------------------
+    # Graph versioning
+    # ------------------------------------------------------------------
+
+    def get_graph_version(self) -> int:
+        """Return the current graph version counter."""
+        row = self._conn.execute("SELECT graph_version FROM graph_meta WHERE id = 1").fetchone()
+        return int(row[0]) if row else 0
+
+    def increment_graph_version(self) -> int:
+        """Atomically increment and return the new graph version."""
+        self._conn.execute("UPDATE graph_meta SET graph_version = graph_version + 1 WHERE id = 1")
+        self._conn.commit()
+        return self.get_graph_version()
+
+    # ------------------------------------------------------------------
+    # Diff support
+    # ------------------------------------------------------------------
+
+    def snapshot_nodes(self, file_paths: list[str] | None = None) -> dict[str, dict[str, Any]]:
+        """Return a snapshot of {qualified_name: {kind, name, file_path, content_hash}}.
+
+        If *file_paths* is provided, only snapshot nodes belonging to those files.
+        Otherwise snapshot all nodes.
+        """
+        if file_paths is not None:
+            placeholders = ", ".join("?" for _ in file_paths)
+            sql = f"""
+                SELECT qualified_name, kind, name, file_path, content_hash
+                FROM nodes WHERE file_path IN ({placeholders})
+            """
+            cur = self._conn.execute(sql, file_paths)
+        else:
+            cur = self._conn.execute(
+                "SELECT qualified_name, kind, name, file_path, content_hash FROM nodes"
+            )
+        return {row["qualified_name"]: dict(row) for row in cur.fetchall()}
+
+    def snapshot_edges(self, file_paths: list[str] | None = None) -> list[dict[str, Any]]:
+        """Return a snapshot of edges as [{source, target, kind}].
+
+        Uses qualified_name as the stable key (not node IDs which change
+        across delete/reinsert).  If *file_paths* is given, limit to edges
+        where at least one endpoint belongs to those files.
+        """
+        if file_paths is not None:
+            placeholders = ", ".join("?" for _ in file_paths)
+            sql = f"""
+                SELECT sn.qualified_name AS source, tn.qualified_name AS target, e.kind
+                FROM edges e
+                JOIN nodes sn ON sn.id = e.source_id
+                JOIN nodes tn ON tn.id = e.target_id
+                WHERE sn.file_path IN ({placeholders}) OR tn.file_path IN ({placeholders})
+            """
+            cur = self._conn.execute(sql, list(file_paths) + list(file_paths))
+        else:
+            cur = self._conn.execute("""
+                SELECT sn.qualified_name AS source, tn.qualified_name AS target, e.kind
+                FROM edges e
+                JOIN nodes sn ON sn.id = e.source_id
+                JOIN nodes tn ON tn.id = e.target_id
+            """)
+        return [dict(row) for row in cur.fetchall()]
+
+    def compute_diff(
+        self,
+        before_nodes: dict[str, dict[str, Any]],
+        after_nodes: dict[str, dict[str, Any]],
+        before_edges: list[dict[str, Any]],
+        after_edges: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        """Compute a structural diff between two snapshots.
+
+        Returns the canonical diff dict with nodes_added, nodes_removed,
+        nodes_modified, edges_added, edges_removed, and summary.
+        """
+        before_qnames = set(before_nodes)
+        after_qnames = set(after_nodes)
+
+        added_qnames = after_qnames - before_qnames
+        removed_qnames = before_qnames - after_qnames
+        common_qnames = before_qnames & after_qnames
+
+        nodes_added = [
+            {
+                "qualified_name": qn,
+                "kind": after_nodes[qn]["kind"],
+                "name": after_nodes[qn]["name"],
+                "file_path": after_nodes[qn]["file_path"],
+            }
+            for qn in sorted(added_qnames)
+        ]
+
+        nodes_removed = [
+            {
+                "qualified_name": qn,
+                "kind": before_nodes[qn]["kind"],
+                "name": before_nodes[qn]["name"],
+                "file_path": before_nodes[qn]["file_path"],
+            }
+            for qn in sorted(removed_qnames)
+        ]
+
+        nodes_modified = []
+        for qn in sorted(common_qnames):
+            changes: list[str] = []
+            if before_nodes[qn].get("content_hash") != after_nodes[qn].get("content_hash"):
+                changes.append("content_hash_changed")
+            if changes:
+                nodes_modified.append(
+                    {
+                        "qualified_name": qn,
+                        "kind": after_nodes[qn]["kind"],
+                        "file_path": after_nodes[qn]["file_path"],
+                        "changes": changes,
+                    }
+                )
+
+        # Edge diff using (source, target, kind) tuples.
+        before_edge_set = {(e["source"], e["target"], e["kind"]) for e in before_edges}
+        after_edge_set = {(e["source"], e["target"], e["kind"]) for e in after_edges}
+
+        edges_added = [
+            {"source": s, "target": t, "kind": k}
+            for s, t, k in sorted(after_edge_set - before_edge_set)
+        ]
+        edges_removed = [
+            {"source": s, "target": t, "kind": k}
+            for s, t, k in sorted(before_edge_set - after_edge_set)
+        ]
+
+        files_affected: set[str] = set()
+        for lst in (nodes_added, nodes_removed, nodes_modified):
+            for n in lst:
+                if n.get("file_path"):
+                    files_affected.add(n["file_path"])
+
+        return {
+            "nodes_added": nodes_added,
+            "nodes_removed": nodes_removed,
+            "nodes_modified": nodes_modified,
+            "edges_added": edges_added,
+            "edges_removed": edges_removed,
+            "summary": {
+                "files_affected": len(files_affected),
+                "nodes_added": len(nodes_added),
+                "nodes_removed": len(nodes_removed),
+                "nodes_modified": len(nodes_modified),
+                "edges_added": len(edges_added),
+                "edges_removed": len(edges_removed),
+            },
+        }
+
+    # ------------------------------------------------------------------
+    # Validation
+    # ------------------------------------------------------------------
+
+    def validate_nodes(
+        self,
+        file_paths: list[str] | None = None,
+        qualified_names: list[str] | None = None,
+        checks: list[str] | None = None,
+    ) -> list[dict[str, Any]]:
+        """Run integrity checks on the graph and return a list of issues.
+
+        Each issue is a dict with at least ``check``, ``severity``, and
+        ``message`` keys.  Additional keys depend on the check type.
+
+        Parameters
+        ----------
+        file_paths:
+            Limit scope to nodes belonging to these files.
+        qualified_names:
+            Limit scope to these specific qualified names.
+        checks:
+            Subset of ``"dangling_edges"``, ``"orphan_nodes"``,
+            ``"stale_annotations"``.  *None* means run all checks.
+        """
+        all_checks = {"dangling_edges", "orphan_nodes", "stale_annotations"}
+        active = set(checks) & all_checks if checks else all_checks
+        issues: list[dict[str, Any]] = []
+
+        if "dangling_edges" in active:
+            issues.extend(self._check_dangling_edges(file_paths, qualified_names))
+        if "orphan_nodes" in active:
+            issues.extend(self._check_orphan_nodes(file_paths, qualified_names))
+        if "stale_annotations" in active:
+            issues.extend(self._check_stale_annotations(file_paths, qualified_names))
+
+        return issues
+
+    def _check_dangling_edges(
+        self,
+        file_paths: list[str] | None = None,
+        qualified_names: list[str] | None = None,
+    ) -> list[dict[str, Any]]:
+        """Find edges whose source or target node doesn't exist."""
+        # With FK constraints + CASCADE this is rare, but we check anyway.
+        # We look for edges where LEFT JOIN on source or target yields NULL.
+        scope_clause, params = self._build_edge_scope(file_paths, qualified_names)
+
+        sql = f"""
+            SELECT e.id, e.kind,
+                   sn.qualified_name AS source_qname,
+                   tn.qualified_name AS target_qname,
+                   e.source_id, e.target_id
+            FROM edges e
+            LEFT JOIN nodes sn ON sn.id = e.source_id
+            LEFT JOIN nodes tn ON tn.id = e.target_id
+            WHERE (sn.id IS NULL OR tn.id IS NULL)
+            {scope_clause}
+        """
+        cur = self._conn.execute(sql, params)
+        issues: list[dict[str, Any]] = []
+        for row in cur.fetchall():
+            r = dict(row)
+            issues.append(
+                {
+                    "check": "dangling_edges",
+                    "severity": "error",
+                    "message": "Edge references non-existent "
+                    + ("source" if r["source_qname"] is None else "target")
+                    + " node",
+                    "source": r["source_qname"] or f"<missing id={r['source_id']}>",
+                    "target": r["target_qname"] or f"<missing id={r['target_id']}>",
+                    "edge_kind": r["kind"],
+                }
+            )
+        return issues
+
+    def _check_orphan_nodes(
+        self,
+        file_paths: list[str] | None = None,
+        qualified_names: list[str] | None = None,
+    ) -> list[dict[str, Any]]:
+        """Find non-file/module nodes with zero incoming edges."""
+        scope_clauses: list[str] = [
+            "n.kind NOT IN ('file', 'module')",
+        ]
+        params: list[Any] = []
+        if file_paths:
+            placeholders = ", ".join("?" for _ in file_paths)
+            scope_clauses.append(f"n.file_path IN ({placeholders})")
+            params.extend(file_paths)
+        if qualified_names:
+            placeholders = ", ".join("?" for _ in qualified_names)
+            scope_clauses.append(f"n.qualified_name IN ({placeholders})")
+            params.extend(qualified_names)
+
+        where = " AND ".join(scope_clauses)
+        sql = f"""
+            SELECT n.qualified_name
+            FROM nodes n
+            LEFT JOIN edges e ON e.target_id = n.id
+            WHERE {where}
+            GROUP BY n.id
+            HAVING COUNT(e.id) = 0
+        """
+        cur = self._conn.execute(sql, params)
+        return [
+            {
+                "check": "orphan_nodes",
+                "severity": "warning",
+                "message": "Node has no incoming edges",
+                "node": row["qualified_name"],
+            }
+            for row in cur.fetchall()
+        ]
+
+    def _check_stale_annotations(
+        self,
+        file_paths: list[str] | None = None,
+        qualified_names: list[str] | None = None,
+    ) -> list[dict[str, Any]]:
+        """Find nodes where annotation is outdated (content changed since annotation)."""
+        clauses: list[str] = [
+            "annotation_status = 'annotated'",
+            "content_hash IS NOT NULL",
+            "(annotated_content_hash IS NULL OR content_hash != annotated_content_hash)",
+        ]
+        params: list[Any] = []
+        if file_paths:
+            placeholders = ", ".join("?" for _ in file_paths)
+            clauses.append(f"file_path IN ({placeholders})")
+            params.extend(file_paths)
+        if qualified_names:
+            placeholders = ", ".join("?" for _ in qualified_names)
+            clauses.append(f"qualified_name IN ({placeholders})")
+            params.extend(qualified_names)
+
+        where = " AND ".join(clauses)
+        cur = self._conn.execute(
+            f"SELECT qualified_name FROM nodes WHERE {where}",  # noqa: S608
+            params,
+        )
+        return [
+            {
+                "check": "stale_annotations",
+                "severity": "warning",
+                "message": "Annotation is outdated",
+                "node": row["qualified_name"],
+            }
+            for row in cur.fetchall()
+        ]
+
+    def _build_edge_scope(
+        self,
+        file_paths: list[str] | None = None,
+        qualified_names: list[str] | None = None,
+    ) -> tuple[str, list[Any]]:
+        """Build a WHERE clause fragment to scope edge checks to relevant nodes."""
+        if not file_paths and not qualified_names:
+            return "", []
+
+        parts: list[str] = []
+        params: list[Any] = []
+        if file_paths:
+            placeholders = ", ".join("?" for _ in file_paths)
+            parts.append(f"(sn.file_path IN ({placeholders}) OR tn.file_path IN ({placeholders}))")
+            params.extend(file_paths)
+            params.extend(file_paths)
+        if qualified_names:
+            placeholders = ", ".join("?" for _ in qualified_names)
+            parts.append(
+                f"(sn.qualified_name IN ({placeholders}) OR tn.qualified_name IN ({placeholders}))"
+            )
+            params.extend(qualified_names)
+            params.extend(qualified_names)
+
+        return "AND (" + " OR ".join(parts) + ")", params
 
     # ------------------------------------------------------------------
     # Utility

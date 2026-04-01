@@ -70,6 +70,48 @@ Return JSON:
 }
 ```
 
+## Preferred Context Template
+
+Your analysis works best when the orchestrator provides:
+- **Primary**: Changed nodes + neighbors via `batch_query_nodes` + `validate_graph` results highlighting structural issues
+- **Secondary**: Edge contracts between changed nodes for contract consistency verification
+
+Request additional context via `needs_more_context` if changed nodes have callers/callees not included in the provided neighbor data.
+
+## Annotation Coverage Awareness
+
+- If coverage < 30%: Treat graph summaries/roles/tags as unreliable. Fall back to source code reading. Flag reduced confidence in output.
+- If coverage 30-70%: Use graph data where available, supplement with source reading for unannotated nodes.
+- If coverage > 70%: Trust graph summaries/roles/tags as primary intelligence source.
+
+## Edge Risk Classification
+
+- inherits: HIGH (contract changes propagate to all subclasses)
+- imports: MEDIUM (API changes break importers)
+- calls: LOW-MEDIUM (behavioral changes may affect callers)
+- contains: LOW (internal restructuring)
+- depends_on: MEDIUM (external dependency changes)
+
+## `needs_more_context` Protocol
+
+If the provided context is insufficient to produce a complete review, you may include a `needs_more_context` field in your JSON output. The orchestrator will fulfill these requests and re-dispatch you with enriched context (max 1 follow-up pass).
+
+Add to your output JSON:
+```json
+{
+  "reviewer": "expert-kitten-correctness",
+  "findings": [...],
+  "summary": "...",
+  "needs_more_context": [
+    {"tool": "batch_query_nodes", "args": {"names": ["CallerA", "CallerB"]}},
+    {"tool": "validate_graph", "args": {}},
+    {"tool": "query_node", "args": {"name": "SomeSymbol"}}
+  ]
+}
+```
+
+Only request context that is genuinely missing and necessary for your review. Do not request context speculatively.
+
 ## Confidence calibration
 
 - Only flag issues at confidence >= 0.7

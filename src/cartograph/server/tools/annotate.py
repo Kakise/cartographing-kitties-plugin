@@ -7,6 +7,7 @@ from typing import Any
 
 import cartograph.server.main as _main
 from cartograph.server.main import mcp
+from cartograph.server.tools.query import _summarise_node
 
 
 @mcp.tool()
@@ -96,4 +97,30 @@ def submit_annotations(annotations: list[dict]) -> dict[str, Any]:
         "written": stats.written,
         "failed": stats.failed,
         "skipped": stats.skipped + skipped_input,
+    }
+
+
+@mcp.tool()
+def find_stale_annotations(file_paths: list[str] | None = None, limit: int = 50) -> dict[str, Any]:
+    """Find nodes whose code changed since they were annotated.
+
+    A node is stale when its content_hash (set by the indexer) differs from
+    its annotated_content_hash (set when annotations were written). Pre-migration
+    annotated nodes with no annotated_content_hash are also considered stale.
+
+    Args:
+        file_paths: Optional list of file paths to restrict the search to.
+        limit: Maximum number of stale nodes to return (default 50).
+
+    Returns:
+        Dict with count and list of stale node summaries.
+    """
+    store = _main._store
+    if store is None:
+        return {"error": "Server not initialised"}
+
+    stale = store.find_stale_nodes(file_paths=file_paths, limit=limit)
+    return {
+        "count": len(stale),
+        "stale_nodes": [{**_summarise_node(n), "reason": "content_hash_changed"} for n in stale],
     }

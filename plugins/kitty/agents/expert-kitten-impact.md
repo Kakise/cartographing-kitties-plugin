@@ -70,6 +70,48 @@ Return JSON:
 }
 ```
 
+## Preferred Context Template
+
+Your analysis works best when the orchestrator provides:
+- **Primary**: Changed nodes + weighted dependents via `rank_nodes` importance scores + edge kind breakdown per dependent
+- **Secondary**: Pre-grouped dependents by edge kind (inherits, imports, calls) for risk-weighted analysis
+
+Request additional context via `needs_more_context` if dependent trees appear truncated or importance scores are missing.
+
+## Annotation Coverage Awareness
+
+- If coverage < 30%: Treat graph summaries/roles/tags as unreliable. Fall back to source code reading. Flag reduced confidence in output.
+- If coverage 30-70%: Use graph data where available, supplement with source reading for unannotated nodes.
+- If coverage > 70%: Trust graph summaries/roles/tags as primary intelligence source.
+
+## Edge Risk Classification
+
+- inherits: HIGH (contract changes propagate to all subclasses)
+- imports: MEDIUM (API changes break importers)
+- calls: LOW-MEDIUM (behavioral changes may affect callers)
+- contains: LOW (internal restructuring)
+- depends_on: MEDIUM (external dependency changes)
+
+## `needs_more_context` Protocol
+
+If the provided context is insufficient to produce a complete review, you may include a `needs_more_context` field in your JSON output. The orchestrator will fulfill these requests and re-dispatch you with enriched context (max 1 follow-up pass).
+
+Add to your output JSON:
+```json
+{
+  "reviewer": "expert-kitten-impact",
+  "findings": [...],
+  "summary": "...",
+  "needs_more_context": [
+    {"tool": "rank_nodes", "args": {"names": ["DependentA", "DependentB"]}},
+    {"tool": "find_dependents", "args": {"name": "ChangedSymbol", "max_depth": 3}},
+    {"tool": "batch_query_nodes", "args": {"names": ["NodeA", "NodeB"]}}
+  ]
+}
+```
+
+Only request context that is genuinely missing and necessary for your review. Do not request context speculatively.
+
 ## Confidence calibration
 
 - Only flag issues at confidence >= 0.7
