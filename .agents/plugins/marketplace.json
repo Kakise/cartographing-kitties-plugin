@@ -1,0 +1,20 @@
+{
+  "name": "cartographing-kittens",
+  "interface": {
+    "displayName": "Cartographing Kittens"
+  },
+  "plugins": [
+    {
+      "name": "kitty",
+      "source": {
+        "source": "local",
+        "path": "./plugins/kitty"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}

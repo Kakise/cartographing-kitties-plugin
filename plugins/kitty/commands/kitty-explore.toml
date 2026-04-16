@@ -1,0 +1,7 @@
+description = "Explore codebase structure using the code graph"
+
+prompt = """
+Use the Cartographing Kittens code graph to explore the structure of this codebase. {{args}}
+
+Call `get_file_structure` on the specified path (or project root if none given). Then use `query_node` to drill into interesting symbols. Present findings as a structured overview.
+"""
