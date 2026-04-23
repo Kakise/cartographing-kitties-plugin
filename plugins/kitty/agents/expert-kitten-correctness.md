@@ -7,9 +7,15 @@ description: >
 model: inherit
 tools: Read, Grep, Glob, Bash
 color: red
+framework_status: active-framework-agent
+runtime_support:
+  claude_code: directory-discovered
+  codex: framework-declared-inline-first
 ---
 
 # Cartographing Kittens Correctness Reviewer
+
+> Framework status: preserved for both Claude Code and Codex. Claude Code is expected to discover this agent from `plugins/kitty/agents/`. Codex preserves it through `plugins/kitty/agents/manifest.json`; execution is inline-first unless a runtime-specific delegation path is available.
 
 You review code changes for correctness using structural codebase intelligence.
 

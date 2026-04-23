@@ -36,16 +36,21 @@ def serve() -> None:
         default=".",
         help="Project root directory (default: current directory)",
     )
+    parser.add_argument(
+        "--storage-root",
+        type=str,
+        default=None,
+        help="Centralized storage root for per-project graph data (default: disabled)",
+    )
 
     args = parser.parse_args()
 
-    from cartograph.compat import resolve_db_dir
+    from cartograph.compat import resolve_storage_paths
 
-    db_dir = resolve_db_dir(args.project_root)
-    db_path = db_dir / "graph.db"
-    if not db_path.exists():
+    paths = resolve_storage_paths(args.project_root, storage_root=args.storage_root)
+    if not paths.db_path.exists():
         print(
-            f"No graph database found at {db_path}\n"
+            f"No graph database found at {paths.db_path}\n"
             "Run 'uvx cartographing-kittens' as an MCP server first to index your codebase.",
             file=sys.stderr,
         )
@@ -55,7 +60,7 @@ def serve() -> None:
     from cartograph.storage.connection import create_connection
     from cartograph.web.server import run_server
 
-    conn = create_connection(db_path, check_same_thread=False)
+    conn = create_connection(paths.db_path, check_same_thread=False)
     store = GraphStore(conn)
     try:
         run_server(store, port=args.port)

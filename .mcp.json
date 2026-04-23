@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "kitty": {
+      "command": "uvx",
+      "args": [
+        "cartographing-kittens"
+      ],
+      "env": {
+        "KITTY_PROJECT_ROOT": "."
+      }
+    }
+  }
+}

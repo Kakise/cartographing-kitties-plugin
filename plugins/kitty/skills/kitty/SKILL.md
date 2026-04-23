@@ -109,7 +109,8 @@ Or use `kitty:lfg` to run plan → work → review autonomously.
 - **Qualified names** use `::` separator: `module.path::ClassName::method_name`
 - **Edge kinds** for filtering: `imports`, `calls`, `inherits`, `contains`, `depends_on`
 - **Node kinds**: `module`, `class`, `function`, `method`, `variable`
-- The graph lives in `.pawprints/graph.db` inside the project root
+- By default the graph lives in `.pawprints/graph.db` inside the project root
+- Set `KITTY_STORAGE_ROOT` to keep per-project graph data under a centralized storage root instead
 - Indexing is incremental by default — only changed files are re-parsed
 
 ## MCP Prompts

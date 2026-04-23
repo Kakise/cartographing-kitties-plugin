@@ -1,0 +1,45 @@
+{
+  "name": "kitty",
+  "version": "0.1.0",
+  "description": "AST-powered codebase intelligence for AI coding agents.",
+  "author": {
+    "name": "Kakise",
+    "email": "cartographing-kittens@a-smol-cat.fr",
+    "url": "https://a-smol-cat.fr"
+  },
+  "homepage": "https://github.com/Kakise/cartographing-kitties-plugin",
+  "repository": "https://github.com/Kakise/cartographing-kitties-plugin",
+  "license": "MIT",
+  "keywords": [
+    "codebase-intelligence",
+    "ast",
+    "tree-sitter",
+    "dependency-graph",
+    "impact-analysis",
+    "mcp",
+    "code-navigation"
+  ],
+  "skills": "./plugins/kitty/skills",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Cartographing Kittens",
+    "shortDescription": "Graph-powered codebase intelligence for Codex.",
+    "longDescription": "Explore structure, trace dependencies, assess blast radius, and run semantic code search through an MCP-backed AST graph.",
+    "developerName": "Kakise",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/Kakise/cartographing-kitties-plugin",
+    "privacyPolicyURL": "https://github.com/Kakise/cartographing-kitties-plugin",
+    "termsOfServiceURL": "https://github.com/Kakise/cartographing-kitties-plugin",
+    "defaultPrompt": [
+      "Map the main modules in this repo.",
+      "What depends on this symbol?",
+      "Find auth-related code paths."
+    ],
+    "brandColor": "#f59e0b"
+  }
+}

@@ -4,7 +4,7 @@ description: >
   Create technical implementation plans using Cartographing Kittens research agent swarms for
   deep codebase understanding. Use when the user says "plan this", "create a plan",
   "how should we build this", or after brainstorming to turn requirements into an
-  actionable plan. Dispatches 3-4 research agents in parallel for comprehensive analysis.
+  actionable plan. Uses inline-first research and optional delegation for comprehensive analysis.
 argument-hint: "[feature description or requirements doc path]"
 ---
 
@@ -13,9 +13,11 @@ argument-hint: "[feature description or requirements doc path]"
 Define **HOW** to build through Cartographing Kittens-powered research and structured planning.
 Produces an implementation plan that feeds into `kitty:work`.
 
-## Interaction Method
+## Runtime Posture
 
-Use the platform's blocking question tool when available. Ask one question at a time.
+This workflow is **inline-first**. The orchestrator gathers the research context and can produce
+the plan end-to-end without delegation. If the active runtime supports delegation cleanly, the
+preserved framework subagents may be used as an optimization rather than a hard dependency.
 
 ## Workflow
 
@@ -30,7 +32,7 @@ Use the platform's blocking question tool when available. Ask one question at a 
 
 Call `index_codebase(full=false)` to ensure the graph is fresh.
 
-**Build the subgraph context that research agents will consume:**
+Build the subgraph context that the orchestrator and any optional research agents will consume:
 
 1. **Annotation status** — Call `annotation_status()`. Record total nodes, annotated count, and coverage percentage.
 
@@ -105,16 +107,19 @@ Call `index_codebase(full=false)` to ensure the graph is fresh.
   - Depth 3: `far_consumer` (role, tags)
 ```
 
-### Phase 1b: Research Swarm
+### Phase 1b: Research Synthesis
 
-Dispatch these agents in **parallel**, passing each the feature description, origin requirements, AND the formatted subgraph context:
+Optional delegation path:
+
+If the runtime supports delegation cleanly, the orchestrator may dispatch these framework agents
+in parallel, passing each the feature description, origin requirements, and the formatted subgraph context:
 
 - **`librarian-kitten-researcher`** — Pass: full subgraph context (annotation status, target nodes, file structures, symbol details, dependencies)
 - **`librarian-kitten-pattern`** — Pass: search results, file structures, and symbol details from the subgraph context
 - **`librarian-kitten-flow`** — Pass: call-edge dependencies section specifically (depth 3-4 call chains with node data and roles)
 - **`librarian-kitten-impact`** — Pass: blast radius section specifically (transitive dependents with depth annotations, roles, and tags)
 
-Consolidate findings into:
+Whether delegated or done inline, consolidate findings into:
 - Relevant patterns and file paths
 - Dependency chains and blast radius
 - Technology constraints
@@ -128,7 +133,7 @@ For each question, decide:
 - **Resolve now** — answer is knowable from Cartographing Kittens research or user input
 - **Defer to implementation** — depends on runtime behavior or code changes
 
-Ask user only when the answer materially affects architecture, scope, or risk.
+Ask the user only when the answer materially affects architecture, scope, or risk.
 
 **Pipeline mode:** Resolve questions automatically from research findings.
 
@@ -174,7 +179,7 @@ Risks & Dependencies, Sources & References.
 Automatically evaluate whether the plan needs strengthening:
 - Score each section for confidence gaps
 - Select top 2-3 weak sections
-- Dispatch targeted research agents to fill gaps
+- Dispatch targeted research agents to fill gaps when delegation is available; otherwise deepen the analysis inline
 - Update the plan with stronger rationale
 
 **Gate:** Skip for Lightweight plans unless high-risk. Always run for Standard/Deep.
@@ -187,3 +192,9 @@ Automatically evaluate whether the plan needs strengthening:
 1. Run `kitty:review` on the plan (recommended for Deep plans)
 2. Start `kitty:work` to implement
 3. Open plan in editor
+
+## Contract
+
+- Must work without subagents.
+- May use preserved framework subagents when the runtime supports it.
+- Must not depend on a blocking-question tool or a plugin-backed agent registry.

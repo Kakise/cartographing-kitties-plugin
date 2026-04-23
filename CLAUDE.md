@@ -20,7 +20,8 @@ AST-powered codebase intelligence framework for AI coding agents.
 - Qualified names use `::` separator: `module.path::ClassName::method_name`
 - Edge kinds: `imports`, `calls`, `inherits`, `contains`, `depends_on`
 - Node kinds: `module`, `class`, `function`, `method`, `variable`
-- Graph stored at `.pawprints/graph.db` in project root
+- Graph stored at `.pawprints/graph.db` in project root by default
+- Set `KITTY_STORAGE_ROOT` to place per-project graph data under a centralized storage directory
 - Indexing is incremental by default — only changed files are re-parsed
 
 ## Plugin Structure (Marketplace Layout)
@@ -44,6 +45,7 @@ plugins/
       kitty-review/              # Multi-agent review with structural analysis
       kitty-lfg/                 # Full autonomous pipeline (plan → work → review)
     agents/
+      manifest.json             # Runtime-neutral declaration of framework subagents
       cartographing-kitten.md    # Batch annotation specialist
       librarian-kitten-researcher.md   # General codebase researcher
       librarian-kitten-pattern.md # Pattern and convention finder
@@ -78,23 +80,34 @@ Or use `kitty:lfg` for full autonomous execution (plan → work → review).
 | Reviewing code changes | `kitty:review` |
 | Full autonomous pipeline | `kitty:lfg` |
 
-### How skills dispatch agents
+### Workflow Contract
 
-**kitty:brainstorm** dispatches in parallel:
+The framework subagents remain part of the repository for both Claude Code and Codex.
+
+- Claude Code is expected to discover `agents/` from the preserved plugin directory layout.
+- Codex preserves the same subagents through `plugins/kitty/agents/manifest.json`, but execution is inline-first because the local Codex manifest spec does not define an explicit `agents` field.
+- Skills must therefore make sense without assuming swarm orchestration.
+
+Canonical reference: `docs/architecture/codex-workflow-contract.md`.
+Repository boundary reference: `docs/architecture/repo-boundaries.md`.
+
+When runtime support is available, the framework may delegate as follows:
+
+**kitty:brainstorm** may use:
 - `librarian-kitten-researcher` (architecture, stack)
 - `librarian-kitten-pattern` (existing patterns)
 
-**kitty:plan** dispatches in parallel:
+**kitty:plan** may use:
 - `librarian-kitten-researcher` (architecture)
 - `librarian-kitten-pattern` (patterns)
 - `librarian-kitten-flow` (call chains)
 - `librarian-kitten-impact` (blast radius)
 
-**kitty:work** dispatches workers per implementation unit:
+**kitty:work** may use worker delegation per implementation unit:
 - Each worker calls `get_file_structure` + `query_node` before implementing
-- Independent units run as parallel swarm
+- Independent units can run in parallel when the runtime supports it cleanly
 
-**kitty:review** dispatches in parallel:
+**kitty:review** may use:
 - `expert-kitten-correctness` (always)
 - `expert-kitten-testing` (always)
 - `expert-kitten-impact` (when 3+ files changed)

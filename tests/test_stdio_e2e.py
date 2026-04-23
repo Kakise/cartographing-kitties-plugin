@@ -11,6 +11,8 @@ from pathlib import Path
 
 import pytest
 
+from cartograph.compat import resolve_storage_paths
+
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "sample_python_project"
 BENCHMARK_DIR = Path(__file__).parent / "fixtures" / "benchmark_project"
 
@@ -50,10 +52,18 @@ def _build_tool_call(request_id: int, tool_name: str, arguments: dict) -> str:
     )
 
 
-def _run_server(messages: list[str], project_root: str, timeout: int = 30) -> list[dict]:
+def _run_server(
+    messages: list[str],
+    project_root: str,
+    timeout: int = 30,
+    *,
+    storage_root: str | None = None,
+) -> list[dict]:
     """Start the MCP server, send messages, and return parsed JSON-RPC responses."""
     input_data = "\n".join(messages)
     env = {**os.environ, "KITTY_PROJECT_ROOT": project_root}
+    if storage_root is not None:
+        env["KITTY_STORAGE_ROOT"] = storage_root
 
     result = subprocess.run(
         [sys.executable, "-m", "cartograph.server.main"],
@@ -146,6 +156,51 @@ class TestIndexCodebaseOverStdio:
 
         incr_result = _parse_tool_result(_get_response(responses, 3))
         assert incr_result["files_parsed"] == 0
+
+    def test_full_index_with_centralized_storage_creates_db(self, sample_project: Path, tmp_path: Path):
+        storage_root = tmp_path / "storage"
+        messages = [
+            _build_initialize(),
+            _build_initialized_notification(),
+            _build_tool_call(2, "index_codebase", {"full": True}),
+        ]
+        responses = _run_server(
+            messages,
+            str(sample_project),
+            storage_root=str(storage_root),
+        )
+        result = _parse_tool_result(_get_response(responses, 2))
+
+        assert "error" not in result
+        paths = resolve_storage_paths(sample_project, storage_root=storage_root)
+        assert paths.db_path.exists()
+
+    def test_same_storage_root_keeps_projects_isolated(self, tmp_path: Path):
+        storage_root = tmp_path / "storage"
+        project_one = tmp_path / "one" / "sample_project"
+        project_two = tmp_path / "two" / "sample_project"
+        shutil.copytree(FIXTURE_DIR, project_one)
+        shutil.copytree(FIXTURE_DIR, project_two)
+
+        messages = [
+            _build_initialize(),
+            _build_initialized_notification(),
+            _build_tool_call(2, "index_codebase", {"full": True}),
+        ]
+
+        responses_one = _run_server(messages, str(project_one), storage_root=str(storage_root))
+        responses_two = _run_server(messages, str(project_two), storage_root=str(storage_root))
+
+        result_one = _parse_tool_result(_get_response(responses_one, 2))
+        result_two = _parse_tool_result(_get_response(responses_two, 2))
+        assert "error" not in result_one
+        assert "error" not in result_two
+
+        first_paths = resolve_storage_paths(project_one, storage_root=storage_root)
+        second_paths = resolve_storage_paths(project_two, storage_root=storage_root)
+        assert first_paths.db_path.exists()
+        assert second_paths.db_path.exists()
+        assert first_paths.db_path != second_paths.db_path
 
 
 class TestQueryNodeOverStdio:

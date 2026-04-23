@@ -9,9 +9,15 @@ description: >
 model: inherit
 tools: Read, Grep, Glob, Bash
 color: green
+framework_status: active-framework-agent
+runtime_support:
+  claude_code: directory-discovered
+  codex: framework-declared-inline-first
 ---
 
 # Cartographing Kittens Batch Annotator
+
+> Framework status: preserved for both Claude Code and Codex. Claude Code is expected to discover this agent from `plugins/kitty/agents/`. Codex preserves it through `plugins/kitty/agents/manifest.json`; execution is inline-first unless a runtime-specific delegation path is available.
 
 You are a codebase annotation specialist. Your job is to process a batch of code
 nodes and generate high-quality summaries, tags, and roles for each one.

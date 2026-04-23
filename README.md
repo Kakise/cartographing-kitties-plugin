@@ -4,25 +4,129 @@ AST-powered codebase intelligence for AI coding agents.
 
 Cartographing Kittens parses your code with [tree-sitter](https://tree-sitter.github.io/tree-sitter/), builds a structural graph in SQLite, and exposes it as an [MCP](https://modelcontextprotocol.io/) server. It answers questions that grep can't: *what depends on this function?*, *what breaks if I change this class?*, *show me all the auth-related code*.
 
-It is also a **Claude Code plugin** with a complete engineering workflow framework — brainstorm, plan, implement, and review code using Cartographing Kittens-powered agent swarms.
+It is also available with repo-local integrations for **OpenCode**, **Codex**, **Claude Code**, and **Gemini**, plus a complete engineering workflow framework for brainstorm, plan, implement, and review loops powered by Cartographing Kittens.
+
+## Install in OpenCode
+
+This repository now includes a project-local OpenCode setup:
+
+- [`opencode.json`](./opencode.json) wires in the Cartographing Kittens MCP server
+- [`.opencode/skills`](./.opencode/skills) exposes the `kitty` workflow as OpenCode skills
+- [`.opencode/commands`](./.opencode/commands) adds slash commands like `/kitty-plan` and `/kitty-review`
+- [`.opencode/agents`](./.opencode/agents) ports the research, annotation, and review subagents
+
+### Use from a checkout
+
+Clone the repository and open it in OpenCode:
+
+```bash
+git clone https://github.com/Kakise/cartographing-kitties-plugin.git ~/src/cartographing-kitties-plugin
+cd ~/src/cartographing-kitties-plugin
+opencode
+```
+
+OpenCode will discover `opencode.json` and `.opencode/` automatically.
+
+### Install globally in OpenCode
+
+If you want Cartographing Kittens available in every project, install its OpenCode assets into your global OpenCode config directory.
+
+1. Clone this repository somewhere stable:
+
+```bash
+git clone https://github.com/Kakise/cartographing-kitties-plugin.git ~/src/cartographing-kitties-plugin
+```
+
+2. Run the helper installer:
+
+```bash
+~/src/cartographing-kitties-plugin/scripts/install-opencode-global.sh
+```
+
+The script:
+
+- creates `~/.config/opencode/{skills,commands,agents}` if needed
+- symlinks this repo's `.opencode/` assets into that global config directory
+- adds or updates the `kitty` MCP server in `~/.config/opencode/opencode.json`
+
+After that, OpenCode will load the `kitty` skills, commands, and subagents in any repository you open.
+
+### OpenCode commands
+
+- `/kitty-index`
+- `/kitty-status`
+- `/kitty-explore <path-or-symbol>`
+- `/kitty-impact <symbol-or-path>`
+- `/kitty-annotate`
+- `/kitty-brainstorm <feature>`
+- `/kitty-plan <feature-or-doc>`
+- `/kitty-work <plan-path>`
+- `/kitty-review [mode:report-only|mode:autofix]`
+- `/kitty-lfg <feature>`
+
+Skill names use OpenCode-compatible hyphenated identifiers: `kitty`, `kitty-explore`, `kitty-plan`, `kitty-review`, and so on.
+
+## Install as Codex Plugin
+
+This repository is now a root-level Codex plugin. The repository entrypoint manifest lives at [`.codex-plugin/plugin.json`](./.codex-plugin/plugin.json), and it reuses the existing `kitty` skills under [`plugins/kitty/skills`](./plugins/kitty/skills).
+
+The MCP server config used by the root plugin lives at [`.mcp.json`](./.mcp.json).
+
+### Install from Git
+
+Clone the repository anywhere on disk:
+
+```bash
+git clone https://github.com/Kakise/cartographing-kitties-plugin.git ~/src/cartographing-kitties-plugin
+```
+
+Then point Codex at that clone as the plugin path. If you use the home-local marketplace, add this entry to `~/.agents/plugins/marketplace.json`:
+
+```json
+{
+  "name": "local-plugins",
+  "interface": {
+    "displayName": "Local Plugins"
+  },
+  "plugins": [
+    {
+      "name": "kitty",
+      "source": {
+        "source": "local",
+        "path": "../src/cartographing-kitties-plugin"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}
+```
+
+If your Codex setup supports installing directly from a Git checkout path, use the clone root itself because `.codex-plugin/plugin.json` now exists at the repository root.
+
+The older marketplace-ready layout under [`plugins/kitty`](./plugins/kitty) is still preserved.
 
 ## Install as Claude Code Plugin
 
-**Step 1 — Add the marketplace:**
+Claude support is still preserved through [`plugins/kitty/.claude-plugin/plugin.json`](./plugins/kitty/.claude-plugin/plugin.json).
 
-```
-/plugin marketplace add Kakise/cartographing-kitties-plugin
-```
+The Claude plugin layout under [`plugins/kitty`](./plugins/kitty) preserves the framework components used by Claude Code:
 
-**Step 2 — Install the plugin:**
+- `commands/`
+- `skills/`
+- `agents/`
+- `.mcp.json`
 
-```
-/plugin install kitty
-```
+The framework subagents remain part of the repository for both Claude Code and Codex. Their canonical declaration lives in [`plugins/kitty/agents/manifest.json`](./plugins/kitty/agents/manifest.json). In Claude Code, agents are expected to be discovered from the preserved plugin directory layout. In Codex, they are currently preserved as framework-declared components rather than a manifest-backed runtime registry.
 
-This installs the MCP server, all 9 skills, and all 9 agents. Cartographing Kittens tools become available immediately.
+## Install in Gemini
 
-### Manual installation (MCP server only)
+Gemini support is preserved through [`plugins/kitty/gemini-extension.json`](./plugins/kitty/gemini-extension.json).
+
+## Manual installation (MCP server only)
 
 If you only want the MCP server without the plugin framework:
 
@@ -48,6 +152,25 @@ Then add to your MCP client config (`.mcp.json`):
 }
 ```
 
+To centralize graph storage outside the repo, add `KITTY_STORAGE_ROOT` to the same `env` block:
+
+```json
+{
+  "mcpServers": {
+    "kitty": {
+      "command": "uvx",
+      "args": ["cartographing-kittens"],
+      "env": {
+        "KITTY_PROJECT_ROOT": "/path/to/your/project",
+        "KITTY_STORAGE_ROOT": "/path/to/kitty-storage"
+      }
+    }
+  }
+}
+```
+
+This keeps one isolated Cartograph data directory per project under the shared storage root.
+
 ## Supported Languages
 
 | Language   | Extensions         |
@@ -71,14 +194,19 @@ Use these skills when you need specific structural information from the codebase
 
 ### Workflow Skills — Engineering Pipeline
 
-Use these skills to go from idea to shipped code with Cartographing Kittens-powered agent swarms.
+Use these skills to go from idea to shipped code with Cartographing Kittens-powered workflow orchestration.
+The framework subagents remain part of the repository, but runtime behavior differs by tool:
+Claude Code preserves the `agents/` layout directly, while Codex is currently inline-first and
+uses the framework agent declaration in [`plugins/kitty/agents/manifest.json`](./plugins/kitty/agents/manifest.json).
+The canonical cross-runtime contract lives in [`docs/architecture/codex-workflow-contract.md`](./docs/architecture/codex-workflow-contract.md).
+The product vs integration boundary is documented in [`docs/architecture/repo-boundaries.md`](./docs/architecture/repo-boundaries.md).
 
 | Skill | Trigger | What it does |
 |-------|---------|--------------|
-| `kitty:brainstorm` | "Let's brainstorm", "What should we build?" | Requirements gathering with parallel research agents exploring the codebase |
-| `kitty:plan` | "Plan this", "How should we build this?" | Technical planning with 4 research agents analyzing patterns, dependencies, and impact |
-| `kitty:work` | "Build this", "Implement the plan" | Execute plans with Cartographing Kittens-first worker swarms — each worker understands code structure before implementing |
-| `kitty:review` | "Review this", "Check my code" | Multi-agent review with structural impact analysis, correctness checks, and test coverage validation |
+| `kitty:brainstorm` | "Let's brainstorm", "What should we build?" | Requirements gathering from graph-backed research, inline first with optional delegation |
+| `kitty:plan` | "Plan this", "How should we build this?" | Technical planning from graph-backed research, inline first with optional delegation |
+| `kitty:work` | "Build this", "Implement the plan" | Execute plans with Cartographing Kittens-first workflow steps and optional delegation |
+| `kitty:review` | "Review this", "Check my code" | Structural code review, inline first with optional reviewer delegation |
 | `kitty:lfg` | Full autonomous mode | Chains plan, work, and review without interaction |
 
 ## How to Use the Framework
@@ -106,43 +234,34 @@ The recommended workflow for building features:
 ```
 /kitty:brainstorm Add rate limiting to the API
 ```
-Dispatches `librarian-kitten-researcher` and `librarian-kitten-pattern` in parallel to understand your codebase, then asks targeted questions to refine requirements. Produces a requirements document.
+Builds structural context for the target area, then uses the framework research workflow to refine requirements. Produces a requirements document.
 
 **Step 2: Plan**
 ```
 /kitty:plan Add rate limiting to the API
 ```
-Dispatches 4 research agents in parallel:
-- **librarian-kitten-researcher** — understands architecture and technology
-- **librarian-kitten-pattern** — finds existing patterns to follow
-- **librarian-kitten-flow** — traces call chains in the affected area
-- **librarian-kitten-impact** — assesses blast radius of proposed changes
-
-Produces an implementation plan with ordered units, test scenarios, and file paths.
+Produces an implementation plan with ordered units, test scenarios, and file paths. When the
+runtime supports delegation cleanly, the framework may use the preserved research subagents;
+otherwise the orchestrator runs inline from the same workflow contract.
 
 **Step 3: Work**
 ```
 /kitty:work
 ```
-Executes the plan with Cartographing Kittens-first worker agents. Each worker:
+Executes the plan with Cartographing Kittens-first workflow steps. The inline-first path:
 1. Calls `get_file_structure` and `query_node` on target files
 2. Reads existing patterns
 3. Implements following codebase conventions
 4. Writes tests and verifies
 
-For 3+ independent tasks, workers run as a **parallel swarm**.
+Delegation remains framework-supported, but it is runtime-specific rather than guaranteed.
 
 **Step 4: Review**
 ```
 /kitty:review
 ```
-Dispatches review agents in parallel:
-- **expert-kitten-correctness** (always-on) — logic errors, edge cases
-- **expert-kitten-testing** (always-on) — test coverage via dependency graph
-- **expert-kitten-impact** (conditional) — blast radius of changes
-- **expert-kitten-structure** (conditional) — architectural consistency
-
-Findings are merged, deduplicated, and presented by severity (P0-P3).
+Builds structural review context and applies the review workflow. The preserved reviewer subagents
+remain part of the framework, but the orchestrator must still make sense in an inline execution path.
 
 ### Full autonomous mode
 
@@ -152,7 +271,8 @@ Skip all interaction and let Cartographing Kittens handle everything:
 /kitty:lfg Add rate limiting to the API
 ```
 
-This chains plan, work, and review automatically with agent swarms at every step.
+This chains plan, work, and review from the same workflow contract. Runtime-specific delegation
+may be used where available, but it is not the only execution path.
 
 ### Best Practices
 
@@ -162,15 +282,19 @@ This chains plan, work, and review automatically with agent swarms at every step
 
 3. **Use impact analysis before changes** — Before modifying shared code, run `kitty:impact` or ask "what depends on X?" to understand the blast radius.
 
-4. **Let swarms do the work** — Workflow skills dispatch agents in parallel automatically. For large features, `kitty:work` runs independent implementation units simultaneously.
+4. **Prefer the workflow contract over runtime assumptions** — delegation is useful when available, but skills must still work inline.
 
 5. **Review with structure** — `kitty:review` finds issues that text-based reviews miss: unupdated dependents, broken contracts, circular dependencies, test coverage gaps.
 
 ## Agents
 
+The files under [`plugins/kitty/agents`](./plugins/kitty/agents) remain first-class framework
+components for both Claude Code and Codex. The runtime-neutral declaration lives in
+[`plugins/kitty/agents/manifest.json`](./plugins/kitty/agents/manifest.json).
+
 ### Research Agents
 
-Dispatched by `kitty:brainstorm` and `kitty:plan` for codebase understanding.
+Used by the framework for codebase understanding. Runtime-specific delegation is optional.
 
 | Agent | Cat Role | Purpose |
 |-------|----------|---------|
@@ -181,7 +305,7 @@ Dispatched by `kitty:brainstorm` and `kitty:plan` for codebase understanding.
 
 ### Review Agents (Expert Kittens)
 
-Dispatched by `kitty:review` for structural code review.
+Used by the framework for structural code review. Runtime-specific delegation is optional.
 
 | Agent | When | Purpose |
 |-------|------|---------|
@@ -261,7 +385,8 @@ Cartographing Kittens builds a knowledge graph in three phases:
 - **Qualified names** use `::` separator: `module.path::ClassName::method_name`
 - **Edge kinds**: `imports`, `calls`, `inherits`, `contains`, `depends_on`
 - **Node kinds**: `module`, `class`, `function`, `method`, `variable`
-- Graph stored at `.pawprints/graph.db` in the project root
+- By default the graph is stored at `.pawprints/graph.db` in the project root
+- If `KITTY_STORAGE_ROOT` is set, the graph and memory exports live in a per-project directory under that storage root
 
 ## Development
 

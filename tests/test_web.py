@@ -12,6 +12,7 @@ import pytest
 
 # We need to wire server_main state for annotation tools.
 import cartograph.server.main as server_main
+from cartograph.compat import StoragePaths
 from cartograph.indexing import Indexer
 from cartograph.server.tools.annotate import get_pending_annotations, submit_annotations
 from cartograph.storage import GraphStore
@@ -47,6 +48,14 @@ def annotated_store(indexed_store: GraphStore):
     # Wire module-level state for annotation tools.
     server_main._store = indexed_store
     server_main._root = FIXTURE_DIR.resolve()
+    server_main._storage_paths = StoragePaths(
+        project_root=FIXTURE_DIR.resolve(),
+        storage_root=FIXTURE_DIR.resolve(),
+        data_dir=FIXTURE_DIR / ".pawprints",
+        db_path=FIXTURE_DIR / ".pawprints" / "graph.db",
+        treat_box_path=FIXTURE_DIR / ".pawprints" / "treat-box.md",
+        litter_box_path=FIXTURE_DIR / ".pawprints" / "litter-box.md",
+    )
 
     pending = get_pending_annotations(batch_size=5)
     annotations = [
@@ -62,6 +71,7 @@ def annotated_store(indexed_store: GraphStore):
 
     server_main._store = None
     server_main._root = None
+    server_main._storage_paths = None
     return indexed_store
 
 
@@ -278,6 +288,33 @@ class TestServeEntrypoint:
 
         result = subprocess.run(
             [sys.executable, "-c", "import cartograph; cartograph.serve()"],
+            capture_output=True,
+            text=True,
+            cwd=str(tmp_path),
+        )
+        assert result.returncode == 1
+        assert "No graph database found" in result.stderr
+
+    def test_missing_db_with_storage_root_exits_with_error(self, tmp_path: Path):
+        """serve() exits with code 1 when centralized graph.db is missing."""
+        import subprocess
+        import sys
+
+        project_root = tmp_path / "project"
+        storage_root = tmp_path / "storage"
+        project_root.mkdir()
+        storage_root.mkdir()
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "import sys, cartograph; "
+                    f"sys.argv=['kitty-graph', '--project-root', {str(project_root)!r}, '--storage-root', {str(storage_root)!r}]; "
+                    "cartograph.serve()"
+                ),
+            ],
             capture_output=True,
             text=True,
             cwd=str(tmp_path),

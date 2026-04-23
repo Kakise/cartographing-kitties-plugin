@@ -11,10 +11,21 @@ import pytest
 
 # The tool modules read state from cartograph.server.main module-level vars.
 import cartograph.server.main as server_main
+from cartograph.compat import StoragePaths
 from cartograph.indexing import Indexer
 from cartograph.server.tools.analysis import find_dependencies, find_dependents, rank_nodes
-from cartograph.server.tools.annotate import find_stale_annotations, get_pending_annotations, submit_annotations
+from cartograph.server.tools.annotate import (
+    find_stale_annotations,
+    get_pending_annotations,
+    submit_annotations,
+)
 from cartograph.server.tools.index import annotation_status, index_codebase
+from cartograph.server.tools.memory import (
+    add_litter_box_entry,
+    add_treat_box_entry,
+    query_litter_box,
+    query_treat_box,
+)
 from cartograph.server.tools.query import (
     batch_query_nodes,
     get_context_summary,
@@ -31,19 +42,30 @@ FIXTURE_DIR = Path(__file__).parent / "fixtures" / "sample_python_project"
 @pytest.fixture()
 def graph_store(tmp_path: Path):
     """Create a GraphStore backed by a temp database and wire it into server state."""
-    db_path = tmp_path / "graph.db"
+    data_dir = tmp_path / ".pawprints"
+    data_dir.mkdir()
+    db_path = data_dir / "graph.db"
     conn = create_connection(db_path)
     store = GraphStore(conn)
 
     # Wire module-level state so tools can find it.
     server_main._store = store
     server_main._root = FIXTURE_DIR.resolve()
+    server_main._storage_paths = StoragePaths(
+        project_root=FIXTURE_DIR.resolve(),
+        storage_root=FIXTURE_DIR.resolve(),
+        data_dir=data_dir,
+        db_path=db_path,
+        treat_box_path=data_dir / "treat-box.md",
+        litter_box_path=data_dir / "litter-box.md",
+    )
 
     yield store
 
     store.close()
     server_main._store = None
     server_main._root = None
+    server_main._storage_paths = None
     server_main._last_diff = None
 
 
@@ -72,6 +94,110 @@ class TestIndexCodebase:
         assert "error" not in result
         # Incremental on already-indexed project should parse 0 new files.
         assert result["files_parsed"] == 0
+
+
+class TestMemoryExports:
+    def test_add_litter_box_entry_without_server_state_returns_error(self):
+        original_store = server_main._store
+        original_paths = server_main._storage_paths
+        server_main._store = None
+        server_main._storage_paths = None
+        try:
+            result = add_litter_box_entry("failure", "Missing state")
+        finally:
+            server_main._store = original_store
+            server_main._storage_paths = original_paths
+
+        assert result == {"error": "Server not initialised"}
+
+    def test_add_treat_box_entry_exports_to_resolved_storage_path(self, graph_store: GraphStore):
+        result = add_treat_box_entry("best-practice", "Use isolated storage roots")
+        assert "error" not in result
+        assert result["exported_to"].endswith("treat-box.md")
+        assert Path(result["exported_to"]).exists()
+
+    def test_add_litter_box_entry_exports_to_resolved_storage_path(self, graph_store: GraphStore):
+        result = add_litter_box_entry("anti-pattern", "Share one SQLite DB across repos")
+        assert "error" not in result
+        assert result["exported_to"].endswith("litter-box.md")
+        assert Path(result["exported_to"]).exists()
+
+    def test_add_treat_box_entry_without_server_state_returns_error(self):
+        original_store = server_main._store
+        original_paths = server_main._storage_paths
+        server_main._store = None
+        server_main._storage_paths = None
+        try:
+            result = add_treat_box_entry("best-practice", "Missing state")
+        finally:
+            server_main._store = original_store
+            server_main._storage_paths = original_paths
+
+        assert result == {"error": "Server not initialised"}
+
+    def test_add_litter_box_entry_invalid_category_returns_error(self, graph_store: GraphStore):
+        result = add_litter_box_entry("bad-category", "Nope")
+        assert "bad-category" in result["error"]
+
+    def test_query_treat_box_returns_entries(self, graph_store: GraphStore):
+        add_treat_box_entry("best-practice", "Use the centralized root")
+
+        result = query_treat_box(search="centralized")
+
+        assert result["count"] == 1
+        assert result["entries"][0]["description"] == "Use the centralized root"
+
+    def test_query_litter_box_returns_entries(self, graph_store: GraphStore):
+        add_litter_box_entry("failure", "Do not merge project databases")
+
+        result = query_litter_box(search="merge")
+
+        assert result["count"] == 1
+        assert result["entries"][0]["description"] == "Do not merge project databases"
+
+    def test_query_treat_box_without_store_returns_error(self):
+        original_store = server_main._store
+        server_main._store = None
+        try:
+            result = query_treat_box()
+        finally:
+            server_main._store = original_store
+
+        assert result == {"error": "Server not initialised"}
+
+    def test_query_litter_box_without_store_returns_error(self):
+        original_store = server_main._store
+        server_main._store = None
+        try:
+            result = query_litter_box()
+        finally:
+            server_main._store = original_store
+
+        assert result == {"error": "Server not initialised"}
+
+    def test_query_litter_box_handles_query_errors(self, graph_store: GraphStore, monkeypatch):
+        monkeypatch.setattr(
+            "cartograph.memory.query_entries",
+            lambda *args, **kwargs: (_ for _ in ()).throw(ValueError("query failed")),
+        )
+
+        result = query_litter_box()
+
+        assert result == {"error": "query failed"}
+
+    def test_add_treat_box_entry_handles_validation_errors(self, graph_store: GraphStore):
+        result = add_treat_box_entry("bad-category", "Nope")
+        assert "bad-category" in result["error"]
+
+    def test_query_treat_box_handles_query_errors(self, graph_store: GraphStore, monkeypatch):
+        monkeypatch.setattr(
+            "cartograph.memory.query_entries",
+            lambda *args, **kwargs: (_ for _ in ()).throw(ValueError("query failed")),
+        )
+
+        result = query_treat_box()
+
+        assert result == {"error": "query failed"}
 
 
 class TestQueryNode:

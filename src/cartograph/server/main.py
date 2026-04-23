@@ -7,12 +7,13 @@ from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
 
-from cartograph.compat import resolve_db_dir, resolve_project_root
+from cartograph.compat import StoragePaths, resolve_storage_paths
 from cartograph.storage import GraphStore, create_connection
 
 # Module-level state shared with tool modules.
 _store: GraphStore | None = None
 _root: Path | None = None
+_storage_paths: StoragePaths | None = None
 _last_diff: dict | None = None
 _last_index_version: int | None = None
 
@@ -20,17 +21,16 @@ _last_index_version: int | None = None
 @asynccontextmanager
 async def lifespan(server: FastMCP):
     """Open GraphStore on startup, close on shutdown."""
-    global _store, _root
+    global _store, _root, _storage_paths
 
-    project_root = resolve_project_root()
-    db_dir = resolve_db_dir(project_root)
-    db_path = db_dir / "graph.db"
+    paths = resolve_storage_paths()
 
-    conn = create_connection(db_path)
+    conn = create_connection(paths.db_path)
     store = GraphStore(conn)
 
     _store = store
-    _root = project_root
+    _root = paths.project_root
+    _storage_paths = paths
 
     try:
         yield
@@ -38,6 +38,7 @@ async def lifespan(server: FastMCP):
         store.close()
         _store = None
         _root = None
+        _storage_paths = None
 
 
 mcp = FastMCP("kitty", lifespan=lifespan)

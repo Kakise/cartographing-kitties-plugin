@@ -3,7 +3,7 @@ name: kitty:review
 description: >
   Structured code review using Cartographing Kittens-powered reviewer agent swarms. Use when
   the user says "review this", "check my code", "code review", or before creating
-  a PR. Dispatches always-on and conditional reviewer agents in parallel, merges
+  a PR. Uses inline-first structural review with optional reviewer delegation, merges
   findings, and optionally applies safe fixes. Supports modes: interactive (default),
   autofix (mode:autofix), report-only (mode:report-only).
 argument-hint: "[branch|PR number] [mode:autofix|mode:report-only] [plan:path]"
@@ -11,8 +11,8 @@ argument-hint: "[branch|PR number] [mode:autofix|mode:report-only] [plan:path]"
 
 # Cartographing Kittens: Review
 
-Structured code review with **Cartographing Kittens-powered agent swarms** for structural
-analysis beyond the diff.
+Structured code review with **Cartographing Kittens-powered structural analysis** beyond the diff.
+The review contract is inline-first; reviewer delegation is optional when runtime support is clear.
 
 ## Mode Detection
 
@@ -177,11 +177,14 @@ Call `search(query=feature_keywords)` using 2-3 keywords extracted from the inte
 Identify semantically related code that might be affected but is NOT in the dependency graph.
 Include any discovered nodes in a `### Semantically Related (not in dependency graph)` section.
 
-### Stage 4: Index & Dispatch Review Swarm
+### Stage 4: Index & Apply Review Workflow
 
 1. Call `index_codebase(full=false)` to ensure the graph reflects current changes
-2. Dispatch reviewer agents in **parallel**, passing each agent: the diff, file list,
-   intent summary, **subgraph context block** (from Stage 3, including importance scores, structural health, and semantic matches), and plan (if provided):
+2. Apply the review workflow using the diff, file list, intent summary, the **subgraph context block** (from Stage 3, including importance scores, structural health, and semantic matches), and the plan (if provided).
+
+Optional delegation path:
+
+If the active runtime supports delegation cleanly, dispatch reviewer agents in parallel with the same inputs:
 
 **Always-on (every review):**
 - **`expert-kitten-correctness`** — Logic errors, edge cases, state bugs
@@ -193,7 +196,7 @@ Include any discovered nodes in a `### Semantically Related (not in dependency g
 
 ### Stage 5: Merge & Deduplicate
 
-Collect findings from all reviewers. Merge:
+Collect findings from delegated reviewers or from inline review passes. Merge:
 - Deduplicate by file + line (keep highest severity)
 - If reviewers conflict, prefer the more conservative finding
 - Sort by severity (P0 first), then by file
@@ -209,7 +212,7 @@ Collect findings from all reviewers. Merge:
 - Apply all `safe_auto` fixes automatically
 - Write remaining findings to a review artifact
 - Re-run tests after fixes
-- If tests fail, revert last fix and continue
+- If tests fail, revert the last fix if possible and continue conservatively
 
 **Report-only mode:**
 - Present findings summary
@@ -229,3 +232,9 @@ If a plan was loaded:
 - `expert-kitten-impact` catches the most critical issues — the "did you forget to update X?" findings
 - Use `mode:autofix` in pipelines, `mode:report-only` for dry runs
 - The subgraph context gives reviewers full structural awareness without needing MCP tool access
+
+## Contract
+
+- Must work without delegated reviewers.
+- May use preserved framework reviewers when the runtime supports it.
+- Must not rely on a plugin-backed agent registry to perform a valid review.

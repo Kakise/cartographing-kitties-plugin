@@ -31,8 +31,8 @@ def add_litter_box_entry(
         Dict with the new entry id, box name, and export path.
     """
     store = _main._store
-    root = _main._root
-    if store is None or root is None:
+    paths = _main._storage_paths
+    if store is None or paths is None:
         return {"error": "Server not initialised"}
 
     from cartograph.memory import add_entry, export_markdown
@@ -42,7 +42,7 @@ def add_litter_box_entry(
     except ValueError as exc:
         return {"error": str(exc)}
 
-    export_path = root / ".pawprints" / "litter-box.md"
+    export_path = paths.litter_box_path
     export_markdown(store, "litter", export_path)
 
     return {"id": entry_id, "box": "litter", "exported_to": str(export_path)}
@@ -103,8 +103,8 @@ def add_treat_box_entry(
         Dict with the new entry id, box name, and export path.
     """
     store = _main._store
-    root = _main._root
-    if store is None or root is None:
+    paths = _main._storage_paths
+    if store is None or paths is None:
         return {"error": "Server not initialised"}
 
     from cartograph.memory import add_entry, export_markdown
@@ -114,7 +114,7 @@ def add_treat_box_entry(
     except ValueError as exc:
         return {"error": str(exc)}
 
-    export_path = root / ".pawprints" / "treat-box.md"
+    export_path = paths.treat_box_path
     export_markdown(store, "treat", export_path)
 
     return {"id": entry_id, "box": "treat", "exported_to": str(export_path)}

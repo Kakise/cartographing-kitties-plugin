@@ -4,7 +4,7 @@ description: >
   Explore requirements and approaches through Cartographing Kittens-powered codebase understanding.
   Use when starting a new feature, exploring what to build, gathering requirements,
   or when the user says "let's brainstorm", "what should we build", "help me think through".
-  Dispatches research agent swarms for parallel codebase analysis.
+  Uses inline-first research and optional delegation when the runtime supports it cleanly.
 argument-hint: "[feature or problem description]"
 ---
 
@@ -13,10 +13,11 @@ argument-hint: "[feature or problem description]"
 Explore **WHAT** to build through dialogue and Cartographing Kittens-powered codebase analysis.
 Produces a requirements document that feeds into `kitty:plan`.
 
-## Interaction Method
+## Runtime Posture
 
-Use the platform's blocking question tool when available (AskUserQuestion in Claude Code).
-Ask one question at a time.
+This workflow is **inline-first**. The orchestrator gathers graph context and can complete the
+brainstorm without delegating. If the active runtime supports delegation cleanly, the preserved
+framework subagents may be used as an optimization, not as a requirement.
 
 ## Workflow
 
@@ -26,9 +27,9 @@ Ask one question at a time.
 2. If `$ARGUMENTS` is provided, use it as the feature description
 3. If no arguments, ask: "What problem are you trying to solve or what feature are you considering?"
 
-### Phase 2: Research Swarm
+### Phase 2: Research Context
 
-**Build the subgraph context before dispatching agents:**
+Build the subgraph context before any optional delegation:
 
 1. **Annotation status** — Call `annotation_status()`. Record total nodes, annotated count, and coverage percentage.
 
@@ -87,16 +88,23 @@ Ask one question at a time.
 - Depth 2: `consumer::consumer::symbol` (kind, role)
 ```
 
-**Dispatch these agents in parallel**, passing each the feature description AND the formatted subgraph context:
+Optional delegation path:
+
+If the runtime supports delegation cleanly, the orchestrator may dispatch these framework agents
+in parallel, passing each the feature description and the formatted subgraph context:
 
 - **`librarian-kitten-researcher`** — Pass: full subgraph context (annotation status, target nodes, file structures, symbol details, dependencies, dependents, edges). Scope: architecture, technology stack, module organization
 - **`librarian-kitten-pattern`** — Pass: search results, file structures, and dependency/dependent context from the subgraph. Scope: existing patterns relevant to the feature area
 
-Collect findings: technology stack, relevant patterns, key files, existing conventions.
+Otherwise, the orchestrator synthesizes the same findings inline:
+- technology stack
+- relevant patterns
+- key files
+- existing conventions
 
 ### Phase 3: Adaptive Questioning
 
-Use research findings to ask targeted questions. Ask **one question at a time**:
+Use research findings to ask targeted questions, one at a time when interaction is needed:
 
 1. **Problem clarity** — "Based on the codebase structure, it looks like [finding]. Is the problem about [X] or [Y]?"
 2. **Scope boundaries** — "Should this include [related area found by research], or is that out of scope?"
@@ -158,3 +166,9 @@ Template:
 1. Start `kitty:plan` with this requirements doc
 2. Open requirements in editor for review
 3. Continue refining requirements
+
+## Contract
+
+- Must work without subagents.
+- May use preserved framework subagents when the runtime supports it.
+- Must not assume a blocking-question tool or a plugin-backed agent registry.

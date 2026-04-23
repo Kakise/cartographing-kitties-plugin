@@ -4,14 +4,14 @@ description: >
   Execute implementation plans with Cartographing Kittens-first worker swarms. Use when the user
   says "build this", "implement", "execute the plan", "start working", or after planning.
   Each worker agent uses Cartographing Kittens to understand code before implementing. Supports
-  inline, serial, parallel, and full swarm execution strategies.
+  inline execution by default with optional serial or parallel delegation when the runtime supports it.
 argument-hint: "[plan file path]"
 ---
 
 # Cartographing Kittens: Work
 
-Execute plans with **Cartographing Kittens-first worker agents** — every worker understands the
-code structure before implementing.
+Execute plans with **Cartographing Kittens-first workflow steps**. Delegation is optional; the
+default contract is inline execution with graph context gathered by the orchestrator.
 
 ## Workflow
 
@@ -19,27 +19,27 @@ code structure before implementing.
 
 1. Read the plan document completely
 2. Call `index_codebase(full=false)` to ensure the graph is fresh
-3. Detect current branch — create feature branch or worktree if on main
+3. Detect current branch — create feature branch or worktree if on main when the user wants branch isolation
 4. Create task list from implementation units with dependencies
 
 ### Phase 2: Choose Execution Strategy
 
 | Strategy | When | How |
 |----------|------|-----|
-| **Inline** | 1-2 small tasks | Execute directly, no subagents |
-| **Serial subagents** | 3+ tasks with dependency chains | One agent at a time, in dependency order |
-| **Parallel subagents** | 3+ independent tasks | Dispatch all independent tasks simultaneously |
-| **Swarm mode** | 10+ tasks, complex coordination | Agent Teams with persistent roles |
+| **Inline** | Default | Execute directly in the main conversation |
+| **Serial delegation** | 3+ tasks with dependency chains | Delegate one task at a time when runtime support is clear |
+| **Parallel delegation** | 3+ independent tasks | Delegate independent tasks simultaneously when runtime support is clear |
+| **Swarm mode** | Not the default contract | Treat as aspirational/runtime-specific, not required |
 
-**Default: Parallel subagents** — dispatch independent tasks as a swarm.
+**Default: Inline** — complete the work directly unless there is a clear benefit to delegation.
 
 ### Phase 3: Execute
 
-For each implementation unit, the worker agent follows this protocol:
+For each implementation unit, the orchestrator follows this protocol:
 
 **Cartographing Kittens-first context loading (orchestrator pre-computes):**
 
-The orchestrator pre-computes graph context for each worker before dispatch:
+The orchestrator pre-computes graph context before either inline execution or optional delegation:
 1. Call `get_file_structure` on every file in the unit's Files section
 2. Call `query_node` on key symbols in those files
 3. Call `find_dependents(name=key_symbol, max_depth=2)` per key symbol being modified — workers know what they might break (blast radius awareness)
@@ -64,7 +64,7 @@ For each task:
   5. COMPOUND — Mark task completed, commit if logical unit is complete
 ```
 
-**Subagent dispatch template:**
+**Optional delegation template:**
 
 For each worker agent, provide:
 - The full plan file path
@@ -72,12 +72,10 @@ For each worker agent, provide:
 - The pre-computed graph context (file structures, node data with summaries, roles, and tags)
 - Instruction: "Review the graph context provided, understand the purpose of each file/symbol from summaries and roles, then implement"
 
-**Swarm mode (Agent Teams):**
-1. Create team with TaskCreate
-2. Create tasks from implementation units with dependencies
-3. Spawn worker agents — each claims a task, loads Cartographing Kittens context, implements
-4. Monitor: reassign stuck workers, spawn more as phases unblock
-5. Cleanup when all tasks complete
+**Runtime-specific delegation:**
+If the active runtime supports delegation cleanly, pass the plan unit plus the pre-computed graph
+context to the preserved framework subagents. Do not assume `TaskCreate`, agent teams, or a swarm
+registry as part of the required contract.
 
 ### Phase 4: Quality & Ship
 
@@ -85,8 +83,8 @@ For each worker agent, provide:
 2. Run linter
 3. Verify all tasks are completed
 4. If plan has Requirements Trace, verify each requirement is satisfied
-5. Commit with conventional format
-6. Push and create PR
+5. Commit with conventional format when the user wants a commit
+6. Push and create PR only when explicitly requested or when the active runtime/workflow guarantees it
 
 **PR template:**
 ```
@@ -108,7 +106,7 @@ For each worker agent, provide:
 Carry forward execution notes from the plan:
 - **Test-first:** Write failing test before implementation
 - **Characterization-first:** Capture existing behavior before changing
-- **External-delegate:** Mark for delegation to another agent session
+- **External-delegate:** Mark for delegation to another agent session when runtime support and task boundaries make it worthwhile
 
 ### Tips
 
@@ -116,3 +114,9 @@ Carry forward execution notes from the plan:
 - The orchestrator should call `find_dependents` after worker completion to check for unintended breakage
 - Commit after each complete unit, not at the end
 - If a unit reveals a plan gap, create a new task rather than deviating
+
+## Contract
+
+- Must work inline without subagents.
+- May delegate when the runtime supports it cleanly.
+- Must not require swarm primitives, background task registries, or automatic PR creation.
