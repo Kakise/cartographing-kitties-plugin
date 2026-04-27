@@ -5,7 +5,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -69,6 +68,7 @@ def test_generated_harness_artifacts_are_current() -> None:
     checks = [
         ["scripts/generate_agents.py", "--check"],
         ["scripts/generate_manifests.py", "--check"],
+        ["scripts/generate_tool_reference.py", "--check"],
         ["scripts/validate_skills.py"],
     ]
 

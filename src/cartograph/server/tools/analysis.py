@@ -29,17 +29,18 @@ def _resolve_node(name: str) -> dict[str, Any] | None:
     return node
 
 
-@mcp.tool()
-def find_dependencies(
+def _traverse(
     name: str,
-    edge_kinds: list[str] | None = None,
-    max_depth: int = 5,
-    response_shape: str = "standard",
-    token_budget: int | None = None,
-    cursor: str | None = None,
-    limit: int | None = None,
+    *,
+    direction: str,
+    edge_kinds: list[str] | None,
+    max_depth: int,
+    response_shape: str,
+    token_budget: int | None,
+    cursor: str | None,
+    limit: int | None,
 ) -> dict[str, Any]:
-    """Find transitive dependencies of a node. Returns nodes this depends on."""
+    """Shared traversal implementation for dependencies and dependents."""
     if error := validate_response_shape(response_shape):
         return error
 
@@ -51,9 +52,23 @@ def find_dependencies(
     if node is None:
         return {"found": False, "message": f"No node found matching '{name}'"}
 
-    deps = store.transitive_dependencies(node["id"], edge_kinds=edge_kinds, max_depth=max_depth)
+    if direction == "forward":
+        nodes = store.transitive_dependencies(
+            node["id"], edge_kinds=edge_kinds, max_depth=max_depth
+        )
+        tool_name = "find_dependencies"
+        source_key = "source"
+        list_key = "dependencies"
+    elif direction == "reverse":
+        nodes = store.reverse_dependencies(node["id"], edge_kinds=edge_kinds, max_depth=max_depth)
+        tool_name = "find_dependents"
+        source_key = "target"
+        list_key = "dependents"
+    else:
+        return {"error": f"Unknown traversal direction '{direction}'."}
+
     qhash = query_hash(
-        "find_dependencies",
+        tool_name,
         {
             "name": name,
             "edge_kinds": edge_kinds,
@@ -62,24 +77,47 @@ def find_dependencies(
         },
     )
     page, next_cursor, cursor_error = paginate_items(
-        deps,
+        nodes,
         cursor=cursor,
         page_size=limit,
         query_hash_value=qhash,
     )
     if cursor_error is not None:
         return cursor_error
-    shape = cast(ResponseShape, response_shape)
 
+    shape = cast(ResponseShape, response_shape)
     return apply_token_budget(
         {
             "found": True,
-            "source": {"id": node["id"], "qualified_name": node["qualified_name"]},
+            source_key: {"id": node["id"], "qualified_name": node["qualified_name"]},
             "count": len(page),
-            "dependencies": [summarise_node(d, response_shape=shape) for d in page],
+            list_key: [summarise_node(item, response_shape=shape) for item in page],
             "next_cursor": next_cursor,
         },
         token_budget,
+    )
+
+
+@mcp.tool()
+def find_dependencies(
+    name: str,
+    edge_kinds: list[str] | None = None,
+    max_depth: int = 5,
+    response_shape: str = "standard",
+    token_budget: int | None = None,
+    cursor: str | None = None,
+    limit: int | None = None,
+) -> dict[str, Any]:
+    """Find transitive dependencies of a node. Returns nodes this depends on."""
+    return _traverse(
+        name,
+        direction="forward",
+        edge_kinds=edge_kinds,
+        max_depth=max_depth,
+        response_shape=response_shape,
+        token_budget=token_budget,
+        cursor=cursor,
+        limit=limit,
     )
 
 
@@ -94,46 +132,15 @@ def find_dependents(
     limit: int | None = None,
 ) -> dict[str, Any]:
     """Find what depends on a node (impact analysis). Returns nodes that depend on this."""
-    if error := validate_response_shape(response_shape):
-        return error
-
-    store = get_store()
-    if store is None:
-        return {"error": "Server not initialised"}
-
-    node = _resolve_node(name)
-    if node is None:
-        return {"found": False, "message": f"No node found matching '{name}'"}
-
-    deps = store.reverse_dependencies(node["id"], edge_kinds=edge_kinds, max_depth=max_depth)
-    qhash = query_hash(
-        "find_dependents",
-        {
-            "name": name,
-            "edge_kinds": edge_kinds,
-            "max_depth": max_depth,
-            "response_shape": response_shape,
-        },
-    )
-    page, next_cursor, cursor_error = paginate_items(
-        deps,
+    return _traverse(
+        name,
+        direction="reverse",
+        edge_kinds=edge_kinds,
+        max_depth=max_depth,
+        response_shape=response_shape,
+        token_budget=token_budget,
         cursor=cursor,
-        page_size=limit,
-        query_hash_value=qhash,
-    )
-    if cursor_error is not None:
-        return cursor_error
-    shape = cast(ResponseShape, response_shape)
-
-    return apply_token_budget(
-        {
-            "found": True,
-            "target": {"id": node["id"], "qualified_name": node["qualified_name"]},
-            "count": len(page),
-            "dependents": [summarise_node(d, response_shape=shape) for d in page],
-            "next_cursor": next_cursor,
-        },
-        token_budget,
+        limit=limit,
     )
 
 

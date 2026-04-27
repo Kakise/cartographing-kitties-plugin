@@ -87,4 +87,4 @@ Format the gathered context as structured output for the user. Include:
 - Use `rank_nodes` to identify the most structurally important symbols before diving deeper
 - For semantic queries ("find auth code"), check `annotation_status` first — if many
   nodes are pending, run `kitty:annotate` before searching
-- See `references/tool-reference.md` for full parameter details
+- See `kitty/references/tool-reference/` for full parameter details

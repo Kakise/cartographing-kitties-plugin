@@ -115,4 +115,4 @@ Create new tags for domain-specific concepts (e.g., "payment-processing", "webso
 - Start with `batch_size=10`, adjust based on node complexity
 - Run annotation after major code changes to keep semantic search accurate
 - See `references/annotation-workflow.md` for the detailed workflow guide
-- See `references/tool-reference.md` for full parameter details
+- See `kitty/references/tool-reference/` for full parameter details

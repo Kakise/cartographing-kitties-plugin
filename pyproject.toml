@@ -68,6 +68,7 @@ cartographing-kittens = "cartograph:main"
 kitty-graph = "cartograph:serve"
 kitty-generate-agents = "scripts.generate_agents:main"
 kitty-generate-manifests = "scripts.generate_manifests:main"
+kitty-generate-tool-reference = "scripts.generate_tool_reference:main"
 kitty-validate-skills = "scripts.validate_skills:main"
 
 

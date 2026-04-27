@@ -135,4 +135,4 @@ Relay the agent's findings to the user, including:
 - Use `max_depth=1` for a quick direct-impact check
 - Use `rank_nodes` to focus attention on the most important dependents
 - `validate_graph` catches pre-existing structural issues that a change might worsen
-- See `references/tool-reference.md` for full parameter details
+- See `kitty/references/tool-reference/` for full parameter details

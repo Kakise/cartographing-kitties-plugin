@@ -27,6 +27,11 @@ repos:
         entry: uv run python scripts/generate_manifests.py --check
         language: system
         pass_filenames: false
+      - id: kitty-generate-tool-reference
+        name: kitty generate tool reference
+        entry: uv run python scripts/generate_tool_reference.py --check
+        language: system
+        pass_filenames: false
       - id: kitty-validate-skills
         name: kitty validate skills
         entry: uv run python scripts/validate_skills.py

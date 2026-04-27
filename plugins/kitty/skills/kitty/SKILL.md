@@ -139,5 +139,5 @@ The server also exposes guided workflow prompts that MCP clients can invoke dire
 - Query litter/treat memory before planning, work, and review; record durable lessons after validation
 - Combine sub-skills: explore first, then assess impact before changing code
 - For large codebases (50+ pending nodes), `kitty:annotate` supports parallel subagents
-- See `references/tool-reference.md` for full tool parameter details
+- See `references/tool-reference/` for generated per-family tool parameter details
 - See `references/memory-workflow.md` for the required memory preflight/postflight protocol
