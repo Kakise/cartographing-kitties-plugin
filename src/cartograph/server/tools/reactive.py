@@ -151,8 +151,9 @@ def validate_graph(
     errors = sum(1 for i in issues if i["severity"] == "error")
     warnings = sum(1 for i in issues if i["severity"] == "warning")
 
-    return {
-        "passed": len(issues) == 0,
+    passed = len(issues) == 0
+    result = {
+        "passed": passed,
         "issues": issues,
         "summary": {
             "checks_run": checks_run,
@@ -161,3 +162,6 @@ def validate_graph(
             "passed": checks_run - (1 if errors > 0 else 0) - (1 if warnings > 0 else 0),
         },
     }
+    if passed:
+        result["cleanable"] = True
+    return result

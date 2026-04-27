@@ -48,6 +48,7 @@ def index_codebase(full: bool = False) -> dict[str, Any]:
         "files_deleted": stats.files_deleted,
         "errors": stats.errors,
         "diff_available": True,
+        "cleanable": True,
         "diff_summary": {
             "nodes_added": diff["summary"]["nodes_added"],
             "nodes_removed": diff["summary"]["nodes_removed"],
@@ -70,4 +71,5 @@ def annotation_status() -> dict[str, Any]:
         "annotated": counts.get("annotated", 0),
         "failed": counts.get("failed", 0),
         "stale": counts.get("stale", 0),
+        "cleanable": True,
     }
