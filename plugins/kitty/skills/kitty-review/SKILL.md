@@ -61,6 +61,18 @@ Understand what changes accomplish from:
 
 Write 2-3 line intent summary. Pass to every reviewer.
 
+### Stage 2b: Memory Preflight
+
+Use the memory protocol in `kitty/references/memory-workflow.md` before reviewer passes:
+
+1. Extract 2-4 terms from the intent summary, changed files, target symbols, and plan.
+2. Call `query_litter_box(limit=20)` and `query_treat_box(limit=20)` with no filters.
+3. For the strongest 1-2 terms, call filtered `query_litter_box(search=term, limit=10)`
+   and `query_treat_box(search=term, limit=10)`.
+4. Include relevant entries in a `### Memory Context` section. Reviewers must use:
+   - Litter entries as known failure modes and anti-patterns to check first.
+   - Treat entries as validated conventions and best-practice baselines.
+
 ### Stage 3: Build Subgraph Context
 
 Pre-compute structural graph context via MCP tools. Subagents cannot call MCP tools,
@@ -117,6 +129,14 @@ Assemble the collected data into a structured text block with these sections:
 - Total nodes: N
 - Annotated: M (X%)
 - WARNING (if applicable)
+
+### Memory Context
+- Litter lessons to check:
+  - [category] description — context
+- Treat lessons to enforce:
+  - [category] description — context
+- Memory gaps:
+  - No relevant entries found for [term]
 
 ### Changed Nodes
 | Qualified Name | Kind | Summary | Role | Tags | Location | Annotation Status |
@@ -226,6 +246,17 @@ If a plan was loaded:
 - Flag requirements with no corresponding changes
 - Note any changes not traced to a requirement
 
+### Stage 8: Memory Postflight
+
+Record durable lessons from the review:
+- Call `add_litter_box_entry` when the review finds a real regression, repeated failure mode,
+  unsupported path, or anti-pattern that future reviews should check.
+- Call `add_treat_box_entry` when the review validates a reusable convention, pattern, or
+  optimization that future work should follow.
+- Use `source_agent="kitty:review"` for inline findings, or the reviewer agent name for
+  delegated findings.
+- Do not record speculative or low-confidence findings.
+
 ## Tips
 
 - Cartographing Kittens reviewers find issues grep-based reviews miss: unupdated dependents, broken contracts, circular dependencies
@@ -238,3 +269,4 @@ If a plan was loaded:
 - Must work without delegated reviewers.
 - May use preserved framework reviewers when the runtime supports it.
 - Must not rely on a plugin-backed agent registry to perform a valid review.
+- Must query litter/treat memory before review and record validated durable lessons after review.

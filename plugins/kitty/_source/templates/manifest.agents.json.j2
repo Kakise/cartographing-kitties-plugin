@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "description": "Runtime-neutral declaration of Cartographing Kittens framework subagents.",
+  "agents": [
+{% for agent in agents %}
+    {
+      "name": "{{ agent.name }}",
+      "path": "./{{ agent.name }}.md",
+      "role": "{{ agent.role }}",
+      "runtimes": {
+        "claude_code": "{{ agent.runtimes.claude_code }}",
+        "codex": "{{ agent.runtimes.codex }}"
+      }
+    }{% if not loop.last %},{% endif %}
+{% endfor %}
+  ]
+}

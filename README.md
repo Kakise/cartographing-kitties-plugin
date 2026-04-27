@@ -348,8 +348,10 @@ Used by the framework for structural code review. Runtime-specific delegation is
 
 | Tool | Description |
 |------|-------------|
-| `get_pending_annotations` | Get nodes needing annotation, with source code context. |
+| `get_pending_annotations` | Get nodes needing annotation, with source code context and model-tier hints. |
 | `submit_annotations` | Write summaries, tags, and roles back to the graph. |
+| `find_low_quality_annotations` | Audit annotated nodes for placeholder summaries and generic fallback roles. |
+| `requeue_low_quality_annotations` | Re-flag low-quality annotations as pending; dry-run by default. |
 
 ### Memory (Litter-Box & Treat-Box)
 

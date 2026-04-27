@@ -26,6 +26,9 @@ framework subagents may be used as an optimization, not as a requirement.
 1. Call `index_codebase(full=false)` to ensure the graph is fresh
 2. If `$ARGUMENTS` is provided, use it as the feature description
 3. If no arguments, ask: "What problem are you trying to solve or what feature are you considering?"
+4. Query memory for the topic using `query_litter_box(limit=20)` and `query_treat_box(limit=20)`,
+   then filtered searches for the strongest 1-2 feature terms. Use relevant entries to frame
+   constraints, prior failures, and validated patterns.
 
 ### Phase 2: Research Context
 
@@ -52,6 +55,14 @@ Build the subgraph context before any optional delegation:
 - Total nodes: N
 - Annotated: N (X%)
 - Pending: N
+
+### Memory Context
+- Litter lessons to avoid:
+  - [category] description — context
+- Treat lessons to preserve:
+  - [category] description — context
+- Memory gaps:
+  - No relevant entries found for [term]
 
 ### Target Nodes (from search)
 - `qualified::name` — kind: X, role: Y, tags: [a, b], summary: "..."
@@ -172,3 +183,4 @@ Template:
 - Must work without subagents.
 - May use preserved framework subagents when the runtime supports it.
 - Must not assume a blocking-question tool or a plugin-backed agent registry.
+- Must query litter/treat memory and include relevant lessons in Codebase Context.

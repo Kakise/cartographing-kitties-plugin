@@ -11,9 +11,10 @@ AST-powered codebase intelligence framework for AI coding agents.
 | Storage | `src/cartograph/storage/` | SQLite graph database with FTS5 search and recursive CTE traversal |
 | Annotation | `src/cartograph/annotation/` | LLM-driven semantic enrichment (summaries, tags, roles) |
 | Memory | `src/cartograph/memory/` | Litter-box (negative) and treat-box (positive) persistent memory |
-| MCP Server | `src/cartograph/server/` | FastMCP server — 13 tools, 3 prompts |
-| Server Tools | `src/cartograph/server/tools/` | Tool implementations (index, query, analysis, annotate, memory) |
+| MCP Server | `src/cartograph/server/` | FastMCP server — structural query, annotation, memory, and workflow tools |
+| Server Tools | `src/cartograph/server/tools/` | Tool implementations (index, query, analysis, annotate, memory, reactive) |
 | Server Prompts | `src/cartograph/server/prompts/` | Prompt implementations (explore, refactor, annotate) |
+| Web | `src/cartograph/web/` | Web-based graph viewer / browser UI |
 
 ## Conventions
 
@@ -23,6 +24,10 @@ AST-powered codebase intelligence framework for AI coding agents.
 - Graph stored at `.pawprints/graph.db` in project root by default
 - Set `KITTY_STORAGE_ROOT` to place per-project graph data under a centralized storage directory
 - Indexing is incremental by default — only changed files are re-parsed
+- `query_node`, `search`, `rank_nodes`, `get_context_summary`, and `get_file_structure`
+  responses include a `centrality` field — a weighted-PageRank score in `[0, 1]` reflecting
+  each node's structural importance. The cache is refreshed lazily on first read after the
+  graph changes.
 
 ## Plugin Structure (Marketplace Layout)
 
@@ -55,9 +60,22 @@ plugins/
       expert-kitten-testing.md     # Test coverage gaps (always-on)
       expert-kitten-impact.md      # Blast radius review (conditional)
       expert-kitten-structure.md   # Architecture review (conditional)
+    _source/
+      agents/*.yaml             # Single source of truth for generated agents
+      manifests/plugin.yaml     # Single source of truth for plugin manifests
+      templates/*.j2            # Generator templates for runtime artifacts
 src/cartograph/                  # Python source (MCP server + core library)
 tests/                           # Test suite
+.claude-plugin/                  # Claude Code plugin marketplace manifest
+.codex-plugin/                   # Codex runtime plugin manifest (dual-runtime support)
+scripts/                         # Repo-level developer scripts
 ```
+
+Generated harness artifacts must be edited through `plugins/kitty/_source/`, not by
+hand. Run `uv run python scripts/generate_agents.py` after changing
+`_source/agents/*.yaml`, and run `uv run python scripts/generate_manifests.py`
+after changing `_source/manifests/plugin.yaml`. CI and pre-commit use the
+matching `--check` commands plus `scripts/validate_skills.py` to catch drift.
 
 ## Workflow Pipeline
 
@@ -158,6 +176,8 @@ uv run ruff check src/        # Lint
 uv run ruff format --check src/  # Format check
 uv run basedpyright --level error  # Type check
 uv run codespell src          # Spell check
+uv run pre-commit install     # Install git hooks (one-time)
+uv run pre-commit run --all-files  # Run hooks against all files
 ```
 
 ## MCP Server (local dev)

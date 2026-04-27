@@ -19,8 +19,12 @@ default contract is inline execution with graph context gathered by the orchestr
 
 1. Read the plan document completely
 2. Call `index_codebase(full=false)` to ensure the graph is fresh
-3. Detect current branch — create feature branch or worktree if on main when the user wants branch isolation
-4. Create task list from implementation units with dependencies
+3. Run memory preflight using `kitty/references/memory-workflow.md`:
+   - Call `query_litter_box(limit=20)` and `query_treat_box(limit=20)`
+   - Query the strongest plan/unit terms with `search=<term>`
+   - Add relevant lessons to the implementation context for every affected unit
+4. Detect current branch — create feature branch or worktree if on main when the user wants branch isolation
+5. Create task list from implementation units with dependencies
 
 ### Phase 2: Choose Execution Strategy
 
@@ -47,7 +51,11 @@ The orchestrator pre-computes graph context before either inline execution or op
 5. Call `annotation_status()` — warn worker if target area has low annotation coverage (<30%)
 6. Call `rank_nodes(scope=unit_files)` — workers know which nodes need extra care (importance ranking)
 7. Format as subgraph context (Annotation Status, Target Nodes, Neighbors, Dependents, Dependencies, Importance sections)
-8. Include in the worker's task prompt alongside the plan unit
+8. Include `### Memory Context` from the preflight:
+   - Litter lessons this unit must avoid
+   - Treat lessons this unit should follow
+   - Explicit note when no relevant memory exists
+9. Include in the worker's task prompt alongside the plan unit
 
 **Implementation loop (Observe → Understand → Act → Validate → Compound):**
 ```
@@ -63,6 +71,14 @@ For each task:
      If graph_diff or validate_graph reveal unexpected breakage, fix before proceeding
   5. COMPOUND — Mark task completed, commit if logical unit is complete
 ```
+
+**Memory postflight:**
+
+After each completed unit, record durable lessons only when validated:
+- Call `add_litter_box_entry` for failures, regressions, unsupported approaches, flaky tests,
+  or anti-patterns discovered while implementing.
+- Call `add_treat_box_entry` for patterns validated by code changes and tests.
+- Use `source_agent="kitty:work"` unless a delegated worker is clearly responsible.
 
 **Optional delegation template:**
 
@@ -83,8 +99,9 @@ registry as part of the required contract.
 2. Run linter
 3. Verify all tasks are completed
 4. If plan has Requirements Trace, verify each requirement is satisfied
-5. Commit with conventional format when the user wants a commit
-6. Push and create PR only when explicitly requested or when the active runtime/workflow guarantees it
+5. Summarize memory usage: queried entries, applied lessons, and newly recorded lessons
+6. Commit with conventional format when the user wants a commit
+7. Push and create PR only when explicitly requested or when the active runtime/workflow guarantees it
 
 **PR template:**
 ```
@@ -120,3 +137,4 @@ Carry forward execution notes from the plan:
 - Must work inline without subagents.
 - May delegate when the runtime supports it cleanly.
 - Must not require swarm primitives, background task registries, or automatic PR creation.
+- Must query litter/treat memory before implementation and record validated durable lessons after work.

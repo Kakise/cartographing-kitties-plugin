@@ -4,14 +4,13 @@ from __future__ import annotations
 
 from typing import Any
 
-import cartograph.server.main as _main
-from cartograph.server.main import mcp
-from cartograph.server.tools.query import _summarise_node
+from cartograph.server.main import get_store, mcp
+from cartograph.server.tools.query import summarise_node
 
 
 def _resolve_node(name: str) -> dict[str, Any] | None:
     """Look up a node by qualified name, falling back to name match."""
-    store = _main._store
+    store = get_store()
     if store is None:
         return None
     node = store.get_node_by_name(name)
@@ -29,7 +28,7 @@ def find_dependencies(
     max_depth: int = 5,
 ) -> dict[str, Any]:
     """Find transitive dependencies of a node. Returns nodes this depends on."""
-    store = _main._store
+    store = get_store()
     if store is None:
         return {"error": "Server not initialised"}
 
@@ -43,7 +42,7 @@ def find_dependencies(
         "found": True,
         "source": {"id": node["id"], "qualified_name": node["qualified_name"]},
         "count": len(deps),
-        "dependencies": [_summarise_node(d) for d in deps],
+        "dependencies": [summarise_node(d) for d in deps],
     }
 
 
@@ -54,7 +53,7 @@ def find_dependents(
     max_depth: int = 5,
 ) -> dict[str, Any]:
     """Find what depends on a node (impact analysis). Returns nodes that depend on this."""
-    store = _main._store
+    store = get_store()
     if store is None:
         return {"error": "Server not initialised"}
 
@@ -68,7 +67,7 @@ def find_dependents(
         "found": True,
         "target": {"id": node["id"], "qualified_name": node["qualified_name"]},
         "count": len(deps),
-        "dependents": [_summarise_node(d) for d in deps],
+        "dependents": [summarise_node(d) for d in deps],
     }
 
 
@@ -98,7 +97,7 @@ def rank_nodes(
         "in_degree" (default) for direct edge count, or "transitive" for
         recursive reverse-dependency count.
     """
-    store = _main._store
+    store = get_store()
     if store is None:
         return {"error": "Server not initialised"}
 
@@ -114,6 +113,7 @@ def rank_nodes(
         scope_file_paths = fps or None
         scope_qnames = qns or None
 
+    results: list[dict[str, Any]] = []
     if algorithm == "in_degree":
         ranked = store.rank_by_in_degree(
             scope_file_paths=scope_file_paths,
@@ -121,9 +121,8 @@ def rank_nodes(
             kind=kind,
             limit=limit,
         )
-        results = []
         for node in ranked:
-            entry = _summarise_node(node)
+            entry = summarise_node(node)
             entry["in_degree"] = node.get("in_degree", 0)
             entry["out_degree"] = node.get("out_degree", 0)
             entry["score"] = node.get("in_degree", 0)
@@ -133,9 +132,8 @@ def rank_nodes(
             scope_qnames=scope_qnames,
             limit=limit,
         )
-        results = []
         for node in ranked:
-            entry = _summarise_node(node)
+            entry = summarise_node(node)
             entry["in_degree"] = node.get("in_degree", 0)
             entry["out_degree"] = node.get("out_degree", 0)
             entry["score"] = node.get("transitive_count", 0)

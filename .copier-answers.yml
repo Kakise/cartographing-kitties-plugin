@@ -1,9 +1,0 @@
-# Changes here will be overwritten by Copier. Do not edit manually.
-_commit: v0.2.25
-_src_path: gh:jlevy/simple-modern-uv
-package_author_email: cartographing-kittens@a-smol-cat.fr
-package_author_name: Kakise
-package_description: AST-powered codebase intelligence framework for AI coding agents
-package_github_org: Kakise
-package_module: cartograph
-package_name: cartographing-kittens

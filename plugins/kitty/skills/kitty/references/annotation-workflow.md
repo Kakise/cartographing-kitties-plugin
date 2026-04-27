@@ -27,7 +27,8 @@ get_pending_annotations(batch_size=10)
 ```
 
 This returns nodes with their source code, file context, and neighbor information.
-You also get a seed taxonomy of suggested tags.
+You also get a seed taxonomy of suggested tags. Each node may include
+`recommended_model_tier` (`fast` or `strong`) and `requeue_reason`.
 
 ### 3. Generate annotations
 
@@ -46,6 +47,10 @@ For each node in the batch, read the source code and context, then generate:
 If you can't understand a node (e.g. the source is too complex or ambiguous), set
 `failed: true` instead of guessing.
 
+Honor `recommended_model_tier` when your runtime can choose between model tiers. If
+`requeue_reason` is present, the previous annotation failed quality gates; make the
+replacement address those reasons directly.
+
 ### 4. Submit
 
 ```
@@ -63,6 +68,38 @@ submit_annotations(annotations=[
 ### 5. Repeat
 
 Keep getting batches until `annotation_status` shows `pending: 0`.
+
+## Quality Gate Cleanup
+
+Quality gates catch placeholder summaries, suspiciously short summaries, summaries
+that do not mention the node name or an obvious derivation, and generic fallback
+roles like `"Function"` or `"Class"`.
+
+### 1. Audit
+
+```
+find_low_quality_annotations(limit=100)
+```
+
+Review the returned `reasons` before mutating the graph.
+
+### 2. Dry-run requeue
+
+```
+requeue_low_quality_annotations(dry_run=true)
+```
+
+This reports how many nodes would be requeued without changing annotation status.
+
+### 3. Requeue for repair
+
+```
+requeue_low_quality_annotations(dry_run=false)
+```
+
+Low-quality annotated nodes move back to `pending` and include `requeue_reason` in
+the next `get_pending_annotations` batch. Nodes that already hit the requeue cap
+are marked `failed` instead of looping indefinitely.
 
 ## Performance tips
 

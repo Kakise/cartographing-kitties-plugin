@@ -4,8 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-import cartograph.server.main as _main
-from cartograph.server.main import mcp
+from cartograph.server.main import get_context, get_store, mcp, set_last_diff
 
 
 @mcp.tool()
@@ -17,10 +16,11 @@ def index_codebase(full: bool = False) -> dict[str, Any]:
 
     Returns stats about files parsed, nodes created, edges created.
     """
-    store = _main._store
-    root = _main._root
-    if store is None or root is None:
+    context = get_context()
+    if context is None:
         return {"error": "Server not initialised"}
+    store = context.store
+    root = context.root
 
     from cartograph.indexing import Indexer
 
@@ -39,7 +39,7 @@ def index_codebase(full: bool = False) -> dict[str, Any]:
     diff = store.compute_diff(before_nodes, after_nodes, before_edges, after_edges)
 
     # Store diff for graph_diff tool to retrieve.
-    _main._last_diff = diff
+    set_last_diff(diff)
 
     return {
         "files_parsed": stats.files_parsed,
@@ -59,31 +59,15 @@ def index_codebase(full: bool = False) -> dict[str, Any]:
 @mcp.tool()
 def annotation_status() -> dict[str, Any]:
     """Check annotation progress. Returns counts of pending/annotated/failed nodes."""
-    store = _main._store
+    store = get_store()
     if store is None:
         return {"error": "Server not initialised"}
 
-    conn = store._conn  # noqa: SLF001
-    cur = conn.execute(
-        "SELECT annotation_status, COUNT(*) as count FROM nodes GROUP BY annotation_status"
-    )
-    counts: dict[str, int] = {}
-    for row in cur.fetchall():
-        counts[row["annotation_status"]] = row["count"]
-
-    stale_cur = conn.execute(
-        """
-        SELECT COUNT(*) FROM nodes
-        WHERE annotation_status = 'annotated'
-        AND content_hash IS NOT NULL
-        AND (annotated_content_hash IS NULL OR content_hash != annotated_content_hash)
-        """
-    )
-    stale_count = stale_cur.fetchone()[0]
+    counts = store.annotation_status_counts()
 
     return {
         "pending": counts.get("pending", 0),
         "annotated": counts.get("annotated", 0),
         "failed": counts.get("failed", 0),
-        "stale": stale_count,
+        "stale": counts.get("stale", 0),
     }

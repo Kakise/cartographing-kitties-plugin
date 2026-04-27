@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from cartograph.annotation.quality import is_low_quality, recommended_tier
 from cartograph.storage.graph_store import GraphStore
 
 logger = logging.getLogger(__name__)
@@ -94,6 +95,8 @@ class NodeContext:
     language: str | None
     source: str
     neighbors: list[dict[str, Any]]
+    recommended_model_tier: str = "fast"
+    requeue_reason: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -204,6 +207,8 @@ def get_pending_nodes(
                 language=node.get("language"),
                 source=source,
                 neighbors=neighbors,
+                recommended_model_tier=recommended_tier({**node, "source": source}),
+                requeue_reason=_get_requeue_reason(node),
             )
         )
 
@@ -268,6 +273,19 @@ def write_annotations(
                     existing_props = {}
             if not isinstance(existing_props, dict):
                 existing_props = {}
+
+            quality_node = {
+                **node,
+                "summary": result.summary,
+                "properties": {**existing_props, "role": result.role},
+            }
+            suspicious, reasons = is_low_quality(quality_node)
+            if suspicious:
+                logger.warning(
+                    "Suspicious annotation quality for %s: %s",
+                    result.qualified_name,
+                    ", ".join(reasons),
+                )
 
             upsert_batch.append(
                 {
@@ -351,3 +369,20 @@ def extract_source(
         # Lines are 1-indexed in the DB.
         return "\n".join(lines[max(0, start_line - 1) : end_line])
     return "\n".join(lines)
+
+
+def _get_requeue_reason(node: dict[str, Any]) -> list[str]:
+    props = node.get("properties")
+    if isinstance(props, str):
+        try:
+            props = json.loads(props)
+        except (json.JSONDecodeError, TypeError):
+            props = {}
+    if not isinstance(props, dict):
+        return []
+    reason = props.get("requeue_reason")
+    if isinstance(reason, list):
+        return [str(r) for r in reason]
+    if isinstance(reason, str):
+        return [reason]
+    return []

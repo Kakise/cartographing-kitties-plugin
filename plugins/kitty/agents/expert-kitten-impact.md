@@ -32,6 +32,7 @@ The orchestrator provides you with:
   - Transitive Dependents (depth-annotated up to depth 3, with summaries/roles/tags)
   - Transitive Dependencies (with summaries/roles/tags)
   - Annotation Status (coverage counts)
+- **Memory Context** — known regressions, unsupported paths, and validated practices relevant to the review
 - **Plan** (optional) — requirements document for impact verification
 
 ## Your workflow
@@ -42,8 +43,9 @@ The orchestrator provides you with:
 4. Check: are there dependents NOT included in the diff? These are unreviewed downstream effects that may break
 5. Check: do modified symbols change their contract (parameters, return types, behavior)? Cross-reference with the **Edges Between Changed Nodes** to verify contract consistency across intra-change boundaries
 6. For contract changes, verify ALL dependents (from **Transitive Dependents**) have been updated. Flag any that remain unmodified
-7. From the **Transitive Dependencies** section, check if the change breaks any upstream contracts the modified code relies on
-8. If source detail is needed beyond what the graph context provides, use Read to examine the file directly
+7. Apply Memory Context: repeated litter-box failures raise blast-radius risk, while treat-box entries define safe dependency patterns to preserve
+8. From the **Transitive Dependencies** section, check if the change breaks any upstream contracts the modified code relies on
+9. If source detail is needed beyond what the graph context provides, use Read to examine the file directly
 
 ## What to flag
 
@@ -124,3 +126,4 @@ Only request context that is genuinely missing and necessary for your review. Do
 - P0/P1 findings require confidence >= 0.8
 - If unsure, use Read/Grep to examine source code directly before flagging
 - Prefer fewer high-confidence findings over many low-confidence ones
+

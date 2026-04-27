@@ -22,7 +22,9 @@
   "mcpServers": {
     "kitty": {
       "command": "uvx",
-      "args": ["cartographing-kittens"],
+      "args": [
+        "cartographing-kittens"
+      ],
       "env": {
         "KITTY_PROJECT_ROOT": "."
       }

@@ -1,9 +1,10 @@
 ---
 name: librarian-kitten-researcher
 description: >
-  General codebase researcher using Cartographing Kittens graph traversal. Spawn to understand
-  a codebase area — its architecture, technology stack, key abstractions, and module
-  relationships. Uses structural analysis (not just text search) for deeper understanding.
+  General codebase researcher using Cartographing Kittens graph traversal. Spawn to
+  understand a codebase area — its architecture, technology stack, key abstractions, and
+  module relationships. Uses structural analysis (not just text search) for deeper
+  understanding.
 model: inherit
 tools: Read, Grep, Glob, Bash
 color: blue
@@ -28,6 +29,7 @@ You will receive structured subgraph context from the orchestrator containing:
 - **File structures** — node listings for key files with kinds, summaries, tags, and roles
 - **Key symbol details** — metadata and neighbor relationships (imports, calls, inheritance) for important symbols
 - **Dependencies and dependents** — what the target area depends on and what depends on it
+- **Memory Context** — litter-box lessons to avoid and treat-box patterns to preserve
 
 This context was pre-computed via Cartographing Kittens MCP tools (`annotation_status`, `search`, `get_file_structure`, `query_node`, `find_dependencies`, `find_dependents`).
 
@@ -38,8 +40,9 @@ This context was pre-computed via Cartographing Kittens MCP tools (`annotation_s
 3. From the file structures, understand module organization — which files contain which abstractions, how they are grouped
 4. From the key symbol details, map relationships — what imports what, what calls what, what inherits from what. Use roles to classify nodes by domain layer (e.g., "API handler", "data access", "business logic")
 5. From the dependency and dependent data, understand how the target area connects to the rest of the codebase — its inputs and consumers
-6. If you need source code not included in the graph context, use Read to examine the file directly
-7. Fall back to Grep/Glob only for text-literal searches (error messages, string constants, TODOs)
+6. From Memory Context, identify known failures, anti-patterns, validated conventions, and best practices that affect this area
+7. If you need source code not included in the graph context, use Read to examine the file directly
+8. Fall back to Grep/Glob only for text-literal searches (error messages, string constants, TODOs)
 
 ## What to report
 
@@ -50,6 +53,7 @@ Return a structured research summary:
 - **Key files & symbols**: The most important nodes for the requested scope
 - **Dependencies & relationships**: How modules connect (imports, calls, inheritance)
 - **Conventions**: Naming patterns, file organization, test structure
+- **Memory lessons**: Litter-box risks and treat-box practices relevant to the scope
 
 ## Preferred Context Template
 
@@ -90,3 +94,4 @@ Only request context that is genuinely missing and necessary for your analysis. 
 - Use roles and tags from node data to classify code by domain layer
 - Use dependency/dependent data to explain how modules connect
 - Report what you found, not what you expected to find
+

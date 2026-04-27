@@ -28,6 +28,19 @@ preserved framework subagents may be used as an optimization rather than a hard 
 3. If no origin document, assess whether the request is clear enough for direct planning
 4. Classify plan depth: **Lightweight** (2-4 units), **Standard** (3-6), **Deep** (4-8)
 
+### Phase 0b: Memory Preflight
+
+Use the memory protocol in `kitty/references/memory-workflow.md` before research:
+
+1. Extract 2-4 terms from the feature description, requirements doc, or target area.
+2. Call `query_litter_box(limit=20)` and `query_treat_box(limit=20)` with no filters.
+3. For the strongest 1-2 feature terms, call filtered `query_litter_box(search=term, limit=10)`
+   and `query_treat_box(search=term, limit=10)`.
+4. Carry relevant entries into the plan as `### Memory Context`:
+   - Litter lessons become risks, non-goals, or explicit approaches to avoid.
+   - Treat lessons become patterns to follow, key decisions, or implementation-unit guidance.
+5. If memory returns no relevant entries, state that in `Memory Context` so the absence is visible.
+
 ### Phase 1: Index & Build Research Context
 
 Call `index_codebase(full=false)` to ensure the graph is fresh.
@@ -59,6 +72,14 @@ Build the subgraph context that the orchestrator and any optional research agent
 - Total nodes: N
 - Annotated: N (X%)
 - Pending: N
+
+### Memory Context
+- Litter lessons to avoid:
+  - [category] description — context
+- Treat lessons to follow:
+  - [category] description — context
+- Memory gaps:
+  - No relevant entries found for [term]
 
 ### Target Nodes (from search)
 - `qualified::name` — kind: X, role: Y, tags: [a, b], summary: "..."
@@ -171,7 +192,7 @@ origin: docs/brainstorms/...-requirements.md  # if applicable
 
 Sections: Overview, Problem Frame, Requirements Trace, Scope Boundaries,
 Context & Research, Key Technical Decisions, Open Questions,
-Implementation Units (with checkbox syntax), System-Wide Impact,
+Memory Context, Implementation Units (with checkbox syntax), System-Wide Impact,
 Risks & Dependencies, Sources & References.
 
 ### Phase 5: Confidence Check
@@ -198,3 +219,4 @@ Automatically evaluate whether the plan needs strengthening:
 - Must work without subagents.
 - May use preserved framework subagents when the runtime supports it.
 - Must not depend on a blocking-question tool or a plugin-backed agent registry.
+- Must query litter/treat memory and include a Memory Context section in every non-trivial plan.

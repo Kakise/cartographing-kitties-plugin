@@ -1,0 +1,875 @@
+---
+title: Harness Overhaul — Context Engineering, Skill/Agent Specialization, Codex Parity
+type: feat
+status: active
+date: 2026-04-27
+origin: docs/brainstorms/2026-04-27-002-harness-context-engineering-requirements.md
+---
+
+# Overview
+
+V2/RFC-grade overhaul of the Cartographing Kittens **harness layer** — the SKILL.md
+prompts, the agent definitions, the MCP tool surface, and the per-runtime packaging.
+The graph itself is not in scope here; this plan reshapes how the graph is *exposed*
+to agents so token usage drops, runtime correctness rises, and Codex becomes a
+first-class delegation runtime alongside Claude Code.
+
+The work is grouped into **7 implementation units** that mirror the brainstorm's
+suggested phasing. U1 lands the contracts (single source of truth + generators
++ validators). U2–U5 reshape the surfaces. U6 wires Codex parity. U7 closes the
+loop with memory handoffs, hooks, telemetry, and smoke tests.
+
+# Problem Frame
+
+Three pressures the current harness does not address:
+
+1. **Context rot is not engineered against.** MCP tools return raw rows with no
+   token budget, no compact mode, and no `outputSchema`/`structuredContent`. Skills
+   and agents independently re-shape responses into structured text. Big skills
+   (`kitty-review`) and the 842-line `tool-reference.md` sit close to or past
+   Anthropic's compaction-survival window (5,000 tokens) without progressive
+   disclosure. There is no tool-result-clearing protocol, no agent-handoff store,
+   and no compaction-aware skill layout.
+2. **Skills and agents under-use runtime extension points.** Frontmatter is limited
+   to `name` + `description` + occasionally `argument-hint`. No skill uses `paths`,
+   `allowed-tools`, `model`, `effort`, `!command` injection, or `disable-model-invocation`
+   on mutating skills. All 9 agents pass `model: inherit` (Opus) and the default
+   `Read, Grep, Glob, Bash` toolset.
+3. **Codex is treated as second-class.** `plugins/kitty/agents/manifest.json`
+   declares the agents, but Codex execution is inline-only because no
+   `.codex/agents/*.toml` files ship. Three plugin manifests
+   (`plugins/kitty/.claude-plugin/plugin.json`,
+   `plugins/kitty/.codex-plugin/plugin.json`,
+   `plugins/kitty/gemini-extension.json`) plus
+   `plugins/kitty/agents/manifest.json` plus `plugins/kitty/.mcp.json` are
+   maintained by hand with drift risk.
+
+This plan does not extend the graph (owned by `2026-04-23-001-plugin-evolution`)
+and does not extract skills into a submodule (owned by
+`2026-04-27-001-skills-submodule-repository`); it reshapes the harness layer that
+will then move with the skills if/when they extract.
+
+# Requirements Trace
+
+| Req | Theme | Unit |
+|---|---|---|
+| R1 — `outputSchema`/`structuredContent` on query+analysis tools | MCP | U2 |
+| R2 — `response_shape: compact|standard|full` on high-traffic tools | MCP | U2 |
+| R3 — `token_budget` on every tool that can return >1k tokens | MCP | U2 |
+| R4 — Cursor pagination on search/find_*/batch_query/rank_nodes | MCP | U2 |
+| R5 — Tool consolidation (shared `_traverse`) | MCP | U3 |
+| R6 — `cleanable: true` hint on safe-to-drop responses | MCP | U2 |
+| R7 — Split skills ≥250 lines into `references/` | Skill | U4 |
+| R8 — Use full Claude Code frontmatter (`paths`, `allowed-tools`, etc.) | Skill | U4 |
+| R9 — `!command` dynamic context injection | Skill | U4 |
+| R10 — Compaction-resilient skill layout (≤5k token spine) | Skill | U4 |
+| R11 — Sibling sub-skills, `kitty/SKILL.md` as routing manifest | Skill | U4 |
+| R12 — Tighten per-agent tool permissions | Agent | U5 |
+| R13 — `model: claude-sonnet-4-6` for subagents | Agent | U5 |
+| R14 — Embed scaling rules in research-agent prompts | Agent | U5 |
+| R15 — Unify agent output contract (JSON shape) | Agent | U5 |
+| R16 — De-duplicate `subgraph-context-format.md` | Agent | U5 |
+| R17 — Document agent-spawn map in `kitty/SKILL.md` | Agent | U5 |
+| R18 — Conditional `expert-kitten-context` reviewer | Agent | U7 |
+| R19 — Single source-of-truth agent format | Foundation | U1 |
+| R20 — `scripts/generate_agents.py` | Foundation | U1 |
+| R21 — Codex `[agents]` config | Codex | U6 |
+| R22 — Codex `agents/openai.yaml` per skill | Codex | U6 |
+| R23 — Restore + sync `AGENTS.md` | Codex | U6 |
+| R24 — Plugin manifests generated from one config | Foundation | U1 |
+| R25 — Persistent agent-handoff store | Memory | U7 |
+| R26 — Compaction protocol on the orchestrator side | Memory | U7 |
+| R27 — Budgeted memory queries | Memory | U7 |
+| R28 — `scripts/validate_skills.py` | Foundation | U1 |
+| R29 — Tool-reference autogeneration | MCP | U3 |
+| R30 — `kitty.telemetry.json` per run | Observability | U7 |
+| R31 — SessionStart / PreToolUse hooks | Observability | U7 |
+| R32 — Smoke tests per skill | Observability | U7 |
+
+# Scope Boundaries
+
+**In scope:** all SKILL.md prompts, all agent .md/.toml files, MCP server tool
+signatures and response shapes (`src/cartograph/server/tools/*.py` and
+`src/cartograph/server/main.py`), plugin manifests, generators, validators, hooks,
+smoke tests, the memory database (`agent_handoffs` table), Codex `.codex/`
+artefacts, and `AGENTS.md`.
+
+**Out of scope:** new graph capabilities (hybrid retrieval, LSP, multi-language,
+embeddings) — owned by `2026-04-23-001-plugin-evolution`. Extracting skills into
+a separate repo — owned by `2026-04-27-001-skills-submodule-repository`. Upstream
+MCP-spec changes. Gemini and OpenCode runtime feature parity beyond keeping their
+existing manifests building.
+
+# Context & Research
+
+## Live structural picture
+
+- **Graph:** 1,040 nodes, 778 annotated, 0 stale.
+- **MCP server:** 21 tools across `index.py` (2), `query.py` (5), `analysis.py`
+  (3), `annotate.py` (5), `memory.py` (4), `reactive.py` (2). All registered via
+  `register_mcp_modules()` in `src/cartograph/server/main.py`. Hub function
+  `get_store` has in-degree 18 — a single response that includes all its callers
+  is a context-rot magnet. None of the tools declare `outputSchema`,
+  `structuredContent`, `response_shape`, `token_budget`, `cursor`, or
+  `cleanable`.
+- **Skills:** 9 SKILL.md files. Live line counts: kitty-annotate 118,
+  kitty-brainstorm 186, kitty-explore 90, kitty-impact 138, kitty-lfg 51,
+  kitty-plan 222, kitty-review 272, kitty-work 140, kitty/SKILL.md 143. None is
+  past the 500-line cap today, but `references/tool-reference.md` is 842 lines.
+  Frontmatter usage is uniform-and-thin (`name`, `description`, sometimes
+  `argument-hint`). `kitty:lfg` has `disable-model-invocation: true`; nothing
+  else does. No `paths`, `allowed-tools`, `model`, `effort`, or `!command`
+  injection anywhere.
+- **Agents:** 9 .md files. Identical frontmatter shape — `model: inherit`,
+  `tools: Read, Grep, Glob, Bash`. Each re-states an "Expected Context" section
+  duplicating `subgraph-context-format.md` (172 lines, the canonical reference).
+  Reviewer agents already return JSON; researcher agents return prose; no
+  unified contract. No scaling-rule prompts. The five experts also embed the
+  same `needs_more_context` protocol in slightly different prose.
+- **Manifests:** four hand-maintained — `.claude-plugin/plugin.json`,
+  `.codex-plugin/plugin.json`, `gemini-extension.json`, `agents/manifest.json` —
+  plus `.mcp.json`. No `_source/` directory; no generators in `scripts/` (only
+  `install-opencode-global.sh`).
+- **Tests:** `tests/test_plugin_packaging.py` already enforces 8 invariants
+  (codex paths exist, agent manifest matches directory, dual-runtime intent,
+  workflow contract docs exist, memory workflow doc exists, workflow skills
+  require memory preflight/postflight, framework agents accept memory context).
+  No skill validator, no smoke tests, no telemetry.
+- **Architecture docs:** `docs/architecture/codex-workflow-contract.md` is
+  canonical — agents are first-class for both runtimes; Codex is inline-first
+  because the local manifest spec lacks an `agents` field; no skill should
+  require swarm orchestration. `docs/architecture/repo-boundaries.md`
+  separates `src/cartograph/` (product) from `plugins/kitty/` (integration).
+
+## Memory Context
+
+Both `query_litter_box(limit=50)` and `query_treat_box(limit=50)` returned 0
+entries. The harness has no recorded prior failures or validated patterns
+relevant to context engineering. **Memory gap:** no preceding lessons constrain
+the design. New durable lessons recorded during U1–U7 should populate these
+boxes (e.g., generator-drift failures discovered during U1, telemetry-schema
+patterns validated in U7).
+
+## Patterns to follow
+
+- **Stable primitives.** `docs/architecture/codex-workflow-contract.md`
+  enumerates the MCP primitives that the workflow rests on (`query_node`,
+  `batch_query_nodes`, `get_context_summary`, `get_file_structure`, `search`,
+  `find_dependents`, `find_dependencies`, `rank_nodes`, `get_pending_annotations`,
+  `submit_annotations`). New parameters must remain backwards-compatible with
+  these names — additive, default-current-behavior.
+- **Test-driven invariants.** `test_plugin_packaging.py` tests *files exist*,
+  *manifests match*, *frontmatter contains expected fields*. The new validator
+  (R28) and generators (R20, R24) follow the same pattern: assert structure,
+  fail CI on drift.
+- **Inline-first contract.** Every skill must remain valid without delegation.
+  This is encoded in every skill's "Contract" section. Generators and reshaping
+  must preserve that contract.
+- **Memory workflow.** `kitty/references/memory-workflow.md` is already the
+  single source of truth for litter/treat preflight + postflight. New skills
+  and agents must keep linking to it (R16's de-duplication principle applies
+  across the board).
+
+# Key Technical Decisions
+
+- **D1. Single source of truth lives at `plugins/kitty/_source/`.** Subdirs:
+  `_source/agents/<name>.yaml` (per-agent), `_source/manifests/plugin.yaml`
+  (per-plugin), `_source/templates/*.j2` (jinja2). Generators emit Claude Code
+  `.md`, Codex `.toml`, manifest JSON, and updated `agents/manifest.json`. CI
+  enforces no-diff round-trip.
+- **D2. Generator language = Python + jinja2.** Matches the `cartograph` codebase
+  (`uv` toolchain, `pytest`). Located under `scripts/`. Resolves Q-A.
+- **D3. `response_shape` defaults to `"standard"`.** Backwards-compatible with
+  every existing caller. `compact` becomes the canonical recommendation in the
+  regenerated tool reference. Resolves Q-B.
+- **D4. MCP signature changes are additive.** New parameters — `response_shape`,
+  `token_budget`, `cursor`, `next_cursor`, `cleanable`, `truncated_items` — are
+  always optional with defaults that match today's behavior. No existing test
+  or caller breaks.
+- **D5. Sonnet for subagents, Opus for orchestrator.** All 9 agents move to
+  `model: claude-sonnet-4-6`. Documented opt-out is `# OPUS_REQUIRED: <reason>`
+  comment + override in `_source/agents/<name>.yaml`. None currently qualifies.
+- **D6. Compaction-resilient skill layout.** First 5,000 tokens of every
+  `SKILL.md` carry: frontmatter, decision tree, tool-selection matrix, and
+  Contract section. Stage walkthroughs and templates move to
+  `references/<skill>-stages.md` (or analogous). Validator enforces a soft
+  budget of 5,000 tokens for the spine.
+- **D7. `cleanable: true` is server-driven.** Skills and agents read the hint
+  and explicitly summarize-then-discard rather than running per-skill heuristics
+  for what's safe to drop.
+- **D8. Codex agent location = repo-root `.codex/agents/`.** Plugin ships the
+  TOML files under `plugins/kitty/.codex/agents/` and an installer script
+  copies them to repo-root `.codex/agents/` on first activation. Resolves Q-C.
+- **D9. Agent count stays at 9 + 1 conditional.** Specialization > breadth.
+  `expert-kitten-context` is conditional (subgraph context >10k tokens),
+  not always-on. Resolves Q-F.
+- **D10. Telemetry storage = `.pawprints/telemetry.jsonl`.** Append-only,
+  rotated daily. Inspectable via a new `kitty:status --telemetry` flag (additive,
+  not a new skill). Resolves Q-D.
+- **D11. No `kitty:compact` skill.** Hooks (R31) plus memory writes (R25–R26)
+  cover the gap; we rely on Claude Code's built-in compaction. Resolves Q-H.
+- **D12. Sibling sub-skill layout.** `plugins/kitty/skills/kitty-review/` etc.
+  remain siblings of `plugins/kitty/skills/kitty/` per Claude Code convention.
+  Resolves Q-E.
+- **D13. Codex hooks are runtime-specific.** R31 ships a Claude Code
+  implementation first; the Codex shim follows once Codex hook docs are
+  reviewed end-to-end. Resolves Q-G.
+
+# Open Questions
+
+All Tier-1 open questions (Q-A through Q-D) are resolved by D2, D3, D8, D10
+above. Tier-2 questions (Q-E, Q-F, Q-G, Q-H) are resolved by D12, D9, D13, D11.
+
+**Deferred to implementation:**
+
+- **DI-1.** Exact contents of the `expert-kitten-context` prompt — drafted in
+  U7 once the subgraph-context format is stable post-U5.
+- **DI-2.** Whether the `agent_handoffs` table should be a new SQLite file or
+  a new table in the existing `pawprints/memory.db`. Pre-implementation
+  recommendation: same DB, separate table; revisit if it complicates the
+  storage migration in U7.
+- **DI-3.** Whether `validate_graph` and `index_codebase` should ship with
+  `cleanable: true` by default. Advisory recommendation: yes for both. Final
+  call when U2's response-shape work surfaces real payload sizes.
+
+# Implementation Units
+
+Each unit declares: goal, requirements, dependencies, files, approach, test
+scenarios, verification.
+
+---
+
+## U1 — Source-of-truth, generators, and validator
+
+- [ ] **Goal.** Every per-runtime artefact (Claude `.md`, Codex `.toml`, manifest
+      JSON, `agents/manifest.json`) is generated from a single
+      `plugins/kitty/_source/` tree. CI fails if generated files drift from
+      source. A skill validator enforces frontmatter and line-budget invariants.
+- [ ] **Requirements:** R19, R20, R24, R28.
+- [ ] **Dependencies.** None. Lands first.
+- [ ] **Files.**
+  - **Create:**
+    - `plugins/kitty/_source/agents/cartographing-kitten.yaml` (and 8 more —
+      one per agent in `agents/manifest.json`).
+    - `plugins/kitty/_source/manifests/plugin.yaml` (single source for the three
+      plugin manifests + `.mcp.json` env).
+    - `plugins/kitty/_source/templates/agent.claude.md.j2`,
+      `plugins/kitty/_source/templates/agent.codex.toml.j2`,
+      `plugins/kitty/_source/templates/manifest.claude.json.j2`,
+      `plugins/kitty/_source/templates/manifest.codex.json.j2`,
+      `plugins/kitty/_source/templates/manifest.gemini.json.j2`,
+      `plugins/kitty/_source/templates/manifest.agents.json.j2`.
+    - `scripts/generate_agents.py` (CLI: `--check` for CI, no-arg writes files).
+    - `scripts/generate_manifests.py` (same CLI shape).
+    - `scripts/validate_skills.py` (CLI; CI-ready exit codes).
+    - `tests/test_generators.py` — per-runtime round-trip + CI-mode assertions.
+    - `tests/test_skill_validator.py` — golden-file assertions on skill
+      frontmatter + line budgets.
+  - **Modify:**
+    - `pyproject.toml` — add `jinja2` to project deps; register new scripts
+      under `[project.scripts]` as `kitty-generate-agents`,
+      `kitty-generate-manifests`, `kitty-validate-skills` (matching the
+      existing `cartographing-kittens` / `kitty-graph` naming convention).
+    - `.pre-commit-config.yaml` — add `generate_agents.py --check`,
+      `generate_manifests.py --check`, `validate_skills.py` hooks.
+    - `tests/test_plugin_packaging.py` — assert the generators run cleanly on a
+      pristine checkout (no diff produced).
+    - `CLAUDE.md` and (later in U6) `AGENTS.md` — document the
+      single-source-of-truth model so contributors do not hand-edit generated
+      files.
+- [ ] **Approach.**
+  - Each `_source/agents/<name>.yaml` carries: `name`, `description`, `role`
+    (annotation/research/review), `model` (default `claude-sonnet-4-6`,
+    overridable), `tools` (allowlist), `mcp_tools`, `developer_instructions`
+    (the body), `output_contract` (a $ref to a shared schema), `scaling_rules`,
+    `expected_context_pointer` (path into `subgraph-context-format.md`).
+  - Generators read every `_source/**/*.yaml`, render via jinja2, write to the
+    target paths, and write a `.generated_hash` sidecar. `--check` fails non-zero
+    if rendered output != on-disk output.
+  - The skill validator asserts: every `SKILL.md` ≤500 lines; frontmatter has
+    `name`, `description`; `argument-hint` exists where `$ARGUMENTS` is referenced;
+    every `references/<file>.md` referenced from a skill exists; `allowed-tools`
+    references real MCP tools (cross-check against `register_mcp_modules` import
+    list).
+- [ ] **Patterns to follow.** `tests/test_plugin_packaging.py` already loads
+      manifests with `json.loads` and compares fields — reuse the same shape for
+      generator-output assertions. Match the existing
+      `test_agent_manifest_declares_all_framework_agents` style: enumerate
+      framework agents from `_source/`, fail if `agents/manifest.json` differs.
+- [ ] **Test scenarios.**
+  - Happy: `uv run python scripts/generate_agents.py` on a clean tree produces
+    no diff (`git diff --exit-code`).
+  - Edge: deleting `plugins/kitty/agents/cartographing-kitten.md` and re-running
+    restores it byte-identically (compare via SHA-256).
+  - Error: editing a generated file by hand and running `--check` exits 1 with a
+    clear message naming the drifted file.
+  - Error: introducing a 600-line `SKILL.md` fails `validate_skills.py` with
+    exit 1 and a line-budget message.
+  - Integration: `pre-commit run --all-files` runs all three new hooks green.
+- [ ] **Verification.** CI green with the new pre-commit hooks. Editing
+      `_source/agents/librarian-kitten-flow.yaml` and rerunning the generators
+      updates the .md, .toml, and manifest entries simultaneously.
+
+---
+
+## U2 — MCP context-shaping (output schemas, response_shape, token_budget, cursors, cleanable)
+
+- [ ] **Goal.** Every high-traffic query/analysis tool exposes typed
+      `outputSchema`/`structuredContent`, accepts `response_shape`,
+      `token_budget`, and `cursor`, and tags safe-to-drop responses with
+      `cleanable: true`.
+- [ ] **Requirements:** R1, R2, R3, R4, R6.
+- [ ] **Dependencies.** U1 (so the regenerated tool reference in U3 has a stable
+      contract to autogenerate from).
+- [ ] **Files.**
+  - **Modify:**
+    - `src/cartograph/server/tools/query.py` — extend `query_node`,
+      `batch_query_nodes`, `search`, `get_file_structure`, `get_context_summary`
+      with the new optional parameters.
+    - `src/cartograph/server/tools/analysis.py` — extend `find_dependencies`,
+      `find_dependents`, `rank_nodes` likewise.
+    - `src/cartograph/server/tools/index.py` — `index_codebase` and
+      `annotation_status` tag responses with `cleanable: true`.
+    - `src/cartograph/server/tools/reactive.py` — `validate_graph` tags response
+      with `cleanable: true` when `passed=true`.
+    - `src/cartograph/server/main.py` — register a shared response-shape helper
+      (probably a new module).
+  - **Create:**
+    - `src/cartograph/server/response_shape.py` — `compact_node`,
+      `apply_token_budget`, `encode_cursor`, `decode_cursor`, soft-cap utilities,
+      shared `TruncatedFlag` constant.
+    - `src/cartograph/server/schemas.py` — pydantic/TypedDict models that produce
+      the tool `outputSchema` JSON Schemas.
+    - `tests/test_response_shape.py` — unit tests for the shape utilities.
+    - `tests/test_tool_contracts.py` — integration tests for `compact`,
+      `token_budget`, `cursor`, `cleanable`.
+- [ ] **Approach.**
+  - `summarise_node` (in `query.py`) is reshaped to accept a `shape` arg.
+    `compact` returns `qualified_name`, `kind`, `role`, `summary` (≤160 chars),
+    `centrality`. `standard` matches today. `full` adds raw neighbors, file
+    path, line range, edges.
+  - `apply_token_budget(payload, max_tokens)` walks list-of-dict members and
+    truncates by greedy size accounting; the approximation uses `tiktoken`'s
+    `cl100k_base` encoder when available (cached at module load) and falls
+    back to `len(json) / 4` if the import fails. The function sets
+    `truncated_items: int`, `budget_used: int`, `budget_remaining: int`,
+    `approximation_method: "tiktoken" | "char_div_4"`. Actual char count is
+    always returned alongside the estimated token count so callers can
+    verify.
+  - Cursors are opaque base64-encoded JSON of `{offset: int, query_hash: str}`.
+    Server validates the `query_hash` against the in-flight call to reject
+    mismatched cursors.
+  - `cleanable: true` is tagged on responses where the data is incidental to the
+    decision (`index_codebase` summary, `validate_graph` health, `annotation_status`).
+- [ ] **Patterns to follow.** `summarise_node` already centralises the response
+      shape — extend it rather than duplicating across tools. Existing
+      `_resolve_node` in `analysis.py` is the right seam for the new `_traverse`
+      helper that U3 will introduce.
+- [ ] **Test scenarios.**
+  - Happy: `query_node("get_store")` with `response_shape="compact"` returns a
+    dict with `≤2,000 tokens` (assert via the same char-approximation the
+    server uses) and no `neighbors` key.
+  - Happy: `search(query="x", limit=200)` with `cursor=None` then with the
+    returned `next_cursor` produces the same union as `search(limit=400)`.
+  - Edge: `token_budget=200` on `find_dependents("get_store", max_depth=5)`
+    returns ≤200 tokens and a populated `truncated_items > 0`.
+  - Edge: malformed cursor returns a structured error (`error: "invalid_cursor"`)
+    rather than raising.
+  - Error: `response_shape="bogus"` returns
+    `error: "unknown response_shape 'bogus'. Use 'compact', 'standard', or 'full'."`
+  - Integration: `index_codebase()` response contains `"cleanable": true` so
+    skill orchestrators can drop it after compaction.
+- [ ] **Verification.** Hub-node compact is ≤2,000 tokens. `token_budget` is
+      honored in 100% of contract tests. Existing tests in
+      `tests/test_server.py` and `tests/test_e2e.py` continue to pass.
+
+---
+
+## U3 — Tool consolidation and autogenerated tool reference
+
+- [ ] **Goal.** Eliminate the only direction-only duplication
+      (`find_dependencies` / `find_dependents` share `_traverse`). Regenerate
+      the (now per-family) tool reference from the FastMCP introspection so it
+      cannot drift.
+- [ ] **Requirements:** R5, R29.
+- [ ] **Dependencies.** U2 (the regenerated reference must include the new
+      params), U1 (the generator runner is in `scripts/`).
+- [ ] **Files.**
+  - **Modify:**
+    - `src/cartograph/server/tools/analysis.py` — extract `_traverse(node, *,
+      direction, edge_kinds, max_depth)`; both `find_dependencies` and
+      `find_dependents` delegate to it.
+    - `plugins/kitty/skills/kitty/SKILL.md` — point at the new per-family
+      reference paths.
+  - **Create:**
+    - `plugins/kitty/skills/kitty/references/tool-reference/query.md`,
+      `tool-reference/analysis.md`, `tool-reference/annotate.md`,
+      `tool-reference/memory.md`, `tool-reference/reactive.md`,
+      `tool-reference/index.md`.
+    - `scripts/generate_tool_reference.py` — introspects FastMCP `mcp.tools`
+      registry, renders one Markdown file per family from a jinja2 template.
+    - `tests/test_tool_reference_generator.py`.
+  - **Delete:**
+    - `plugins/kitty/skills/kitty/references/tool-reference.md` (replaced by the
+      family directory).
+- [ ] **Approach.**
+  - `_traverse` calls `store.transitive_dependencies` or
+    `store.reverse_dependencies` based on `direction`. The two MCP tools keep
+    distinct names to preserve mental models.
+  - The reference generator imports `cartograph.server.main`, calls
+    `register_mcp_modules()`, then walks `mcp._tools` (or the public introspection
+    API) to pull each tool's name, docstring, parameters, and schema. Family
+    grouping is derived from the module path (e.g.,
+    `cartograph.server.tools.query` → `query.md`).
+  - Pre-commit hook `generate_tool_reference.py --check` follows the same
+    pattern as U1's generators.
+- [ ] **Patterns to follow.** Reuse U1's jinja2 template + `--check` CLI shape.
+      Match the existing layout convention in
+      `plugins/kitty/skills/kitty/references/`.
+- [ ] **Test scenarios.**
+  - Happy: `find_dependencies("UserService")` and
+    `find_dependents("UserService")` produce equivalent shapes on a fixture
+    project; only the relationship direction differs.
+  - Happy: deleting a per-family reference and re-running the generator restores
+    it byte-identically.
+  - Edge: adding a new tool registers a stub in the reference and fails CI until
+    the docstring is filled in (the generator emits a stub with a sentinel
+    `TODO: document`; the validator rejects sentinels).
+- [ ] **Verification.** No skill regression; `kitty:explore` and `kitty:impact`
+      continue to pass smoke tests after the consolidation. The autogenerated
+      reference produces no diff in CI.
+
+---
+
+## U4 — Skill restructuring (progressive disclosure, frontmatter expansion, dynamic context)
+
+- [ ] **Goal.** Every skill is compaction-resilient (decision tree + tool matrix
+      + contract in the first 5,000 tokens), uses the full Claude Code
+      frontmatter spectrum, and pulls live shell context via `!command` where
+      it kills a manual step.
+- [ ] **Requirements:** R7, R8, R9, R10, R11.
+- [ ] **Dependencies.** U1 (validator enforces the line/spine budgets), U3 (the
+      new tool-reference layout is referenced by the slimmer `kitty/SKILL.md`).
+- [ ] **Files.**
+  - **Modify:**
+    - `plugins/kitty/skills/kitty-review/SKILL.md` — slim to the spine + decision
+      tree + contract; move stage walkthrough out.
+    - `plugins/kitty/skills/kitty-plan/SKILL.md` — same treatment.
+    - `plugins/kitty/skills/kitty/SKILL.md` — slim to ≤200 lines; route to
+      sub-skills (`kitty:explore`, `kitty:impact`, `kitty:annotate`,
+      `kitty:brainstorm`, etc.) rather than carrying inline procedure.
+    - `plugins/kitty/skills/kitty-work/SKILL.md` — add
+      `disable-model-invocation: true`, `paths: ["docs/plans/*.md"]`,
+      `allowed-tools`, `argument-hint`, and `!command` injection of `git status`
+      + `uv run pytest --collect-only -q | head -20`.
+    - `plugins/kitty/skills/kitty-annotate/SKILL.md` — add
+      `disable-model-invocation: true`, `paths: ["**/*.py", "**/*.ts",
+      "**/*.tsx", "**/*.js", "**/*.jsx"]`, `allowed-tools`.
+    - `plugins/kitty/skills/kitty-explore/SKILL.md`,
+      `plugins/kitty/skills/kitty-impact/SKILL.md` — add
+      `paths: ["src/**", "lib/**", "app/**", "**/*.py", "**/*.ts"]`,
+      `allowed-tools`, `argument-hint`.
+    - `plugins/kitty/skills/kitty-lfg/SKILL.md` — add `argument-hint`,
+      `!command` injection of branch + last commit subject.
+    - `plugins/kitty/skills/kitty-brainstorm/SKILL.md` — add `paths`,
+      `allowed-tools`.
+  - **Create:**
+    - `plugins/kitty/skills/kitty-review/references/review-stages.md`
+      (Stages 1–8 detail).
+    - `plugins/kitty/skills/kitty-review/references/severity-and-autofix.md`
+      (severity scale + autofix-class semantics).
+    - `plugins/kitty/skills/kitty-review/references/output-format.md`
+      (per-mode output contract).
+    - `plugins/kitty/skills/kitty-plan/references/plan-format.md`,
+      `plugins/kitty/skills/kitty-plan/references/research-synthesis.md`,
+      `plugins/kitty/skills/kitty-plan/references/confidence-checklist.md`.
+- [ ] **Approach.**
+  - Spine template per skill: H1 title; one-paragraph "what this is" tagline;
+    decision-tree H2; tool-selection-matrix H2; "Contract" H2; "References"
+    H2 listing the deferred files. Stage walkthroughs and templates move to
+    the references.
+  - `!command` injection is added in the body, not in frontmatter — Claude Code
+    expands `!\`command\`` at skill render time; assert the rendered prompt
+    contains the live output, not the literal command. Use the simplest commands
+    that don't need arguments (`git diff --name-only`, `git log -1 --pretty=%B`,
+    `git rev-parse --abbrev-ref HEAD`).
+  - `kitty/SKILL.md` becomes a routing manifest. Tool-of-the-week tables move to
+    the per-family reference files; sub-skill descriptions become a lookup
+    table; the long pipeline narrative trims to the canonical workflow contract.
+- [ ] **Patterns to follow.** Follow the layout of the current `kitty/SKILL.md`
+      (frontmatter → "When X beats grep" table → decision heuristic → sub-skill
+      lookup → quick start). Replicate that "router" voice in the slimmed
+      `kitty-review` and `kitty-plan` spines.
+- [ ] **Test scenarios.**
+  - Happy: `validate_skills.py` runs green; every spine ≤5,000 tokens.
+  - Happy: a stale-frontmatter test asserts that `paths`, `allowed-tools`, and
+    `argument-hint` populate per the table in this plan.
+  - Edge: truncating any `SKILL.md` to its first 5,000 tokens and running its
+    smoke test (added in U7) still produces the expected workflow phases — the
+    decision tree must survive truncation.
+  - Edge: `kitty:work` invoked outside a docs/plans context (no `paths` match)
+    is not auto-loaded; spot-check with a Claude Code session.
+- [ ] **Verification.** All skill spines fit the budget; the smoke tests in U7
+      pass on the truncated-spine fixture. `kitty/SKILL.md` is ≤200 lines.
+
+---
+
+## U5 — Agent specialization (tool perms, Sonnet model, scaling rules, output contract, spawn map)
+
+- [ ] **Goal.** Each agent has the smallest viable tool surface, runs on Sonnet
+      by default, embeds a calibrated scaling rubric, returns a unified JSON
+      contract, and links to (rather than duplicates) the canonical subgraph
+      format. The `kitty/SKILL.md` documents an explicit spawn map.
+- [ ] **Requirements:** R12, R13, R14, R15, R16, R17.
+- [ ] **Dependencies.** U1 (agents are now generated, so changes flow through
+      `_source/agents/*.yaml`), U2 (output schemas align with the new
+      tool-response contracts).
+- [ ] **Files.**
+  - **Modify (via U1's generator inputs):**
+    - `plugins/kitty/_source/agents/cartographing-kitten.yaml` —
+      `model: claude-sonnet-4-6`, `tools: ["Read", "Grep", "Glob", "Bash"]`,
+      `mcp_tools: ["query_node", "get_file_structure"]`.
+    - `plugins/kitty/_source/agents/librarian-kitten-*.yaml` (4 files) —
+      `model: claude-sonnet-4-6`, `tools: ["Read", "Grep", "Glob"]` (no Bash),
+      `mcp_tools: ["query_node", "search", "get_file_structure",
+      "find_dependencies", "find_dependents", "rank_nodes"]`, embed scaling
+      rules.
+    - `plugins/kitty/_source/agents/expert-kitten-*.yaml` (4 files) — same
+      tool/model treatment as librarians; output contract is the unified shape.
+    - `plugins/kitty/_source/agents/_shared/output_contract.yaml` — shared
+      schema referenced by every agent.
+    - `plugins/kitty/skills/kitty/SKILL.md` — add an "Agent Spawn Map" section
+      (see Approach below).
+  - **Generated outputs (regenerated by `scripts/generate_agents.py`):**
+    - `plugins/kitty/agents/*.md` (9 files).
+    - `plugins/kitty/.codex/agents/*.toml` (9 files; new — see U6).
+    - `plugins/kitty/agents/manifest.json` (refreshed).
+  - **Modify:**
+    - `plugins/kitty/skills/kitty/references/subgraph-context-format.md` — keep
+      as the canonical reference; link from each agent's "Expected Context"
+      pointer instead of re-stating.
+- [ ] **Approach.**
+  - **Tool perms (R12).** Researchers and reviewers drop `Bash`. The annotator
+    keeps `Bash` for `git log` sanity checks. MCP tool allowlist captured in
+    `mcp_tools`; the generator emits Claude Code's `tools:` line and Codex's
+    TOML equivalent.
+  - **Model class (R13).** Default `claude-sonnet-4-6`. Override field is
+    `force_opus: true` with a required `force_opus_reason` string. None of the
+    9 agents currently sets it.
+  - **Scaling rules (R14).** Each researcher prompt embeds:
+    > "Simple lookup → 1–3 tool calls. Direct comparison → 5–10 tool calls.
+    > Complex architectural pass → 10–20 tool calls. Stop when you have a
+    > confident answer; do not exhaust the search space."
+  - **Unified output contract (R15).** Every agent returns:
+    ```json
+    {
+      "agent": "<name>",
+      "role": "annotation|research|review",
+      "findings_or_observations": [...],
+      "summary": "...",
+      "confidence": 0.0,
+      "sources": [{"qualified_name": "...", "file_path": "..."}, ...],
+      "needs_more_context": [...]
+    }
+    ```
+  - **Subgraph dedup (R16).** Each agent's "Expected Context" section becomes
+    a one-line pointer:
+    > "Inputs follow the canonical subgraph context format. See
+    > `plugins/kitty/skills/kitty/references/subgraph-context-format.md`,
+    > sections 1, 2, 3, 5."
+  - **Spawn map (R17).** New table in `kitty/SKILL.md`:
+
+    | Skill | Always-on | Conditional |
+    |---|---|---|
+    | `kitty:plan` | researcher, pattern | flow, impact |
+    | `kitty:work` | (none) | researcher, pattern (per unit) |
+    | `kitty:review` | correctness, testing | impact (≥3 files), structure (new files), context (≥10k subgraph) |
+    | `kitty:annotate` | cartographing-kitten | — |
+    | `kitty:brainstorm` | researcher | pattern |
+    | `kitty:lfg` | (delegates to `kitty:plan` → `kitty:work` → `kitty:review`) | — |
+    | `kitty:explore` | (none — inline orchestrator only) | — |
+    | `kitty:impact` | (none — inline orchestrator only) | — |
+
+    Every agent in `agents/manifest.json` must appear in the Always-on or
+    Conditional column for at least one skill.
+- [ ] **Patterns to follow.** Existing `expert-kitten-*` agents already return
+      JSON; reuse their schema as the unified shape's seed. Existing
+      `needs_more_context` protocol is preserved verbatim.
+- [ ] **Test scenarios.**
+  - Happy: regenerated `cartographing-kitten.md` matches the
+    `_source/agents/cartographing-kitten.yaml` byte-for-byte.
+  - Happy: every agent's `tools:` field is a strict subset of the prior set
+    (asserted by `tests/test_generators.py`).
+  - Edge: setting `force_opus: true` without `force_opus_reason` fails the
+    generator with a clear message.
+  - Edge: a research agent stress-test (synthetic prompt asking for "list every
+    function") confirms the agent stops at ≤20 tool calls and reports its
+    rationale (manual validation, documented as a treat-box entry).
+  - Integration: `kitty/SKILL.md` spawn map references every agent declared in
+    `agents/manifest.json` (validator assertion in `validate_skills.py`).
+- [ ] **Verification.** Every agent's `tools` is minimum-viable. A parallel
+      review run with 4 agents on Sonnet costs ≤25% of an inherit-Opus run at
+      parity quality (manual measurement; recorded in the success criteria
+      report).
+
+---
+
+## U6 — Codex first-class runtime parity
+
+- [ ] **Goal.** Codex spawns real subagents from `.codex/agents/*.toml`. Plugin
+      ships `[agents]` config defaults. Skills that need Codex-specific
+      invocation policy ship `agents/openai.yaml`. `AGENTS.md` is restored and
+      kept in sync with `CLAUDE.md`.
+- [ ] **Requirements:** R21, R22, R23. (R19, R20, R24 already landed in U1; the
+      Codex-side templates are written there. R12, R13, R15 land in U5; their
+      Codex outputs flow through the same generator.)
+- [ ] **Dependencies.** U1 (the generator emits Codex TOML), U5 (agent contents
+      are stable).
+- [ ] **Files.**
+  - **Create:**
+    - `plugins/kitty/.codex/agents/*.toml` (9 files; emitted by U1's generator
+      after U5's `_source/` content stabilizes).
+    - `plugins/kitty/.codex/config.toml` (`max_threads = 4`, `max_depth = 1`,
+      `job_max_runtime_seconds = 300`).
+    - `plugins/kitty/skills/kitty-lfg/agents/openai.yaml`
+      (`allow_implicit_invocation: false`).
+    - `plugins/kitty/skills/kitty-work/agents/openai.yaml` (same).
+    - `AGENTS.md` (root; restored from `git status -D`).
+    - `scripts/sync_claude_agents_md.py` — diff CLAUDE.md vs AGENTS.md, reports
+      drift.
+    - `tests/test_codex_parity.py` — asserts every agent in `agents/manifest.json`
+      has a corresponding `.codex/agents/<name>.toml`; `config.toml` parses;
+      `openai.yaml` files are valid YAML.
+    - `tests/test_agents_md_sync.py` — asserts CLAUDE.md and AGENTS.md share the
+      same section structure (configurable allow-list of intentional diffs).
+  - **Modify:**
+    - `.pre-commit-config.yaml` — add the AGENTS.md sync hook.
+    - `tests/test_plugin_packaging.py::test_root_codex_plugin_manifest_paths_exist`
+      — extend to assert the new `.codex/` paths.
+- [ ] **Approach.**
+  - **U6.0 — Codex discovery spike (must run first).** Before any TOML files
+    are committed, install Codex locally, drop a single hand-written
+    `.codex/agents/test-agent.toml` under `plugins/kitty/.codex/agents/`, and
+    verify whether Codex auto-discovers it. If it does not, document the
+    required path layout in `docs/architecture/codex-workflow-contract.md` and
+    confirm that the installer pattern (D8) is the correct mitigation. Record
+    the finding as a treat-box entry. Only once this is confirmed do the
+    generator-emitted TOML files land — preventing 9 wasted file moves.
+  - Each `.toml` file mirrors the agent's `_source/` YAML using the Codex TOML
+    schema (`name`, `description`, `model`, `tools`, `prompt`).
+  - The optional installer flow: a `kitty:status --setup-codex` command (added
+    later, advisory) copies `plugins/kitty/.codex/agents/*.toml` to repo-root
+    `.codex/agents/`. We do **not** auto-copy on import; the user invokes it.
+  - `AGENTS.md` is generated from a CLAUDE.md-shaped template with Codex-flavored
+    examples. The sync script is informational (CI lint), not a generator —
+    AGENTS.md remains hand-authored but drift-checked.
+  - `agents/openai.yaml` is small (≤10 lines per file). Required keys:
+    `allow_implicit_invocation: false`, `category: developer-tools`.
+- [ ] **Patterns to follow.** `plugins/kitty/.codex-plugin/plugin.json` already
+      ships Codex-specific UI metadata — mirror that style for `agents/openai.yaml`.
+      Keep the `framework_status: active-framework-agent` flag in TOML for
+      consistency with the .md file.
+- [ ] **Test scenarios.**
+  - Happy: `kitty:review` with 4 reviewer agents on Codex completes within
+    `max_threads=4` (confirmed by Codex run logs; stub the run in CI via a
+    fixture that asserts the TOML's `max_threads` is honored by the generator).
+  - Edge: deleting `.codex/config.toml` and re-running U1's generator restores
+    it byte-identically.
+  - Error: editing `AGENTS.md` to drop the "Cartographing Kittens-First"
+    section fails the sync test.
+- [ ] **Verification.** Codex execution exercises the new TOML files; AGENTS.md
+      and CLAUDE.md remain in sync (CI lint green).
+
+---
+
+## U7 — Memory + handoff + observability + smoke tests
+
+- [ ] **Goal.** Subagents write to a persistent handoff store; the orchestrator
+      drops `cleanable: true` payloads on compaction; memory queries are
+      budgeted; per-skill telemetry lines are emitted; hooks enforce
+      index-before-query and memory-preflight; per-skill smoke tests cover the
+      9-skill surface and the conditional `expert-kitten-context` reviewer.
+- [ ] **Requirements:** R18, R25, R26, R27, R30, R31, R32.
+- [ ] **Dependencies.** U2 (the `cleanable` hint is the foundation for the
+      compaction protocol), U5 (the unified output contract is what gets
+      written to the handoff store).
+- [ ] **Files.**
+  - **Modify:**
+    - `src/cartograph/memory/memory_store.py` — DAO methods for the new
+      `agent_handoffs` table (`stage_handoff`, `get_handoff`, `expire_handoffs`).
+    - `src/cartograph/storage/schema.py` — table definition for
+      `agent_handoffs` so the schema bootstrap matches the migration.
+    - `src/cartograph/server/tools/memory.py` — new MCP tool
+      `get_agent_handoff(run_id)`; extend `query_litter_box`/`query_treat_box`
+      with `token_budget` and a `relevance_score` field. Ranking implementation
+      details are in the Approach section below — the memory store does not
+      currently use FTS5, so the choice is made there.
+    - `plugins/kitty/skills/kitty-review/SKILL.md`,
+      `plugins/kitty/skills/kitty-plan/SKILL.md`,
+      `plugins/kitty/skills/kitty-work/SKILL.md`,
+      `plugins/kitty/skills/kitty-brainstorm/SKILL.md` — agents write their
+      JSON to `agent_handoffs` and pass back a `run_id`; the orchestrator
+      reads via `get_agent_handoff` only when synthesizing.
+    - `plugins/kitty/_source/agents/*.yaml` — every agent's instructions append
+      a "Persist to handoff store via the orchestrator" sentence.
+  - **Create:**
+    - `src/cartograph/storage/migrations/0005_agent_handoffs.sql` — next number
+      in the existing migration sequence (`0001_baseline.sql`,
+      `0002_graph_reactive.sql`, `0004_centrality.sql` are taken).
+    - `plugins/kitty/_source/agents/expert-kitten-context.yaml` — new conditional
+      reviewer; emitted to .md + .toml by U1's generator.
+    - `src/cartograph/telemetry.py` — append-only writer for
+      `.pawprints/telemetry.jsonl` with daily rotation.
+    - `plugins/kitty/hooks/kitty-on-session-start.sh` — runs `index_codebase` if
+      `validate_graph` reports `stale > 0`.
+    - `plugins/kitty/hooks/kitty-pre-tool-use.sh` — enforces memory preflight on
+      workflow skills.
+    - `plugins/kitty/hooks/hooks.json` (Claude Code hook manifest).
+    - `tests/test_skill_smoke.py` — fixture-driven smoke test per skill against
+      `tests/fixtures/benchmark_project`.
+    - `tests/test_telemetry.py` — assertions on schema, rotation, and exit-code
+      coverage.
+    - `tests/test_handoff_store.py`.
+- [ ] **Approach.**
+  - **Handoff store (R25).** Schema:
+    `(session_id TEXT, agent_name TEXT, run_id TEXT PRIMARY KEY, role TEXT,
+    payload JSON, created_at INTEGER, expires_at INTEGER)`. Default TTL: 24h.
+    The orchestrator stages `payload` (the unified JSON) and tracks the
+    returned `run_id`. The lead's prompt carries `run_id`s, not prose; it pulls
+    payloads via `get_agent_handoff` only when synthesizing.
+  - **Compaction protocol (R26).** Skills add a "Compaction Behavior" section
+    that says: drop `cleanable: true` MCP responses; replace agent prose with
+    `get_agent_handoff(run_id)` references; preserve the active plan/requirements
+    doc. The protocol is documented in `kitty/SKILL.md` and enforced by hooks
+    where possible.
+  - **Budgeted memory queries (R27).** `query_litter_box` and `query_treat_box`
+    accept `token_budget` and return a `relevance_score` per entry. Ranking is
+    a lightweight LIKE-based scorer (substring count + recency boost) — not
+    FTS5 — because adding FTS5 to the memory tables would require a separate
+    schema migration that the brainstorm only suggested ("e.g., FTS5") and is
+    out of scope here. Document the scorer in the DAO so a future RFC can
+    swap in FTS5 cleanly.
+  - **`expert-kitten-context` (R18).** Conditional reviewer that scores the
+    pre-formatted subgraph context for token count and redundancy. Gate: the
+    orchestrator estimates the subgraph context tokens; if ≥10,000, spawn the
+    reviewer. Output: a finding with `severity: P2|P3` flagging redundancy.
+  - **Telemetry (R30).** Each skill writes one JSON line per run:
+    `{ts, skill, duration_ms, tool_calls, tokens_in, tokens_out, agents_spawned,
+    exit_status, run_id}`. Rotation rule: rename to `telemetry.YYYY-MM-DD.jsonl`
+    at midnight; gzip after 7 days.
+  - **Baseline capture (precondition for the 50% reduction success criterion).**
+    Before U2 lands, run the full smoke suite against `main` (or a
+    pre-U2 tag) with the new telemetry instrumentation pre-cherry-picked, and
+    record the median `tokens_in` per skill into
+    `tests/fixtures/baseline_telemetry.jsonl`. The U7 smoke tests assert that
+    post-U2 medians are ≤50% of those baseline values. Without a captured
+    baseline the success criterion cannot be checked, so the baseline-capture
+    job is the first deliverable in U7.
+  - **Hooks (R31).** Claude Code only initially. SessionStart: run
+    `validate_graph`; if `stale > 0`, run `index_codebase(full=false)`.
+    PreToolUse on workflow skills: assert that the skill ran `query_litter_box`
+    and `query_treat_box` already this session; if not, emit a structured
+    warning. Codex hook variants ship later (Q-G).
+  - **Smoke tests (R32).** A pytest fixture invokes each skill's prompt
+    machinery against `tests/fixtures/benchmark_project` (existing 50-file
+    fixture). Each skill's smoke asserts: workflow completes, expected files
+    are written (e.g., `docs/brainstorms/*-requirements.md`), telemetry line
+    emitted with the right schema.
+- [ ] **Patterns to follow.** Existing `tests/test_memory.py` exercises the
+      litter/treat tables — extend the same conftest fixtures to set up
+      `agent_handoffs`. The MCP `prompts` already follow the FastMCP
+      convention; smoke tests can drive them via the existing
+      `tests/conftest.py` fixtures (no new harness needed).
+- [ ] **Test scenarios.**
+  - Happy: a 4-agent review writes 4 handoff records; the lead reads them via
+    `get_agent_handoff(run_id)` and produces a synthesis. The lead's prompt
+    contains the run_ids, not the full prose.
+  - Happy: `query_litter_box(token_budget=2000, search="auth")` returns
+    ≤2,000 tokens with a populated `truncated_items`.
+  - Edge: a long run that triggers compaction retains the plan reference and
+    handoff records; loses raw `cleanable: true` `index_codebase` payloads.
+  - Edge: invoking `kitty:review` on a synthetic 12,000-token subgraph context
+    spawns `expert-kitten-context` and produces a finding; the same skill on a
+    1,000-token context skips the reviewer.
+  - Error: deleting the graph and invoking `kitty:explore` triggers the
+    SessionStart hook to re-index; the hook log records a re-index event.
+  - Integration: `uv run pytest tests/test_skill_smoke.py` passes for all 9
+    skills + 1 conditional reviewer; telemetry lines exist for every run.
+- [ ] **Verification.** Median `kitty:review` token consumption on the fixture
+      drops to ≤50% of the pre-U2 baseline. All success criteria from the
+      brainstorm (token efficiency, compaction safety, Codex parity, generator
+      integrity, agent specialization, observability, no regression) are
+      green.
+
+# System-Wide Impact
+
+- **MCP server contract changes** ripple through every skill's prompt. The
+  generator (U1) and the autogenerated tool reference (U3) absorb the bulk of
+  the rewrite. Skills declare expected response shapes inline; agents read the
+  contract from the regenerated reference. Backwards compatibility is preserved
+  (D4).
+- **Generator integrity** becomes the new must-pass CI gate. A drift between
+  `_source/` and rendered files breaks pre-commit. Contributors who hand-edit
+  generated files learn fast.
+- **Memory schema migration** ships in U7. The migration must be additive — no
+  drops, no renames — and gated by the existing migration runner so older
+  installs upgrade cleanly.
+- **Smoke-test fixture cost.** `tests/test_skill_smoke.py` adds 9–10 new test
+  cases that each spin up a FastMCP server against the benchmark fixture.
+  Expected runtime: ≤45s total. If it grows past a minute, mark the suite
+  `pytest -m smoke` and gate it behind a CI matrix job.
+- **Documentation churn.** `CLAUDE.md`, `AGENTS.md`, `docs/architecture/codex-workflow-contract.md`
+  all reference the new flow. CLAUDE.md is updated in U1 (generators), U6
+  (AGENTS.md sync), and U7 (telemetry). The architecture doc gets a brief
+  amendment after U6 (Codex parity is no longer "framework-declared inline-first
+  only").
+
+# Risks & Dependencies
+
+- **Risk: Codex `.codex/agents/` location is not auto-discovered from
+  plugin-side paths.** Mitigation: D8 ships an installer step. If the spike
+  during U6 finds that Codex *requires* repo-root paths, the installer is
+  documented in `AGENTS.md` and `kitty:status --setup-codex` becomes a
+  recommended quick-start step.
+- **Risk: token-budget approximations diverge from real Anthropic tokenization.**
+  Mitigation: use a generous safety margin (target 80% of nominal budget),
+  document the approximation in `response_shape.py`, expose the actual char
+  count alongside the estimated token count.
+- **Risk: skill spine truncation drops the Contract section.** Mitigation:
+  enforce U4's spine order — frontmatter, then **decision tree → tool-selection
+  matrix → Contract** as the first three H2s, then "References". Stage
+  walkthroughs and templates live in `references/`. The validator asserts the
+  order so a Contract section that drifts past line 5,000 fails CI.
+- **Risk: agent-handoff TTL of 24h is too short for long-running plans.**
+  Mitigation: TTL is per-record; plans that span days set `expires_at` to
+  `created_at + 7d`. Default kept at 24h; orchestrator overrides as needed.
+- **Risk: generator failures block development.** Mitigation: U1 ships
+  `--check` and `--write` separately. Pre-commit runs `--check`; contributors
+  manually run `--write` when they edit `_source/`. Local edits to generated
+  files raise a clear error pointing at the right `_source/` path.
+- **Dependency: `2026-04-27-001-skills-submodule-repository`.** When that RFC
+  extracts skills, the `_source/` and `scripts/` directories must move with
+  the skills. Keep the templates plug-in-relative so the move is a path
+  rename, not a contract rewrite.
+- **Dependency: `2026-04-23-001-plugin-evolution`.** When that RFC adds
+  hybrid-retrieval scores or LSP tooling, the new fields must fit the
+  `compact`/`standard`/`full` shapes defined here. U2's
+  `summarise_node` is the seam — extend, don't replace.
+
+# Sources & References
+
+- Origin: `docs/brainstorms/2026-04-27-002-harness-context-engineering-requirements.md`
+- Architecture: `docs/architecture/codex-workflow-contract.md`,
+  `docs/architecture/repo-boundaries.md`
+- Cross-references: `docs/brainstorms/2026-04-23-001-plugin-evolution-requirements.md`,
+  `docs/brainstorms/2026-04-27-001-skills-submodule-repository-requirements.md`
+- Live MCP surface (researched 2026-04-27):
+  `src/cartograph/server/main.py`, `src/cartograph/server/tools/*.py`,
+  `src/cartograph/server/prompts/*.py`
+- Live skill/agent surface: `plugins/kitty/skills/*/SKILL.md`,
+  `plugins/kitty/skills/kitty/references/*.md`,
+  `plugins/kitty/agents/*.md`, `plugins/kitty/agents/manifest.json`
+- Test invariants to preserve: `tests/test_plugin_packaging.py`
+  (8 tests including `test_workflow_skills_require_memory_preflight`)
+- Memory state at planning time: 0 litter entries, 0 treat entries —
+  `Memory Context` section above documents the gap.

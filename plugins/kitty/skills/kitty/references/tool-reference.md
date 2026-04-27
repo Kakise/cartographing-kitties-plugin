@@ -1,6 +1,6 @@
 # Tool Reference
 
-Detailed parameters, return values, and examples for all 15 Cartographing Kittens MCP tools.
+Detailed parameters, return values, and examples for all 17 Cartographing Kittens MCP tools.
 
 ## Table of Contents
 
@@ -18,7 +18,13 @@ Detailed parameters, return values, and examples for all 15 Cartographing Kitten
 12. [batch_query_nodes](#batch_query_nodes)
 13. [get_context_summary](#get_context_summary)
 14. [find_stale_annotations](#find_stale_annotations)
-15. [rank_nodes](#rank_nodes)
+15. [find_low_quality_annotations](#find_low_quality_annotations)
+16. [requeue_low_quality_annotations](#requeue_low_quality_annotations)
+17. [rank_nodes](#rank_nodes)
+18. [query_litter_box](#query_litter_box)
+19. [query_treat_box](#query_treat_box)
+20. [add_litter_box_entry](#add_litter_box_entry)
+21. [add_treat_box_entry](#add_treat_box_entry)
 
 ---
 
@@ -79,7 +85,8 @@ immediate neighbors — what it imports, calls, inherits from, and what calls/im
     "language": "python", "summary": "Handles user CRUD with caching",
     "annotation_status": "annotated",
     "tags": ["service", "database", "validation"],
-    "role": "Business logic layer"
+    "role": "Business logic layer",
+    "centrality": 0.82
   },
   "neighbors": [
     { "direction": "outgoing", "edge_kind": "imports", "node": { "...same fields..." } },
@@ -87,6 +94,11 @@ immediate neighbors — what it imports, calls, inherits from, and what calls/im
   ]
 }
 ```
+
+`centrality` is a weighted-PageRank score normalised to `[0, 1]`. It reflects how
+structurally important a node is — how much rank it accumulates from its incoming
+relationships (weighted: `calls` > `inherits` > `imports` > `depends_on` > `contains`).
+The cache is refreshed lazily on first read after the graph changes.
 
 **Examples:**
 ```
@@ -309,11 +321,13 @@ generate appropriate summaries and tags.
     {
       "qualified_name": "services.user::UserService",
       "kind": "class",
-      "source_code": "class UserService:\n    ...",
+      "source": "class UserService:\n    ...",
       "file_path": "src/services/user_service.py",
       "start_line": 15,
       "end_line": 89,
-      "neighbors": [ ... ]
+      "neighbors": [ ... ],
+      "recommended_model_tier": "strong",
+      "requeue_reason": []
     },
     ...
   ],
@@ -545,7 +559,8 @@ token budgets.
 - `file_paths` (list[str] | None, default `None`) — Scope to specific files.
 - `qualified_names` (list[str] | None, default `None`) — Scope to specific nodes.
 - `include_edges` (bool, default `false`) — Include edge relationships between nodes.
-- `max_nodes` (int, default `50`) — Maximum number of nodes to return (highest in-degree first).
+- `max_nodes` (int, default `50`) — Maximum number of nodes to return (highest centrality first,
+  falling back to in-degree when centrality is not yet computed).
 
 **Returns:**
 ```json
@@ -556,12 +571,12 @@ token budgets.
       {
         "qualified_name": "services.user::UserService", "kind": "class",
         "summary": "Handles user CRUD with caching",
-        "role": "Business logic layer", "in_degree": 12
+        "role": "Business logic layer", "in_degree": 12, "centrality": 0.82
       },
       {
         "qualified_name": "services.user::UserService::create_user", "kind": "method",
         "summary": "Creates a new user with validation",
-        "role": "Entry point", "in_degree": 5
+        "role": "Entry point", "in_degree": 5, "centrality": 0.41
       }
     ],
     "models/user.py": [
@@ -646,6 +661,60 @@ refreshing. Part of the stale annotation re-annotation workflow (see
 
 ---
 
+## find_low_quality_annotations
+
+Find annotated nodes whose summaries or roles look too generic to trust.
+
+**Parameters:**
+- `limit` (int, default `100`) — Maximum number of low-quality annotations to return.
+
+**Returns:**
+```json
+{
+  "count": 2,
+  "low_quality_nodes": [
+    {
+      "qualified_name": "services.user::unknown",
+      "name": "unknown",
+      "summary": "Code node representing unknown in the system.",
+      "reasons": ["placeholder_phrase", "missing_name_reference"],
+      "requeue_count": 0
+    }
+  ]
+}
+```
+
+**When to use:** Before or after annotation passes to audit placeholder summaries,
+too-short summaries, missing name references, and generic fallback roles.
+
+---
+
+## requeue_low_quality_annotations
+
+Mark low-quality annotated nodes as pending so the next annotation pass rewrites them.
+The default is a dry run.
+
+**Parameters:**
+- `dry_run` (bool, default `true`) — Report candidates without mutating the graph.
+- `limit` (int, default `100`) — Maximum number of low-quality annotations to process.
+
+**Returns:**
+```json
+{
+  "low_quality": 2,
+  "requeued": 2,
+  "failed": 0,
+  "dry_run": false,
+  "nodes": [ ... ]
+}
+```
+
+Nodes requeued three times are marked `failed` instead of being requeued again.
+Requeued nodes include `requeue_reason` in subsequent `get_pending_annotations`
+batches.
+
+---
+
 ## rank_nodes
 
 Score nodes by structural importance. Identifies the most-connected, most-depended-upon
@@ -655,7 +724,8 @@ symbols in the codebase or a subset of it.
 - `scope` (list[str] | None, default `None`) — Limit ranking to specific file paths. `None` ranks the entire graph.
 - `kind` (str | None, default `None`) — Filter by node kind: `class`, `function`, `method`, `module`, `variable`.
 - `limit` (int, default `20`) — Maximum number of ranked nodes to return.
-- `algorithm` (str, default `"in_degree"`) — Ranking algorithm to use. Currently supports `in_degree`.
+- `algorithm` (str, default `"in_degree"`) — Ranking algorithm: `"in_degree"` uses the cached
+  direct incoming-edge count, `"transitive"` uses recursive reverse-dependency count.
 
 **Returns:**
 ```json
@@ -669,7 +739,7 @@ symbols in the codebase or a subset of it.
       "summary": "Core user data model",
       "annotation_status": "annotated",
       "tags": ["model", "database"], "role": "Data model",
-      "score": 24, "in_degree": 24, "out_degree": 3
+      "score": 24, "in_degree": 24, "out_degree": 3, "centrality": 1.0
     },
     {
       "id": 42, "kind": "class", "name": "UserService",
@@ -679,12 +749,15 @@ symbols in the codebase or a subset of it.
       "summary": "Handles user CRUD with caching",
       "annotation_status": "annotated",
       "tags": ["service", "database"], "role": "Business logic layer",
-      "score": 18, "in_degree": 18, "out_degree": 7
+      "score": 18, "in_degree": 18, "out_degree": 7, "centrality": 0.82
     },
     ...
   ]
 }
 ```
+
+Every ranked node carries a weighted-PageRank `centrality` score in `[0, 1]` — use it as
+a secondary signal (tie-breaker, fusion channel) alongside the primary `score` field.
 
 **When to use:** To identify high-impact nodes before refactoring, to prioritize
 annotation effort on the most important symbols, or to understand the structural
@@ -705,3 +778,65 @@ For understanding a specific node's relationships (use `find_dependencies` or
 "Top 5 most-depended-upon functions"
 -> rank_nodes(kind="function", limit=5)
 ```
+
+---
+
+## query_litter_box
+
+Query persistent negative lessons before planning, implementing, or reviewing.
+
+**Parameters:**
+- `category` (str, optional) — one of `failure`, `anti-pattern`, `unsupported`,
+  `regression`, `never-do`.
+- `search` (str, optional) — substring search against descriptions.
+- `limit` (int, default `50`) — maximum entries returned.
+
+**When to use:** Workflow preflight. Use unfiltered once, then filtered by feature
+or changed-file terms when useful.
+
+---
+
+## query_treat_box
+
+Query persistent positive lessons before planning, implementing, or reviewing.
+
+**Parameters:**
+- `category` (str, optional) — one of `best-practice`, `validated-pattern`,
+  `always-do`, `convention`, `optimization`.
+- `search` (str, optional) — substring search against descriptions.
+- `limit` (int, default `50`) — maximum entries returned.
+
+**When to use:** Workflow preflight. Convert relevant entries into patterns,
+decisions, or review conventions.
+
+---
+
+## add_litter_box_entry
+
+Record a reusable negative lesson.
+
+**Parameters:**
+- `category` (str, required) — one of `failure`, `anti-pattern`, `unsupported`,
+  `regression`, `never-do`.
+- `description` (str, required) — one specific lesson.
+- `context` (str, optional) — files, symbols, tests, errors, or plan path.
+- `source_agent` (str, optional) — skill or agent name recording the lesson.
+
+**When to use:** Postflight after discovering a real failure, regression,
+unsupported path, or repeated anti-pattern.
+
+---
+
+## add_treat_box_entry
+
+Record a reusable positive lesson.
+
+**Parameters:**
+- `category` (str, required) — one of `best-practice`, `validated-pattern`,
+  `always-do`, `convention`, `optimization`.
+- `description` (str, required) — one specific validated practice.
+- `context` (str, optional) — files, symbols, tests, examples, or plan path.
+- `source_agent` (str, optional) — skill or agent name recording the lesson.
+
+**When to use:** Postflight after implementation, tests, or review validate a
+pattern that should guide future sessions.

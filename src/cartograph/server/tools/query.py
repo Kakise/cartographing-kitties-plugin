@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
-import cartograph.server.main as _main
-from cartograph.server.main import mcp
+from cartograph.server.main import get_store, mcp
+
+
+def node_properties(node: dict[str, Any]) -> dict[str, Any]:
+    """Return decoded node properties as a dict."""
+    props = node.get("properties")
+    return cast(dict[str, Any], props) if isinstance(props, dict) else {}
 
 
 def _gather_neighbors(store: Any, node_id: int) -> list[dict[str, Any]]:
@@ -21,7 +26,7 @@ def _gather_neighbors(store: Any, node_id: int) -> list[dict[str, Any]]:
                 {
                     "direction": "outgoing",
                     "edge_kind": edge["kind"],
-                    "node": _summarise_node(target),
+                    "node": summarise_node(target),
                 }
             )
     for edge in incoming:
@@ -31,7 +36,7 @@ def _gather_neighbors(store: Any, node_id: int) -> list[dict[str, Any]]:
                 {
                     "direction": "incoming",
                     "edge_kind": edge["kind"],
-                    "node": _summarise_node(source),
+                    "node": summarise_node(source),
                 }
             )
     return neighbors
@@ -40,9 +45,11 @@ def _gather_neighbors(store: Any, node_id: int) -> list[dict[str, Any]]:
 @mcp.tool()
 def query_node(name: str) -> dict[str, Any]:
     """Find a node by name or qualified name. Returns node details with immediate neighbors."""
-    store = _main._store
+    store = get_store()
     if store is None:
         return {"error": "Server not initialised"}
+
+    store.ensure_centrality_fresh()
 
     # Try exact qualified name match first.
     node = store.get_node_by_name(name)
@@ -58,7 +65,7 @@ def query_node(name: str) -> dict[str, Any]:
 
     return {
         "found": True,
-        "node": _summarise_node(node),
+        "node": summarise_node(node),
         "neighbors": _gather_neighbors(store, node["id"]),
     }
 
@@ -66,9 +73,11 @@ def query_node(name: str) -> dict[str, Any]:
 @mcp.tool()
 def batch_query_nodes(names: list[str], include_neighbors: bool = True) -> dict[str, Any]:
     """Query multiple nodes in one call. Returns found nodes with optional neighbors."""
-    store = _main._store
+    store = get_store()
     if store is None:
         return {"error": "Server not initialised"}
+
+    store.ensure_centrality_fresh()
 
     found_nodes: list[dict[str, Any]] = []
     not_found: list[str] = []
@@ -80,7 +89,7 @@ def batch_query_nodes(names: list[str], include_neighbors: bool = True) -> dict[
         if node is None:
             not_found.append(name)
             continue
-        result = _summarise_node(node)
+        result = summarise_node(node)
         if include_neighbors:
             result["neighbors"] = _gather_neighbors(store, node["id"])
         found_nodes.append(result)
@@ -95,7 +104,7 @@ def get_context_summary(
     max_nodes: int = 50,
 ) -> dict[str, Any]:
     """Get a compact grouped summary of nodes, optionally with edges between them."""
-    store = _main._store
+    store = get_store()
     if store is None:
         return {"error": "Server not initialised"}
 
@@ -107,14 +116,15 @@ def get_context_summary(
     groups: dict[str, list[dict[str, Any]]] = {}
     node_ids: set[int] = set()
     for row in rows:
-        props = row.get("properties") or {}
-        entry = {
+        props = node_properties(row)
+        entry: dict[str, Any] = {
             "qualified_name": row["qualified_name"],
             "kind": row["kind"],
             "name": row["name"],
             "role": props.get("role", ""),
             "summary": row.get("summary"),
             "in_degree": row.get("in_degree", 0),
+            "centrality": row.get("centrality"),
             "tags": props.get("tags", []),
         }
         fp = row.get("file_path") or ""
@@ -149,23 +159,27 @@ def get_context_summary(
 @mcp.tool()
 def search(query: str, kind: str | None = None, limit: int = 20) -> dict[str, Any]:
     """Full-text search across node names and summaries. Returns ranked results."""
-    store = _main._store
+    store = get_store()
     if store is None:
         return {"error": "Server not initialised"}
+
+    store.ensure_centrality_fresh()
 
     results = store.search(query, kind=kind, limit=limit)
     return {
         "count": len(results),
-        "results": [_summarise_node(r) for r in results],
+        "results": [summarise_node(r) for r in results],
     }
 
 
 @mcp.tool()
 def get_file_structure(file_path: str) -> dict[str, Any]:
     """Get all nodes in a given file with their relationships."""
-    store = _main._store
+    store = get_store()
     if store is None:
         return {"error": "Server not initialised"}
+
+    store.ensure_centrality_fresh()
 
     nodes = store.find_nodes(file_path=file_path)
     if not nodes:
@@ -185,7 +199,7 @@ def get_file_structure(file_path: str) -> dict[str, Any]:
         ]
         result_nodes.append(
             {
-                **_summarise_node(node),
+                **summarise_node(node),
                 "edges": edges,
             }
         )
@@ -193,10 +207,10 @@ def get_file_structure(file_path: str) -> dict[str, Any]:
     return {"found": True, "file_path": file_path, "nodes": result_nodes}
 
 
-def _summarise_node(node: dict[str, Any]) -> dict[str, Any]:
+def summarise_node(node: dict[str, Any]) -> dict[str, Any]:
     """Return a concise representation of a node for tool responses."""
-    props = node.get("properties") or {}
-    result = {
+    props = node_properties(node)
+    result: dict[str, Any] = {
         "id": node["id"],
         "kind": node["kind"],
         "name": node["name"],
@@ -209,6 +223,7 @@ def _summarise_node(node: dict[str, Any]) -> dict[str, Any]:
         "annotation_status": node.get("annotation_status"),
         "tags": props.get("tags", []),
         "role": props.get("role", ""),
+        "centrality": node.get("centrality"),
     }
     # Include depth when present (set by transitive traversal queries).
     if "depth" in node:

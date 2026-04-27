@@ -25,7 +25,27 @@ it as structured text to agents. This format standardizes that contract.
 
 Include this so agents know whether to trust summaries/roles or fall back to source reading.
 
-### Section 2: Changed/Target Nodes
+### Section 2: Memory Context
+
+```
+## Memory Context
+
+### Litter lessons to avoid
+- `[anti-pattern]` Circular imports between service modules
+  Context: src/services/user.py, src/services/order.py
+
+### Treat lessons to follow
+- `[convention]` Route handlers delegate validation to service-layer validators
+  Context: src/api/routes.py
+
+### Memory gaps
+- No relevant entries found for "payments"
+```
+
+Include this before changed/target nodes for planning, work, and review orchestrators.
+Populate it by following `memory-workflow.md`.
+
+### Section 3: Changed/Target Nodes
 
 ```
 ## Changed Nodes
@@ -48,7 +68,7 @@ Include this so agents know whether to trust summaries/roles or fall back to sou
 One subsection per changed/target node. Include all annotation fields.
 For unannotated nodes, show `Status: pending` and omit Summary/Role/Tags.
 
-### Section 3: Edges Between Changed Nodes
+### Section 4: Edges Between Changed Nodes
 
 ```
 ## Edges Between Changed Nodes
@@ -61,7 +81,7 @@ For unannotated nodes, show `Status: pending` and omit Summary/Role/Tags.
 This section highlights relationships where BOTH endpoints changed — the highest-risk
 contracts to verify. Edge kinds: `imports`, `calls`, `inherits`, `contains`, `depends_on`.
 
-### Section 4: Neighbors (1-hop)
+### Section 5: Neighbors (1-hop)
 
 ```
 ## Neighbors
@@ -77,7 +97,7 @@ contracts to verify. Edge kinds: `imports`, `calls`, `inherits`, `contains`, `de
 
 Include summaries and roles when available. Group by edge direction.
 
-### Section 5: Transitive Dependents (blast radius)
+### Section 6: Transitive Dependents (blast radius)
 
 ```
 ## Transitive Dependents (blast radius)
@@ -95,7 +115,7 @@ Include summaries and roles when available. Group by edge direction.
 
 Group by depth. Include role-based summary at the end for quick assessment.
 
-### Section 6: Transitive Dependencies (upstream)
+### Section 7: Transitive Dependencies (upstream)
 
 ```
 ## Transitive Dependencies (upstream)
@@ -113,18 +133,22 @@ Same structure as dependents but for upstream dependencies.
 ## Orchestrator-Specific Variations
 
 ### Review orchestrator
-Includes all 6 sections. Section 2 is "Changed Nodes" (from diff).
+Includes all 7 sections. Section 3 is "Changed Nodes" (from diff).
 Calls: `annotation_status`, `get_file_structure` per modified file, `query_node` per modified symbol,
 `find_dependents` for public symbols, `find_dependencies` for all modified symbols.
+Also calls `query_litter_box` and `query_treat_box` for memory preflight.
 
 ### Plan/Brainstorm orchestrator
-Sections 1, 2, 4, 5, 6. Section 2 is "Target Nodes" (from search results in the feature area).
+Sections 1, 2, 3, 5, 6, 7. Section 3 is "Target Nodes" (from search results in the feature area).
 Calls: `annotation_status`, `search` with feature keywords, `get_file_structure` on key files,
 `query_node` on important symbols, `find_dependencies`/`find_dependents` for the target area.
+Also calls `query_litter_box` and `query_treat_box` for memory preflight.
 
 ### Work orchestrator
-Sections 1, 2, 4. Section 2 is "Target Nodes" (from implementation unit's file list).
+Sections 1, 2, 3, 5. Section 3 is "Target Nodes" (from implementation unit's file list).
 Calls: `get_file_structure` per target file, `query_node` on key symbols.
+Also calls `query_litter_box` and `query_treat_box` before implementation and
+`add_litter_box_entry`/`add_treat_box_entry` after validated lessons.
 
 ### Annotate orchestrator
 Does not use this format. Passes raw `get_pending_annotations` batch data instead.
@@ -135,14 +159,14 @@ Every agent's "Expected Context" section declares which sections it needs:
 
 | Agent Type | Sections Used |
 |-----------|---------------|
-| Correctness reviewer | 1, 2, 3, 4 |
-| Testing reviewer | 1, 2, 4, 5 |
-| Impact reviewer | 1, 2, 3, 5 |
-| Structure reviewer | 1, 2, 4, 6 |
-| Researcher | 1, 2, 4 |
-| Pattern analyst | 1, 2, 4 |
-| Flow analyzer | 1, 2, 4, 6 |
-| Impact analyst | 1, 2, 5 |
-| Workers | 1, 2, 4 |
+| Correctness reviewer | 1, 2, 3, 4, 5 |
+| Testing reviewer | 1, 2, 3, 5, 6 |
+| Impact reviewer | 1, 2, 3, 4, 6 |
+| Structure reviewer | 1, 2, 3, 5, 7 |
+| Researcher | 1, 2, 3, 5 |
+| Pattern analyst | 1, 2, 3, 5 |
+| Flow analyzer | 1, 2, 3, 5, 7 |
+| Impact analyst | 1, 2, 3, 6 |
+| Workers | 1, 2, 3, 5 |
 
 Agents should fall back to `Read`/`Grep` when graph context is insufficient.

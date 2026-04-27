@@ -8,6 +8,18 @@ disable-model-invocation: true
 Cartographing Kittens LFG — autonomous pipeline. Run all steps in order. Default to inline
 execution and only use delegation where the runtime supports it cleanly.
 
+## Memory Contract
+
+Every phase must use the shared memory protocol from
+`kitty/references/memory-workflow.md`:
+- Planning calls `query_litter_box` and `query_treat_box`, then writes `Memory Context`
+  into the plan.
+- Work applies relevant memory and records validated implementation lessons with
+  `add_litter_box_entry` and `add_treat_box_entry`.
+- Review calls `query_litter_box` and `query_treat_box`, applies relevant memory, and
+  records validated review lessons with `add_litter_box_entry` and `add_treat_box_entry`.
+- Final output includes memory queried/applied/recorded counts.
+
 ## Sequential Phase
 
 1. `/kitty:plan $ARGUMENTS` — Record the plan file path for steps 3 and 5.
@@ -36,3 +48,4 @@ Wait for both to complete.
 
 - Must remain meaningful without swarm primitives.
 - Must not assume background agents, automatic PR creation, or persistent task teams.
+- Must not skip litter/treat memory preflight or postflight in plan, work, or review phases.

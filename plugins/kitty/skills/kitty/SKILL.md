@@ -32,6 +32,7 @@ functions, classes, modules, imports, calls, and inheritance — not just text m
 | Structural diff after changes | Cartographing Kittens (`graph_diff`) |
 | Structural health checks | Cartographing Kittens (`validate_graph`) |
 | Stale annotations after code changes | Cartographing Kittens (`find_stale_annotations`) |
+| Durable workflow lessons | Cartographing Kittens (`query_litter_box`, `query_treat_box`) |
 | Code by concept/domain ("authentication", "payment") | Cartographing Kittens (`search`) — after annotation |
 | A specific string/pattern/TODO | grep/glob |
 
@@ -54,11 +55,16 @@ When you get a request, follow this mental model and delegate to the appropriate
 5. **What changed structurally?** (after code modifications)
    → Use `graph_diff(file_paths=[...])` after `index_codebase()` to see structural diffs.
 
-6. **Semantic/domain question?** ("find all auth code", "what handles payments?")
+6. **Planning, working, or reviewing?**
+   → Query memory first: `query_litter_box` for lessons to avoid and `query_treat_box`
+   for validated patterns to follow. Record new durable lessons with
+   `add_litter_box_entry` or `add_treat_box_entry` after validated failures or successes.
+
+7. **Semantic/domain question?** ("find all auth code", "what handles payments?")
    → Check `annotation_status`. If many nodes are pending, use **`kitty:annotate`**
    first, then `search`. Use `find_stale_annotations` to detect outdated annotations.
 
-7. **Plain text search?** (string literal, error message, TODO)
+8. **Plain text search?** (string literal, error message, TODO)
    → Fall back to grep/glob. Cartographing Kittens isn't a text search engine.
 
 ## Tool skills
@@ -79,6 +85,10 @@ When you get a request, follow this mental model and delegate to the appropriate
 | `get_context_summary` | Token-efficient context — overview of files and symbols |
 | `find_stale_annotations` | Detect annotations invalidated by code changes |
 | `rank_nodes` | Importance scoring — find the most connected/critical symbols |
+| `query_litter_box` | Retrieve failures, regressions, unsupported paths, and anti-patterns to avoid |
+| `query_treat_box` | Retrieve best practices, validated patterns, conventions, and optimizations to follow |
+| `add_litter_box_entry` | Persist a reusable negative lesson discovered during work or review |
+| `add_treat_box_entry` | Persist a reusable positive lesson validated during planning, work, or review |
 
 ## Workflow skills
 
@@ -126,6 +136,8 @@ The server also exposes guided workflow prompts that MCP clients can invoke dire
 ## Tips
 
 - Run `index_codebase` at conversation start if you're unsure about freshness
+- Query litter/treat memory before planning, work, and review; record durable lessons after validation
 - Combine sub-skills: explore first, then assess impact before changing code
 - For large codebases (50+ pending nodes), `kitty:annotate` supports parallel subagents
 - See `references/tool-reference.md` for full tool parameter details
+- See `references/memory-workflow.md` for the required memory preflight/postflight protocol

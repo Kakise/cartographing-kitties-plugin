@@ -3,8 +3,28 @@
 from __future__ import annotations
 
 import json
+import logging
 import sqlite3
 from typing import Any
+
+logger = logging.getLogger(__name__)
+
+# Edge-kind weights used by weighted PageRank.  Tuned to reflect the semantic
+# strength of each relationship: direct calls dominate, inheritance is close
+# behind, imports matter less, and contains is cheapest because every file
+# trivially contains its children.  Unknown kinds fall back to 0.5.
+_EDGE_WEIGHTS: dict[str, float] = {
+    "calls": 1.0,
+    "imports": 0.6,
+    "inherits": 0.9,
+    "contains": 0.3,
+    "depends_on": 0.5,
+}
+_DEFAULT_EDGE_WEIGHT = 0.5
+_PAGERANK_DAMPING = 0.85
+_PAGERANK_ITERATIONS = 50
+_PAGERANK_EARLY_STOP_DELTA = 1e-8
+_PAGERANK_CONVERGENCE_WARN_DELTA = 0.01
 
 
 def _row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
@@ -290,6 +310,137 @@ class GraphStore:
         return [_row_to_dict(r) for r in cur.fetchall()]
 
     # ------------------------------------------------------------------
+    # Centrality
+    # ------------------------------------------------------------------
+
+    def _ensure_centrality_fresh(self) -> None:
+        """Recompute centrality if the cache is stale.
+
+        "Stale" means either ``centrality_version < graph_version`` (an index
+        run bumped the graph since last compute) or at least one node still
+        has ``centrality IS NULL`` (the cache has never been populated).  A
+        single COUNT query picks up both cases cheaply.
+        """
+        row = self._conn.execute(
+            "SELECT graph_version, centrality_version FROM graph_meta WHERE id = 1"
+        ).fetchone()
+        if row is None:
+            return
+        gv = int(row["graph_version"])
+        cv = int(row["centrality_version"])
+        has_null = self._conn.execute(
+            "SELECT 1 FROM nodes WHERE centrality IS NULL LIMIT 1"
+        ).fetchone()
+        if cv >= gv and has_null is None:
+            return
+        any_node = self._conn.execute("SELECT 1 FROM nodes LIMIT 1").fetchone()
+        if any_node is None:
+            # Empty graph — stamp the version so we don't re-enter every call.
+            self._conn.execute(
+                "UPDATE graph_meta SET centrality_version = graph_version WHERE id = 1"
+            )
+            self._conn.commit()
+            return
+        self.compute_centrality()
+
+    def ensure_centrality_fresh(self) -> None:
+        """Refresh cached centrality metrics if graph writes marked them stale."""
+        self._ensure_centrality_fresh()
+
+    def annotation_status_counts(self) -> dict[str, int]:
+        """Return annotation status counts, including stale annotated nodes."""
+        cur = self._conn.execute(
+            "SELECT annotation_status, COUNT(*) as count FROM nodes GROUP BY annotation_status"
+        )
+        counts: dict[str, int] = {row["annotation_status"]: row["count"] for row in cur.fetchall()}
+
+        stale_cur = self._conn.execute(
+            """
+            SELECT COUNT(*) FROM nodes
+            WHERE annotation_status = 'annotated'
+            AND content_hash IS NOT NULL
+            AND (annotated_content_hash IS NULL OR content_hash != annotated_content_hash)
+            """
+        )
+        counts["stale"] = stale_cur.fetchone()[0]
+        return counts
+
+    def compute_centrality(self) -> None:
+        """Compute weighted PageRank + in-degree and persist to ``nodes``.
+
+        Populates ``nodes.centrality`` (normalised to [0, 1] by dividing by
+        the maximum score) and ``nodes.in_degree_cache`` (raw count of
+        incoming edges), then stamps ``graph_meta.centrality_version =
+        graph_version`` so subsequent reads hit the cache.
+        """
+        rows = self._conn.execute("SELECT id FROM nodes").fetchall()
+        ids = [int(r["id"]) for r in rows]
+        if not ids:
+            self._conn.execute(
+                "UPDATE graph_meta SET centrality_version = graph_version WHERE id = 1"
+            )
+            self._conn.commit()
+            return
+
+        n = len(ids)
+        edges = self._conn.execute("SELECT source_id, target_id, kind FROM edges").fetchall()
+
+        id_set = set(ids)
+        in_deg: dict[int, int] = dict.fromkeys(ids, 0)
+        outgoing: dict[int, list[tuple[int, float]]] = {nid: [] for nid in ids}
+        out_weight: dict[int, float] = dict.fromkeys(ids, 0.0)
+        for e in edges:
+            s = int(e["source_id"])
+            t = int(e["target_id"])
+            if t in id_set:
+                in_deg[t] += 1
+            if s in id_set and t in id_set:
+                w = _EDGE_WEIGHTS.get(e["kind"], _DEFAULT_EDGE_WEIGHT)
+                outgoing[s].append((t, w))
+                out_weight[s] += w
+
+        pr: dict[int, float] = dict.fromkeys(ids, 1.0 / n)
+        teleport = (1.0 - _PAGERANK_DAMPING) / n
+        last_delta = 0.0
+        for _ in range(_PAGERANK_ITERATIONS):
+            # Dangling mass (from nodes with no outgoing weight) is
+            # redistributed uniformly — standard PageRank handling.
+            dangling_mass = sum(pr[u] for u in ids if out_weight[u] == 0.0)
+            dangling_add = _PAGERANK_DAMPING * dangling_mass / n
+            new_pr: dict[int, float] = dict.fromkeys(ids, teleport + dangling_add)
+            for u in ids:
+                ow = out_weight[u]
+                if ow == 0.0:
+                    continue
+                share = _PAGERANK_DAMPING * pr[u] / ow
+                for v, w in outgoing[u]:
+                    new_pr[v] += share * w
+            last_delta = sum(abs(new_pr[k] - pr[k]) for k in ids)
+            pr = new_pr
+            if last_delta < _PAGERANK_EARLY_STOP_DELTA:
+                break
+        if last_delta > _PAGERANK_CONVERGENCE_WARN_DELTA:
+            logger.warning(
+                "PageRank did not converge tightly after %d iterations "
+                "(L1 delta=%.4f). Consider raising the iteration cap.",
+                _PAGERANK_ITERATIONS,
+                last_delta,
+            )
+
+        max_pr = max(pr.values())
+        if max_pr <= 0:
+            max_pr = 1.0
+        update_rows = [(pr[nid] / max_pr, in_deg[nid], nid) for nid in ids]
+        with self._conn:
+            self._conn.executemany(
+                "UPDATE nodes SET centrality = ?, in_degree_cache = ? WHERE id = ?",
+                update_rows,
+            )
+            self._conn.execute(
+                "UPDATE graph_meta SET centrality_version = graph_version WHERE id = 1"
+            )
+
+    # ------------------------------------------------------------------
     # Stale annotation detection
     # ------------------------------------------------------------------
 
@@ -332,10 +483,14 @@ class GraphStore:
         qualified_names: list[str] | None = None,
         max_nodes: int = 50,
     ) -> list[dict[str, Any]]:
-        """Return nodes with in_degree counts, filtered by file paths or qualified names.
+        """Return nodes with in_degree and centrality, ordered by importance.
 
-        Results are ordered by in_degree descending and limited to *max_nodes*.
+        Orders by ``centrality DESC`` (populated by :meth:`compute_centrality`
+        and refreshed lazily via :meth:`_ensure_centrality_fresh`), falling
+        back to raw in-degree when centrality is unavailable.  Limited to
+        *max_nodes* rows.
         """
+        self._ensure_centrality_fresh()
         clauses: list[str] = []
         params: list[Any] = []
 
@@ -352,7 +507,8 @@ class GraphStore:
         params.append(max_nodes)
 
         sql = f"""
-            SELECT n.*, COALESCE(ec.cnt, 0) AS in_degree
+            SELECT n.*,
+                   COALESCE(n.in_degree_cache, ec.cnt, 0) AS in_degree
             FROM nodes n
             LEFT JOIN (
                 SELECT target_id, COUNT(*) AS cnt
@@ -360,7 +516,7 @@ class GraphStore:
                 GROUP BY target_id
             ) ec ON ec.target_id = n.id
             WHERE {where}
-            ORDER BY in_degree DESC
+            ORDER BY COALESCE(n.centrality, 0) DESC, in_degree DESC
             LIMIT ?
         """
         cur = self._conn.execute(sql, params)
@@ -379,8 +535,11 @@ class GraphStore:
     ) -> list[dict[str, Any]]:
         """Return nodes ranked by incoming edge count (in-degree).
 
-        Each returned dict has extra keys ``in_degree`` and ``out_degree``.
+        Reads from ``nodes.in_degree_cache`` via :meth:`_ensure_centrality_fresh`,
+        falling back to a live COUNT when the cache is missing.  Each returned
+        dict has extra keys ``in_degree`` and ``out_degree``.
         """
+        self._ensure_centrality_fresh()
         clauses: list[str] = []
         params: list[Any] = []
 
@@ -403,12 +562,12 @@ class GraphStore:
 
         sql = f"""
             SELECT n.*,
-                   COUNT(e.id) AS in_degree,
-                   (SELECT COUNT(*) FROM edges e2 WHERE e2.source_id = n.id) AS out_degree
+                   COALESCE(n.in_degree_cache,
+                            (SELECT COUNT(*) FROM edges ei WHERE ei.target_id = n.id),
+                            0) AS in_degree,
+                   (SELECT COUNT(*) FROM edges eo WHERE eo.source_id = n.id) AS out_degree
             FROM nodes n
-            LEFT JOIN edges e ON e.target_id = n.id
             {where}
-            GROUP BY n.id
             ORDER BY in_degree DESC
             LIMIT ?
         """

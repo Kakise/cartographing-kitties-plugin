@@ -39,6 +39,8 @@ Call `get_pending_annotations(batch_size=N)` to receive pending nodes with:
 - Source code and file context
 - Neighbor information (what calls/imports the node)
 - The seed taxonomy of suggested tags
+- `recommended_model_tier` (`fast` or `strong`) for advisory model routing
+- `requeue_reason` when a previous annotation was rejected by quality gates
 
 ### 4. Format context for the annotator agent
 
@@ -46,6 +48,8 @@ Prepare the batch data as structured context for the annotator agent:
 - Include each node's qualified name, source code, file path, and metadata
 - Include neighbor context (callers, callees, imports) from the batch
 - Include the seed taxonomy reference
+- Tell the annotator to honor `recommended_model_tier` and to directly address
+  any `requeue_reason`
 
 ### 5. Dispatch annotator agent
 
@@ -67,6 +71,14 @@ write the results back to the graph.
 
 Check if more nodes are pending with `annotation_status()`. If `pending > 0`, loop
 back to step 3 and fetch the next batch.
+
+### Quality gates
+
+Before starting a cleanup pass, call `find_low_quality_annotations(limit=N)` to audit
+annotated nodes for placeholder summaries, too-short summaries, missing name references,
+or generic fallback roles. To repair them, call
+`requeue_low_quality_annotations(dry_run=true)` first, inspect the reasons, then call
+`requeue_low_quality_annotations(dry_run=false)` to mark them pending for the next pass.
 
 ## Parallel processing for large codebases
 

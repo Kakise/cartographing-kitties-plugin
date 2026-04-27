@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
 from pathlib import Path
 
 
@@ -34,6 +36,20 @@ def test_agent_manifest_declares_all_framework_agents() -> None:
     assert declared_names == actual_agent_names
 
 
+def test_agent_manifest_declares_all_generated_sources() -> None:
+    agents_dir = REPO_ROOT / "plugins" / "kitty" / "agents"
+    source_dir = REPO_ROOT / "plugins" / "kitty" / "_source" / "agents"
+    codex_dir = REPO_ROOT / "plugins" / "kitty" / ".codex" / "agents"
+    manifest = json.loads((agents_dir / "manifest.json").read_text())
+
+    declared_names = {entry["name"] for entry in manifest["agents"]}
+    source_names = {path.stem for path in source_dir.glob("*.yaml")}
+    codex_names = {path.stem for path in codex_dir.glob("*.toml")}
+
+    assert declared_names == source_names
+    assert declared_names == codex_names
+
+
 def test_agent_manifest_marks_dual_runtime_intent() -> None:
     manifest_path = REPO_ROOT / "plugins" / "kitty" / "agents" / "manifest.json"
     manifest = json.loads(manifest_path.read_text())
@@ -47,3 +63,67 @@ def test_agent_manifest_marks_dual_runtime_intent() -> None:
 def test_workflow_contract_docs_exist() -> None:
     assert (REPO_ROOT / "docs" / "architecture" / "codex-workflow-contract.md").exists()
     assert (REPO_ROOT / "docs" / "architecture" / "repo-boundaries.md").exists()
+
+
+def test_generated_harness_artifacts_are_current() -> None:
+    checks = [
+        ["scripts/generate_agents.py", "--check"],
+        ["scripts/generate_manifests.py", "--check"],
+        ["scripts/validate_skills.py"],
+    ]
+
+    for command in checks:
+        result = subprocess.run(
+            [sys.executable, *command],
+            cwd=REPO_ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        assert result.returncode == 0, result.stderr
+
+
+def test_memory_workflow_reference_exists() -> None:
+    memory_reference = (
+        REPO_ROOT / "plugins" / "kitty" / "skills" / "kitty" / "references" / "memory-workflow.md"
+    )
+
+    assert memory_reference.exists()
+    text = memory_reference.read_text()
+    assert "query_litter_box" in text
+    assert "query_treat_box" in text
+    assert "add_litter_box_entry" in text
+    assert "add_treat_box_entry" in text
+
+
+def test_workflow_skills_require_memory_preflight() -> None:
+    skill_names = [
+        "kitty-brainstorm",
+        "kitty-plan",
+        "kitty-work",
+        "kitty-review",
+        "kitty-lfg",
+    ]
+
+    for skill_name in skill_names:
+        text = (
+            REPO_ROOT / "plugins" / "kitty" / "skills" / skill_name / "SKILL.md"
+        ).read_text()
+        assert "query_litter_box" in text, skill_name
+        assert "query_treat_box" in text, skill_name
+
+
+def test_mutating_workflow_skills_require_memory_postflight() -> None:
+    for skill_name in ["kitty-work", "kitty-review", "kitty-lfg"]:
+        text = (
+            REPO_ROOT / "plugins" / "kitty" / "skills" / skill_name / "SKILL.md"
+        ).read_text()
+        assert "add_litter_box_entry" in text, skill_name
+        assert "add_treat_box_entry" in text, skill_name
+
+
+def test_framework_agents_accept_memory_context() -> None:
+    agents_dir = REPO_ROOT / "plugins" / "kitty" / "agents"
+    for agent_path in agents_dir.glob("*.md"):
+        text = agent_path.read_text()
+        assert "Memory Context" in text or "memory_context" in text, agent_path.name
