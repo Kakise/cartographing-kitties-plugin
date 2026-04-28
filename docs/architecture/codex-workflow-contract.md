@@ -7,7 +7,11 @@ for the repository.
 ## Scope
 
 - `src/cartograph/` is the product: parser, indexer, storage, annotation, MCP server, and tools.
-- `plugins/kitty/` is the integration layer: skills, commands, agent prompts, and runtime packaging.
+- `plugins/kitty/` is the integration layer: commands, agent prompts, and runtime packaging.
+- `plugins/kitty/skills/` is a Git submodule mounted from
+  [`Kakise/cartographing-kitties-skills`](https://github.com/Kakise/cartographing-kitties-skills).
+  The skills catalog is its own artifact and lives under that boundary; this repo only
+  pins a SHA. See [`repo-boundaries.md`](./repo-boundaries.md) for the rules.
 - `plugins/kitty/agents/*.md` remain part of the framework for both Claude Code and Codex.
 
 ## Runtime Model

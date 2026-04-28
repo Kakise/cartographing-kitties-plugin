@@ -35,7 +35,7 @@ AST-powered codebase intelligence framework for AI coding agents.
 plugins/
   kitty/                         # Plugin root (marketplace layout)
     .claude-plugin/plugin.json   # Plugin manifest (uvx-based MCP server)
-    skills/
+    skills/                      # Git submodule → Kakise/cartographing-kitties-skills
       kitty/                     # Router skill — delegates to sub-skills
         SKILL.md
         references/
@@ -76,6 +76,14 @@ hand. Run `uv run python scripts/generate_agents.py` after changing
 `_source/agents/*.yaml`, and run `uv run python scripts/generate_manifests.py`
 after changing `_source/manifests/plugin.yaml`. CI and pre-commit use the
 matching `--check` commands plus `scripts/validate_skills.py` to catch drift.
+
+`plugins/kitty/skills/` is a Git submodule that points at
+[`Kakise/cartographing-kitties-skills`](https://github.com/Kakise/cartographing-kitties-skills),
+which is also a JetBrains-AI-Assistant-compatible skills catalog. Bootstrap it on
+first clone with `git submodule update --init --recursive`. Skill edits land via
+PRs against that submodule repo, not direct edits here. Framework agents under
+`plugins/kitty/agents/` stay in this repo because they are generated from
+`plugins/kitty/_source/agents/*.yaml`.
 
 ## Workflow Pipeline
 
