@@ -5,7 +5,10 @@ import subprocess
 import sys
 from pathlib import Path
 
+import yaml
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
+SKILLS_ROOT = REPO_ROOT / "plugins" / "kitty" / "skills"
 
 
 def test_root_codex_plugin_manifest_paths_exist() -> None:
@@ -106,18 +109,14 @@ def test_workflow_skills_require_memory_preflight() -> None:
     ]
 
     for skill_name in skill_names:
-        text = (
-            REPO_ROOT / "plugins" / "kitty" / "skills" / skill_name / "SKILL.md"
-        ).read_text()
+        text = (REPO_ROOT / "plugins" / "kitty" / "skills" / skill_name / "SKILL.md").read_text()
         assert "query_litter_box" in text, skill_name
         assert "query_treat_box" in text, skill_name
 
 
 def test_mutating_workflow_skills_require_memory_postflight() -> None:
     for skill_name in ["kitty-work", "kitty-review", "kitty-lfg"]:
-        text = (
-            REPO_ROOT / "plugins" / "kitty" / "skills" / skill_name / "SKILL.md"
-        ).read_text()
+        text = (REPO_ROOT / "plugins" / "kitty" / "skills" / skill_name / "SKILL.md").read_text()
         assert "add_litter_box_entry" in text, skill_name
         assert "add_treat_box_entry" in text, skill_name
 
@@ -127,3 +126,44 @@ def test_framework_agents_accept_memory_context() -> None:
     for agent_path in agents_dir.glob("*.md"):
         text = agent_path.read_text()
         assert "Memory Context" in text or "memory_context" in text, agent_path.name
+
+
+def test_skills_submodule_initialized() -> None:
+    assert SKILLS_ROOT.exists(), (
+        "plugins/kitty/skills is missing — run `git submodule update --init --recursive`"
+    )
+    skill_files = list(SKILLS_ROOT.glob("*/SKILL.md"))
+    assert len(skill_files) >= 9, (
+        f"expected at least 9 SKILL.md files under {SKILLS_ROOT}, found {len(skill_files)}"
+    )
+
+
+def _parse_skill_frontmatter(path: Path) -> dict[str, object]:
+    text = path.read_text(encoding="utf-8")
+    assert text.startswith("---\n"), f"{path}: missing frontmatter"
+    end = text.find("\n---\n", 4)
+    assert end != -1, f"{path}: frontmatter is not closed"
+    data = yaml.safe_load(text[4:end]) or {}
+    assert isinstance(data, dict), f"{path}: frontmatter must be a mapping"
+    return data
+
+
+def test_skill_frontmatter_declares_kitty_mcp_requirement() -> None:
+    skill_files = sorted(SKILLS_ROOT.glob("*/SKILL.md"))
+    assert skill_files, "no SKILL.md files found — submodule may be uninitialized"
+
+    for path in skill_files:
+        frontmatter = _parse_skill_frontmatter(path)
+
+        description = frontmatter.get("description")
+        assert isinstance(description, str), f"{path}: description must be a string"
+        assert "Cartographing Kittens MCP server" in description, (
+            f"{path}: description must mention `Cartographing Kittens MCP server`"
+        )
+
+        requires = frontmatter.get("requires")
+        assert isinstance(requires, dict), f"{path}: requires must be a mapping"
+        mcp_servers = requires.get("mcp_servers")
+        assert isinstance(mcp_servers, list) and "kitty" in mcp_servers, (
+            f"{path}: requires.mcp_servers must include `kitty`"
+        )
