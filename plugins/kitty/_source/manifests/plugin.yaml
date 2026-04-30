@@ -1,6 +1,6 @@
 plugin:
   name: kitty
-  version: 1.0.0
+  version: 1.1.0
   description_short: AST-powered codebase intelligence for AI coding agents.
   description_long: AST-powered codebase intelligence for AI coding agents — dependency mapping, impact analysis, and semantic search via tree-sitter parsing and SQLite graph storage.
   author:
