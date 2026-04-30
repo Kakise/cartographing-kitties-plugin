@@ -32,6 +32,12 @@ AST-powered codebase intelligence framework for AI coding agents.
   `**State:**` lines). See `docs/architecture/plan-state-conventions.md`. The
   `/kitty-plans` slash command (or `uv run python scripts/plan_status.py report`) renders the
   cross-plan dashboard; `audit` runs in pre-commit.
+- Skills ask the user via Claude Code's `AskUserQuestion` tool whenever 2-4
+  enumerable options exist (handoff menus, triage decisions, clarifying
+  questions). Pipeline modes (`kitty:lfg`, `mode:autofix`, `mode:report-only`,
+  autonomous loops) skip prompts and pick the recommended option silently. See
+  `plugins/kitty/skills/kitty/references/ask-user-protocol.md` for the full
+  contract and worked examples.
 
 ## Plugin Structure (Marketplace Layout)
 
