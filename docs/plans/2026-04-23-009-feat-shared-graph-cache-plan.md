@@ -6,6 +6,25 @@ date: 2026-04-23
 origin: docs/brainstorms/2026-04-23-001-plugin-evolution-requirements.md
 parent: docs/plans/2026-04-23-001-feat-plugin-evolution-roadmap.md
 requirement: R8
+units:
+  - id: 1
+    title: '`publish_graph` tool'
+    state: pending
+  - id: 2
+    title: '`pull_graph` tool'
+    state: pending
+  - id: 3
+    title: Manifest + versioning
+    state: pending
+  - id: 4
+    title: CLI
+    state: pending
+  - id: 5
+    title: Privacy strip helper
+    state: pending
+  - id: 6
+    title: Documentation
+    state: pending
 ---
 
 # Shared Graph Cache — Implementation Plan (R8)
@@ -122,6 +141,8 @@ the insights, not the PII exposure. Overridable for internal single-tenant setup
 
 ### Unit 1 — `publish_graph` tool
 
+**State:** pending
+
 - [ ] `src/cartograph/sharing/__init__.py`, `src/cartograph/sharing/artifact.py` — artifact
       pack/unpack primitives.
 - [ ] `src/cartograph/sharing/artifact.py::pack_graph(storage_root, commit_sha, strip_author_emails
@@ -146,6 +167,8 @@ the insights, not the PII exposure. Overridable for internal single-tenant setup
 
 ### Unit 2 — `pull_graph` tool
 
+**State:** pending
+
 - [ ] `src/cartograph/sharing/transport.py::download(source, destination_path)`.
 - [ ] `src/cartograph/sharing/artifact.py::unpack_graph(artifact_path, storage_root)` — extract
       to a temp dir, verify manifest, back up existing `graph.db`, move files into place.
@@ -165,6 +188,8 @@ the insights, not the PII exposure. Overridable for internal single-tenant setup
 
 ### Unit 3 — Manifest + versioning
 
+**State:** pending
+
 - [ ] `src/cartograph/sharing/manifest.py` — `Manifest` dataclass + (de)serialization.
 - [ ] `manifest.json` schema documented inline.
 - [ ] `pack_graph` writes the manifest; `unpack_graph` verifies it (version compatibility check,
@@ -174,6 +199,8 @@ the insights, not the PII exposure. Overridable for internal single-tenant setup
 
 ### Unit 4 — CLI
 
+**State:** pending
+
 - [ ] `python -m cartograph.sharing publish <destination> [--no-memory] [--keep-author-emails]`.
 - [ ] `python -m cartograph.sharing pull <source> [--skip-staleness-catchup]`.
 - [ ] Both shell out to the tool functions for consistency; identical behavior.
@@ -181,6 +208,8 @@ the insights, not the PII exposure. Overridable for internal single-tenant setup
 **Files:** `src/cartograph/sharing/__main__.py` (new).
 
 ### Unit 5 — Privacy strip helper
+
+**State:** pending
 
 - [ ] `src/cartograph/sharing/privacy.py::strip_author_emails(conn)` — in-memory SQL update over
       a *copy* of the DB (never the live one):
@@ -194,6 +223,8 @@ the insights, not the PII exposure. Overridable for internal single-tenant setup
 - Edge: no `authored_by` edges in graph (R4 not shipped) → no-op.
 
 ### Unit 6 — Documentation
+
+**State:** pending
 
 - [ ] Update `README.md` with Sharing section: artifact format, CLI usage, privacy defaults.
 - [ ] Update `CLAUDE.md` MCP tools table.

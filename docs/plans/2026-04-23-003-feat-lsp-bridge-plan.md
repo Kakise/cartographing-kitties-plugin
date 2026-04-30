@@ -6,6 +6,25 @@ date: 2026-04-23
 origin: docs/brainstorms/2026-04-23-001-plugin-evolution-requirements.md
 parent: docs/plans/2026-04-23-001-feat-plugin-evolution-roadmap.md
 requirement: R2
+units:
+  - id: 1
+    title: LSP client core
+    state: pending
+  - id: 2
+    title: Server registry and lifecycle
+    state: pending
+  - id: 3
+    title: Four MCP tools
+    state: pending
+  - id: 4
+    title: Edge provenance marking (offline)
+    state: pending
+  - id: 5
+    title: Phantom-edge fixture and metric
+    state: pending
+  - id: 6
+    title: Documentation
+    state: pending
 ---
 
 # LSP Bridge — Implementation Plan (R2)
@@ -152,6 +171,8 @@ coordinates; `qualified_name`-taking tools internally resolve position via `Grap
 
 ### Unit 1 — LSP client core
 
+**State:** pending
+
 - [ ] `src/cartograph/lsp/client.py` — `LspClient` class with methods for `initialize`,
       `shutdown`, `send_request`, `send_notification`, and `recv`. Uses
       `subprocess.Popen(..., stdin=PIPE, stdout=PIPE, stderr=PIPE)` and framed JSON-RPC
@@ -169,6 +190,8 @@ coordinates; `qualified_name`-taking tools internally resolve position via `Grap
 - Error: subprocess dies mid-session → `LspConnectionError` raised, client marked dead.
 
 ### Unit 2 — Server registry and lifecycle
+
+**State:** pending
 
 - [ ] `src/cartograph/lsp/servers.py` — `SERVER_CONFIGS: dict[Language, ServerConfig]`, initially
       `{"python": ServerConfig(cmd=["pyright-langserver", "--stdio"], ...),
@@ -188,6 +211,8 @@ coordinates; `qualified_name`-taking tools internally resolve position via `Grap
 - Edge: server hangs >10 s on init → timeout, error propagated.
 
 ### Unit 3 — Four MCP tools
+
+**State:** pending
 
 - [ ] `src/cartograph/server/tools/lsp.py` — four tool functions with FastMCP decorators.
       Each tool:
@@ -213,6 +238,8 @@ coordinates; `qualified_name`-taking tools internally resolve position via `Grap
 
 ### Unit 4 — Edge provenance marking (offline)
 
+**State:** pending
+
 - [ ] Add `src/cartograph/lsp/verify_edges.py` — script that walks ambiguous `calls`/`inherits`
       edges (edges where the target has ≥2 candidate nodes by name), asks LSP for the real
       referent, and updates the edge's `properties` JSON with `verified_by_lsp=true` and
@@ -228,6 +255,8 @@ coordinates; `qualified_name`-taking tools internally resolve position via `Grap
 
 ### Unit 5 — Phantom-edge fixture and metric
 
+**State:** pending
+
 - [ ] `tests/fixtures/lsp_corpus/` — small repo with ≥3 known phantom-edge cases (ambiguous names,
       overrides, overloaded methods).
 - [ ] `tests/test_lsp_phantom_reduction.py` — asserts phantom-edge count **before** LSP
@@ -237,6 +266,8 @@ coordinates; `qualified_name`-taking tools internally resolve position via `Grap
 - Asserts measurable reduction; failure = R2 does not meet its success criterion.
 
 ### Unit 6 — Documentation
+
+**State:** pending
 
 - [ ] Update `README.md` with LSP-bridge section (install hints per language).
 - [ ] Update `CLAUDE.md` to list the four new MCP tools.

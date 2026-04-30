@@ -6,6 +6,28 @@ date: 2026-04-23
 origin: docs/brainstorms/2026-04-23-001-plugin-evolution-requirements.md
 parent: docs/plans/2026-04-23-001-feat-plugin-evolution-roadmap.md
 requirement: R5
+units:
+  - id: 1
+    title: Migration
+    state: pending
+  - id: 2
+    title: Heuristic pass
+    state: pending
+  - id: 3
+    title: coverage.py JSON ingestion
+    state: pending
+  - id: 4
+    title: nyc / Istanbul JSON ingestion
+    state: pending
+  - id: 5
+    title: '`find_tests_for` MCP tool'
+    state: pending
+  - id: 6
+    title: Agent & skill updates
+    state: pending
+  - id: 7
+    title: Documentation
+    state: pending
 ---
 
 # Test-Coverage Edges — Implementation Plan (R5)
@@ -122,6 +144,8 @@ Running coverage ingestion twice for the same coverage file yields the same edge
 
 ### Unit 1 — Migration
 
+**State:** pending
+
 - [ ] `src/cartograph/storage/migrations/0006_test_coverage.sql`:
       - Relax edges CHECK to include `tests` (recreate-table pattern; may share migration with
         R4's CHECK relaxation if R4 is already merged — note the sequencing: if R4 migrated the
@@ -130,6 +154,8 @@ Running coverage ingestion twice for the same coverage file yields the same edge
 **Verification:** inserting a `tests` edge succeeds; existing edges survive the migration.
 
 ### Unit 2 — Heuristic pass
+
+**State:** pending
 
 - [ ] `src/cartograph/indexing/coverage.py::run_heuristic(store: GraphStore) -> int`:
       1. Find all nodes in `testpaths` with names starting with `test_`.
@@ -150,6 +176,8 @@ Running coverage ingestion twice for the same coverage file yields the same edge
   coverage-JSON pass resolve later.
 
 ### Unit 3 — coverage.py JSON ingestion
+
+**State:** pending
 
 - [ ] `src/cartograph/indexing/coverage.py::ingest_python_coverage(store, json_path) -> int`:
       1. Parse JSON with `contexts` block if present; else fall back to heuristic-only for Python
@@ -173,6 +201,8 @@ Running coverage ingestion twice for the same coverage file yields the same edge
 
 ### Unit 4 — nyc / Istanbul JSON ingestion
 
+**State:** pending
+
 - [ ] `src/cartograph/indexing/coverage.py::ingest_istanbul_coverage(store, json_path) -> int`:
       1. Parse Istanbul JSON.
       2. Without `describe`-level attribution, produce file-level edges: every test file that
@@ -189,6 +219,8 @@ Running coverage ingestion twice for the same coverage file yields the same edge
 
 ### Unit 5 — `find_tests_for` MCP tool
 
+**State:** pending
+
 - [ ] `src/cartograph/server/tools/coverage.py`:
       - `find_tests_for(qualified_name: str, limit: int = 20) -> list[{test_name, file_path,
         weight, source}]` — wraps `find_dependents(qualified_name, edge_kinds=["tests"])`.
@@ -202,6 +234,8 @@ Running coverage ingestion twice for the same coverage file yields the same edge
 
 ### Unit 6 — Agent & skill updates
 
+**State:** pending
+
 - [ ] `plugins/kitty/agents/expert-kitten-testing.md` — replace the "approximate test-to-symbol
       match by name" instruction with "call `find_tests_for(target_symbol)` first; if empty,
       then fall back to name-based search as a gap indicator".
@@ -212,6 +246,8 @@ Running coverage ingestion twice for the same coverage file yields the same edge
 `plugins/kitty/skills/kitty-review/SKILL.md` (modify).
 
 ### Unit 7 — Documentation
+
+**State:** pending
 
 - [ ] Update `README.md` coverage-ingest section with CLI usage.
 - [ ] Update `CLAUDE.md` edge-kinds table.

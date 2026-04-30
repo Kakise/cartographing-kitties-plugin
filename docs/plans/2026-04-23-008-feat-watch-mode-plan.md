@@ -6,6 +6,22 @@ date: 2026-04-23
 origin: docs/brainstorms/2026-04-23-001-plugin-evolution-requirements.md
 parent: docs/plans/2026-04-23-001-feat-plugin-evolution-roadmap.md
 requirement: R7
+units:
+  - id: 1
+    title: Filesystem watcher
+    state: pending
+  - id: 2
+    title: Debounce + coalesce
+    state: pending
+  - id: 3
+    title: '`subscribe_graph_changes` MCP tool (long-poll)'
+    state: pending
+  - id: 4
+    title: Latency benchmark
+    state: pending
+  - id: 5
+    title: Documentation
+    state: pending
 ---
 
 # Watch Mode — Implementation Plan (R7)
@@ -119,6 +135,8 @@ This plan uses option 1. Revisit once MCP spec standardizes subscriptions.
 
 ### Unit 1 — Filesystem watcher
 
+**State:** pending
+
 - [ ] Add `watchdog>=4.0.0` to `pyproject.toml`.
 - [ ] `src/cartograph/indexing/watcher.py` — `FileWatcher` class wrapping
       `watchdog.observers.Observer` + `watchdog.events.FileSystemEventHandler`. Emits
@@ -134,6 +152,8 @@ This plan uses option 1. Revisit once MCP spec standardizes subscriptions.
 
 ### Unit 2 — Debounce + coalesce
 
+**State:** pending
+
 - [ ] `src/cartograph/indexing/watcher.py::Debouncer` — collects events for 500 ms, emits a
       deduped set of (path, event_type).
 - [ ] `WatchModeCoordinator.run()` — async loop: await debounced batch → call
@@ -145,6 +165,8 @@ This plan uses option 1. Revisit once MCP spec standardizes subscriptions.
 - Edge: save + rename → old path's nodes deleted, new path indexed.
 
 ### Unit 3 — `subscribe_graph_changes` MCP tool (long-poll)
+
+**State:** pending
 
 - [ ] `src/cartograph/server/tools/reactive.py::subscribe_graph_changes(since_version: int = 0,
       timeout_s: int = 30) -> {events: list[DiffEvent], next_since_version: int}`:
@@ -172,12 +194,16 @@ This plan uses option 1. Revisit once MCP spec standardizes subscriptions.
 
 ### Unit 4 — Latency benchmark
 
+**State:** pending
+
 - [ ] `tests/test_watch_mode.py::test_single_file_reindex_under_one_second`: modify a fixture
       file, wait for the diff event, assert total latency (save → diff received) < 1000 ms p95.
 - [ ] `tests/test_watch_mode.py::test_burst_coalesce`: write 10 files in 200 ms, assert exactly
       one re-index run fires.
 
 ### Unit 5 — Documentation
+
+**State:** pending
 
 - [ ] Update `README.md` with Watch Mode section (env var, use case).
 - [ ] Update `CLAUDE.md` tool list.

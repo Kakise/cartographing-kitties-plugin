@@ -6,6 +6,22 @@ date: 2026-04-23
 origin: docs/brainstorms/2026-04-23-001-plugin-evolution-requirements.md
 parent: docs/plans/2026-04-23-001-feat-plugin-evolution-roadmap.md
 requirement: R3
+units:
+  - id: 1
+    title: Go extractor
+    state: pending
+  - id: 2
+    title: Java extractor
+    state: pending
+  - id: 3
+    title: Rust extractor
+    state: pending
+  - id: 4
+    title: Mixed-language integration
+    state: pending
+  - id: 5
+    title: Documentation
+    state: pending
 ---
 
 # Language Expansion — Implementation Plan (R3)
@@ -141,6 +157,8 @@ Java/Go use `.`). This is a Cartograph internal convention, not a language-nativ
 
 ### Unit 1 — Go extractor
 
+**State:** pending
+
 - [ ] Add `tree-sitter-go>=0.25.0` to `pyproject.toml`.
 - [ ] Register in `registry.py::_get_language("go")` and extension mapping for `.go`.
 - [ ] Add Go entries to `parsing/queries.py`: node types for `function_declaration`,
@@ -168,6 +186,8 @@ Java/Go use `.`). This is a Cartograph internal convention, not a language-nativ
 
 ### Unit 2 — Java extractor
 
+**State:** pending
+
 - [ ] Add `tree-sitter-java>=0.25.0`.
 - [ ] Register in `registry.py`; extension `.java`.
 - [ ] Queries: `class_declaration`, `interface_declaration`, `enum_declaration`,
@@ -190,6 +210,8 @@ Java/Go use `.`). This is a Cartograph internal convention, not a language-nativ
   `Outer::Anon_N`.
 
 ### Unit 3 — Rust extractor
+
+**State:** pending
 
 - [ ] Add `tree-sitter-rust>=0.25.0`.
 - [ ] Register in `registry.py`; extension `.rs`.
@@ -216,6 +238,8 @@ Java/Go use `.`). This is a Cartograph internal convention, not a language-nativ
 
 ### Unit 4 — Mixed-language integration
 
+**State:** pending
+
 - [ ] Fixture: `tests/fixtures/polyglot/` — one tiny Python + Go + Rust + Java mini-monorepo.
 - [ ] Test: `tests/test_polyglot_indexing.py` — runs `Indexer.index_all()` over the fixture,
       asserts all languages appear with expected node counts and that `get_file_structure` returns
@@ -228,6 +252,8 @@ Java/Go use `.`). This is a Cartograph internal convention, not a language-nativ
 - Edge: a file with a non-registered extension (e.g., `.c`) is silently skipped with a debug log.
 
 ### Unit 5 — Documentation
+
+**State:** pending
 
 - [ ] Update `README.md` supported-languages list.
 - [ ] Update `CLAUDE.md` conventions section — add Go/Java/Rust qualified-name examples.

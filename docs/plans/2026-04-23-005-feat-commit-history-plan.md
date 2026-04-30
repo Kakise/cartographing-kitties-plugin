@@ -6,6 +6,28 @@ date: 2026-04-23
 origin: docs/brainstorms/2026-04-23-001-plugin-evolution-requirements.md
 parent: docs/plans/2026-04-23-001-feat-plugin-evolution-roadmap.md
 requirement: R4
+units:
+  - id: 1
+    title: Migration + schema changes
+    state: pending
+  - id: 2
+    title: Git log parser
+    state: pending
+  - id: 3
+    title: Co-change computation
+    state: pending
+  - id: 4
+    title: Indexer integration
+    state: pending
+  - id: 5
+    title: MCP tools
+    state: pending
+  - id: 6
+    title: Commit-message → memory entries (optional)
+    state: pending
+  - id: 7
+    title: Documentation
+    state: pending
 ---
 
 # Commit-History Dimension — Implementation Plan (R4)
@@ -131,6 +153,8 @@ public graphs should `git config user.email` to a privacy-preserving address or 
 
 ### Unit 1 — Migration + schema changes
 
+**State:** pending
+
 - [ ] Write `src/cartograph/storage/migrations/0005_commit_history.sql`:
       - Add columns `last_touched_at TEXT`, `change_frequency INTEGER DEFAULT 0` to `nodes`.
       - Recreate `edges` table with CHECK constraint extended:
@@ -148,6 +172,8 @@ public graphs should `git config user.email` to a privacy-preserving address or 
 - Edge: fresh DB upgraded from 0004 preserves existing nodes and gains new columns as NULL.
 
 ### Unit 2 — Git log parser
+
+**State:** pending
 
 - [ ] `src/cartograph/indexing/history.py::CommitParser` — wraps `subprocess` call to `git log`,
       parses TSV output, yields `Commit` dataclasses (`sha, author_email, timestamp, files`).
@@ -173,6 +199,8 @@ public graphs should `git config user.email` to a privacy-preserving address or 
 
 ### Unit 3 — Co-change computation
 
+**State:** pending
+
 - [ ] In `history.py`, add `compute_co_changes(commits: Iterable[Commit], store: GraphStore,
       top_k=30, min_weight=3) -> int` which:
       1. For each commit, takes all modified file-level nodes, produces pairs (n choose 2).
@@ -190,6 +218,8 @@ public graphs should `git config user.email` to a privacy-preserving address or 
 
 ### Unit 4 — Indexer integration
 
+**State:** pending
+
 - [ ] In `indexing/indexer.py::Indexer.index_all` and `Indexer.index_changed`, call
       `history.update_history(self._store, self._repo_root)` after node/edge upserts.
 - [ ] Gate behind `KITTY_HISTORY_ENABLED` env var (opt-in, default off).
@@ -202,6 +232,8 @@ public graphs should `git config user.email` to a privacy-preserving address or 
 - Edge: env var unset → `update_history` skipped; nodes still indexed normally.
 
 ### Unit 5 — MCP tools
+
+**State:** pending
 
 - [ ] `src/cartograph/server/tools/history.py`:
       - `find_co_changed(qualified_name: str, limit: int = 10) -> list[{target_name, weight,
@@ -219,6 +251,8 @@ public graphs should `git config user.email` to a privacy-preserving address or 
 
 ### Unit 6 — Commit-message → memory entries (optional)
 
+**State:** pending
+
 - [ ] Heuristics module: detect fix commits (`"fix:"`, `"fixes #"`, `"bug"`) and write a
       `litter_box` entry with category `failure`, description from the commit message, context
       = affected node list.
@@ -234,6 +268,8 @@ public graphs should `git config user.email` to a privacy-preserving address or 
 - Edge: non-conventional commit message → no memory entry.
 
 ### Unit 7 — Documentation
+
+**State:** pending
 
 - [ ] Update `README.md` commit-history section including the opt-in env vars.
 - [ ] Update `CLAUDE.md` edge-kinds table.

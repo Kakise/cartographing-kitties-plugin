@@ -6,6 +6,28 @@ date: 2026-04-23
 origin: docs/brainstorms/2026-04-23-001-plugin-evolution-requirements.md
 parent: docs/plans/2026-04-23-001-feat-plugin-evolution-roadmap.md
 requirement: R1
+units:
+  - id: 1
+    title: Dependency + migration scaffolding
+    state: pending
+  - id: 2
+    title: Embedding generator module
+    state: pending
+  - id: 3
+    title: Graph-centrality channel
+    state: pending
+  - id: 4
+    title: RRF fusion in `GraphStore.search`
+    state: pending
+  - id: 5
+    title: Embedding generation at annotation time
+    state: pending
+  - id: 6
+    title: Evaluation harness & recall measurement
+    state: pending
+  - id: 7
+    title: Documentation
+    state: pending
 ---
 
 # Hybrid Search — Implementation Plan (R1)
@@ -126,6 +148,8 @@ baseline metrics and the model-swap migration path is proven.
 
 ### Unit 1 — Dependency + migration scaffolding
 
+**State:** pending
+
 - [ ] Add `sqlite-vec>=0.1.1` to `pyproject.toml` dependencies.
 - [ ] Add `sentence-transformers>=3.0.0` to `pyproject.toml` dependencies.
 - [ ] Write `src/cartograph/storage/migrations/0003_hybrid_search.sql`:
@@ -151,6 +175,8 @@ baseline metrics and the model-swap migration path is proven.
 
 ### Unit 2 — Embedding generator module
 
+**State:** pending
+
 - [ ] Create `src/cartograph/annotation/embeddings.py` exporting:
       - `Embedder.get_instance()` → singleton loading `bge-small-en-v1.5` lazily.
       - `Embedder.embed(text: str) -> list[float]` (dim=384).
@@ -172,6 +198,8 @@ baseline metrics and the model-swap migration path is proven.
 
 ### Unit 3 — Graph-centrality channel
 
+**State:** pending
+
 - [ ] Add `GraphStore.centrality_score(node_ids: list[int]) -> dict[int, float]`.
 - [ ] Implementation reuses `rank_by_in_degree` (preferred; transitive is O(N²)). Normalize scores
       to [0, 1] by dividing by the max in-degree over the full graph (cache this value on the
@@ -187,6 +215,8 @@ baseline metrics and the model-swap migration path is proven.
   scores.
 
 ### Unit 4 — RRF fusion in `GraphStore.search`
+
+**State:** pending
 
 - [ ] Replace the body of `GraphStore.search(query, kind=None, limit=20)` with:
       1. Run FTS5 channel → ranked list of (node_id, rank_fts).
@@ -219,6 +249,8 @@ baseline metrics and the model-swap migration path is proven.
 
 ### Unit 5 — Embedding generation at annotation time
 
+**State:** pending
+
 - [ ] Modify `cartograph.annotation.annotator::write_annotations` to:
       1. For each successfully written annotation, compute `Embedder.embed(summary + " " +
          qualified_name)` (combining both gives better recall on name-heavy queries).
@@ -238,6 +270,8 @@ baseline metrics and the model-swap migration path is proven.
   emitted; node flagged for retry via standard stale-annotation mechanism.
 
 ### Unit 6 — Evaluation harness & recall measurement
+
+**State:** pending
 
 - [ ] Create `tests/evaluation/query_set.json` with ~40 queries. Schema:
       `{"query": "...", "expected_qualified_names": ["...", "..."]}`. Cover: exact name matches,
@@ -259,6 +293,8 @@ baseline metrics and the model-swap migration path is proven.
 - Edge: recall@1 and recall@5 are also reported (not asserted) so we have the full curve.
 
 ### Unit 7 — Documentation
+
+**State:** pending
 
 - [ ] Update `README.md` "Features" section to describe hybrid search.
 - [ ] Update `CLAUDE.md` MCP tool table so the `search` description notes "hybrid (lexical + dense
