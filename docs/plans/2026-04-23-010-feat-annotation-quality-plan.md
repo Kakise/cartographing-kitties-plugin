@@ -1,10 +1,11 @@
 ---
 title: Annotation Quality Gates & Acceleration (R9)
 type: feat
-status: in_progress
+status: complete
 date: 2026-04-23
 origin: docs/brainstorms/2026-04-23-001-plugin-evolution-requirements.md
 parent: docs/plans/2026-04-23-001-feat-plugin-evolution-roadmap.md
+implemented_in: aaa393e
 requirement: R9
 units:
   - id: 1
@@ -25,10 +26,12 @@ units:
     implemented_in: c5d3e17
   - id: 5
     title: Orchestrator prompt update
-    state: pending
+    state: complete
+    implemented_in: c5d3e17
   - id: 6
     title: Documentation
-    state: pending
+    state: complete
+    implemented_in: aaa393e
 ---
 
 # Annotation Quality Gates — Implementation Plan (R9)
@@ -221,7 +224,7 @@ one annotation pass.
 
 ### Unit 5 — Orchestrator prompt update
 
-**State:** pending
+**State:** complete — implemented in c5d3e17
 
 - [ ] Update the annotation-orchestrator agent(s) documentation (likely
       `plugins/kitty/agents/cartographing-kitten.md` if that's where annotation guidance lives;
@@ -236,7 +239,7 @@ implementation).
 
 ### Unit 6 — Documentation
 
-**State:** pending
+**State:** complete — implemented in aaa393e
 
 - [ ] Update `README.md` annotation section.
 - [ ] Update `CLAUDE.md` tool list.

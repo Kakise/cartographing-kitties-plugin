@@ -1,7 +1,7 @@
 ---
 title: Plugin Evolution — Remaining Work
 type: feat
-status: active
+status: in_progress
 date: 2026-04-29
 supersedes: docs/plans/2026-04-23-001-feat-plugin-evolution-roadmap.md
 aggregates:
@@ -153,18 +153,23 @@ units:
     state: pending
   - id: 46
     title: 'annotation-quality :: U5 (Orchestrator prompt update)'
-    state: pending
+    state: complete
+    implemented_in: c5d3e17
   - id: 47
     title: 'annotation-quality :: U6 (Documentation)'
-    state: pending
+    state: complete
+    implemented_in: aaa393e
   - id: 48
-    title: 'harness-context-engineering :: U2 (MCP context-shaping (output schemas, response_shape, token_budget, cursors, cleanable))'
+    title: 'harness-context-engineering :: U2 (MCP context-shaping (output schemas, response_shape, token_budget,
+      cursors, cleanable))'
     state: pending
   - id: 49
-    title: 'harness-context-engineering :: U4 (Skill restructuring (progressive disclosure, frontmatter expansion, dynamic context))'
+    title: 'harness-context-engineering :: U4 (Skill restructuring (progressive disclosure, frontmatter
+      expansion, dynamic context))'
     state: pending
   - id: 50
-    title: 'harness-context-engineering :: U5 (Agent specialization (tool perms, Sonnet model, scaling rules, output contract, spawn map))'
+    title: 'harness-context-engineering :: U5 (Agent specialization (tool perms, Sonnet model, scaling
+      rules, output contract, spawn map))'
     state: pending
   - id: 51
     title: 'harness-context-engineering :: U6 (Codex first-class runtime parity)'
@@ -538,14 +543,14 @@ applies:
 
 ### Unit 46 — annotation-quality :: U5 (Orchestrator prompt update)
 
-**State:** pending
+**State:** complete — implemented in c5d3e17
 
 - [ ] Source: `docs/plans/2026-04-23-010-feat-annotation-quality-plan.md` (Unit 5)
 - [ ] Reference: see source plan for full design.
 
 ### Unit 47 — annotation-quality :: U6 (Documentation)
 
-**State:** pending
+**State:** complete — implemented in aaa393e
 
 - [ ] Source: `docs/plans/2026-04-23-010-feat-annotation-quality-plan.md` (Unit 6)
 - [ ] Reference: see source plan for full design.
