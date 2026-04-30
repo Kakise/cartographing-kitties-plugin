@@ -1,8 +1,9 @@
 ---
 title: Adopt AskUserQuestion as the question protocol for kitty skills
 type: feat
-status: in_progress
+status: complete
 date: 2026-04-30
+implemented_in: 4728969
 ---
 
 ## Overview
@@ -341,7 +342,7 @@ existing skill contracts.
 
 ### Unit 7 — Submodule + parent repo wiring
 
-**State:** in_progress — submodule branch `feat/ask-user-protocol` pushed at `Kakise/cartographing-kitties-skills@2dfaed3`; parent pointer bump landing now
+**State:** complete — implemented in 4728969 (parent) bumping submodule to `Kakise/cartographing-kitties-skills@2dfaed3`
 - **Goal:** Land the skill edits in the submodule and update the parent pointer
   consistently.
 - **Requirements:** R5, R6
