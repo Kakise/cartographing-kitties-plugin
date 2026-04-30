@@ -43,7 +43,7 @@ plugins/
       kitty/                     # Router skill — delegates to sub-skills
         SKILL.md
         references/
-          tool-reference.md      # Detailed tool parameter docs
+          tool-reference/        # Generated detailed tool parameter docs by family
           annotation-workflow.md # Annotation workflow guide
       kitty-explore/             # Structural exploration
       kitty-impact/              # Impact analysis and refactoring
@@ -109,6 +109,17 @@ Or use `kitty:lfg` for full autonomous execution (plan → work → review).
 | Building features | `kitty:work` |
 | Reviewing code changes | `kitty:review` |
 | Full autonomous pipeline | `kitty:lfg` |
+
+## MCP Tool Surface
+
+### Annotation
+
+| Tool | Purpose |
+|------|---------|
+| `get_pending_annotations` | Fetch pending nodes with source, neighbor context, seed taxonomy, `recommended_model_tier`, and `requeue_reason` when present. |
+| `submit_annotations` | Persist generated summaries, tags, and roles, or mark ambiguous nodes failed. |
+| `find_low_quality_annotations` | Audit annotated nodes for placeholder summaries, too-short summaries, missing name references, and generic fallback roles. |
+| `requeue_low_quality_annotations` | Move low-quality annotations back to pending; dry-run by default and caps repeat requeues by marking failed. |
 
 ### Workflow Contract
 
