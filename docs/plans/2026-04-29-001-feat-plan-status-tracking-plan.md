@@ -8,9 +8,10 @@ units:
   - id: 1
     title: Plan-state schema and parser module
     state: complete
+    implemented_in: 80129ba
   - id: 2
     title: kitty-plans status CLI
-    state: pending
+    state: complete
   - id: 3
     title: Slash command wiring (Claude + Codex)
     state: pending
@@ -286,7 +287,7 @@ Deferred (decide later, do not block this plan):
 
 ### Unit 1 — Plan-state schema and parser module
 
-**State:** complete
+**State:** complete — implemented in 80129ba
 
 - [ ] Goal: A pure-Python module that parses the new plan format, serializes it back, computes
   rollups, and validates required fields, with no CLI surface and no I/O outside file reads.
@@ -336,7 +337,7 @@ Deferred (decide later, do not block this plan):
 
 ### Unit 2 — `kitty-plans` status CLI
 
-**State:** pending
+**State:** complete
 
 - [ ] Goal: A CLI script that reports plan status across `docs/plans/`, audits the schema, and
   mutates plan files in a controlled way (used by `kitty:work` follow-up integration).
