@@ -218,4 +218,4 @@ uv run python -m cartograph.server.main   # Start server via stdio
 ## Testing
 
 Tests live in `tests/`. Fixtures in `tests/fixtures/` are sample projects — not test modules.
-Run with `uv run pytest`. CI matrix tests Python 3.11-3.14.
+Run with `uv run pytest`. CI matrix tests Python 3.13-3.14.
