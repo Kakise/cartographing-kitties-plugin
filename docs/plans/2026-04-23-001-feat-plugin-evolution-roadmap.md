@@ -1,9 +1,10 @@
 ---
 title: Plugin Evolution Roadmap (R1–R9)
 type: feat
-status: active
+status: superseded
 date: 2026-04-23
 origin: docs/brainstorms/2026-04-23-001-plugin-evolution-requirements.md
+superseded_by: docs/plans/2026-04-29-002-feat-plugin-evolution-remaining-work-plan.md
 plans:
   - docs/plans/2026-04-23-002-feat-hybrid-search-plan.md
   - docs/plans/2026-04-23-003-feat-lsp-bridge-plan.md
