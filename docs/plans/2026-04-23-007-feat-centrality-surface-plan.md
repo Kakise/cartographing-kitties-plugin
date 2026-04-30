@@ -1,11 +1,34 @@
 ---
 title: Centrality & Re-Ranking Surface (R6)
 type: feat
-status: active
+status: in_progress
 date: 2026-04-23
 origin: docs/brainstorms/2026-04-23-001-plugin-evolution-requirements.md
 parent: docs/plans/2026-04-23-001-feat-plugin-evolution-roadmap.md
 requirement: R6
+units:
+  - id: 1
+    title: Schema + migration
+    state: complete
+    implemented_in: c5d3e17
+  - id: 2
+    title: Compute + cache
+    state: complete
+    implemented_in: c5d3e17
+  - id: 3
+    title: '`get_context_summary` pruning'
+    state: pending
+  - id: 4
+    title: Expose on query responses
+    state: complete
+    implemented_in: c5d3e17
+  - id: 5
+    title: Tests
+    state: complete
+    implemented_in: c5d3e17
+  - id: 6
+    title: Documentation
+    state: pending
 ---
 
 # Centrality Surface — Implementation Plan (R6)
@@ -98,6 +121,8 @@ existing `graph_version` counter, and expose it wherever ranking or pruning matt
 
 ### Unit 1 — Schema + migration
 
+**State:** complete — implemented in c5d3e17
+
 - [ ] `src/cartograph/storage/migrations/0004_centrality.sql`:
       - `ALTER TABLE nodes ADD COLUMN centrality REAL`
       - `ALTER TABLE nodes ADD COLUMN in_degree_cache INTEGER`
@@ -108,6 +133,8 @@ existing `graph_version` counter, and expose it wherever ranking or pruning matt
 on next read.
 
 ### Unit 2 — Compute + cache
+
+**State:** complete — implemented in c5d3e17
 
 - [x] `GraphStore.compute_centrality()`:
       1. Cache-freshness check lives in `_ensure_centrality_fresh`: returns early when
@@ -131,6 +158,8 @@ on next read.
 
 ### Unit 3 — `get_context_summary` pruning
 
+**State:** pending
+
 - [ ] In `query.py::get_context_summary`, if the resolved node list for any single file exceeds
       `max_nodes` (existing param, default 50), **select the top-K by centrality** rather than by
       raw in-degree.
@@ -145,6 +174,8 @@ on next read.
 
 ### Unit 4 — Expose on query responses
 
+**State:** complete — implemented in c5d3e17
+
 - [ ] `query_node`, `batch_query_nodes`, `get_context_summary`, `rank_nodes`, and
       `get_file_structure` response payloads gain a `centrality: float` field on each node dict.
 - [ ] `_summarise_node` updated once in `query.py`; all tools benefit.
@@ -155,6 +186,8 @@ on next read.
 
 ### Unit 5 — Tests
 
+**State:** complete — implemented in c5d3e17
+
 - [ ] `tests/test_centrality.py`:
   - Small known-graph PageRank ground truth (e.g., classic 4-node Wikipedia example) — assert
     our implementation matches expected to 3 decimal places.
@@ -163,6 +196,8 @@ on next read.
     `contains` edges.
 
 ### Unit 6 — Documentation
+
+**State:** pending
 
 - [ ] Update `CLAUDE.md` to mention that `query_node` / `search` / `rank_nodes` responses include
       `centrality`.

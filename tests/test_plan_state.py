@@ -249,6 +249,14 @@ class TestSetPlanStatus:
         assert plan.abandoned_reason == "No longer needed"
 
 
+class TestAlternateUnitHeaderStyle:
+    def test_u_style_units_are_parsed(self) -> None:
+        plan = parse_plan(FIXTURES / "u_style_units.md")
+        assert [u.id for u in plan.units] == [1, 2]
+        assert plan.units[0].title == "First track"
+        assert plan.units[1].title == "Second track"
+
+
 class TestFencedBlockIsolation:
     def test_fenced_examples_do_not_contaminate_units(self) -> None:
         plan = parse_plan(FIXTURES / "with_fenced_examples.md")

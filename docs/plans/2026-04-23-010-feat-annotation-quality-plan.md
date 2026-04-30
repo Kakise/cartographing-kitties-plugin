@@ -1,11 +1,34 @@
 ---
 title: Annotation Quality Gates & Acceleration (R9)
 type: feat
-status: active
+status: in_progress
 date: 2026-04-23
 origin: docs/brainstorms/2026-04-23-001-plugin-evolution-requirements.md
 parent: docs/plans/2026-04-23-001-feat-plugin-evolution-roadmap.md
 requirement: R9
+units:
+  - id: 1
+    title: Quality detector
+    state: complete
+    implemented_in: c5d3e17
+  - id: 2
+    title: Requeue + MCP surface
+    state: complete
+    implemented_in: c5d3e17
+  - id: 3
+    title: Tiered routing hints
+    state: complete
+    implemented_in: c5d3e17
+  - id: 4
+    title: Dry-run integration test
+    state: complete
+    implemented_in: c5d3e17
+  - id: 5
+    title: Orchestrator prompt update
+    state: pending
+  - id: 6
+    title: Documentation
+    state: pending
 ---
 
 # Annotation Quality Gates — Implementation Plan (R9)
@@ -126,6 +149,8 @@ one annotation pass.
 
 ### Unit 1 — Quality detector
 
+**State:** complete — implemented in c5d3e17
+
 - [ ] `src/cartograph/annotation/quality.py::is_low_quality(node: dict) -> tuple[bool, list[str]]`
       — returns `(is_low, reasons)`.
 - [ ] Implement the four detectors above.
@@ -139,6 +164,8 @@ one annotation pass.
 - Edge: role "File" → flagged as generic-fallback.
 
 ### Unit 2 — Requeue + MCP surface
+
+**State:** complete — implemented in c5d3e17
 
 - [ ] `src/cartograph/annotation/quality.py::find_low_quality_annotations(store: GraphStore,
       limit=100) -> list[dict]` — walks annotated nodes, returns those failing `is_low_quality`
@@ -166,6 +193,8 @@ one annotation pass.
 
 ### Unit 3 — Tiered routing hints
 
+**State:** complete — implemented in c5d3e17
+
 - [ ] Extend `get_pending_annotations` to include `recommended_model_tier` per returned node.
 - [ ] Routing logic in `quality.py::recommended_tier(node: dict) -> Literal["fast", "strong"]`.
 - [ ] If R6 (centrality) hasn't shipped, fall back to size + kind rules only; tier field is still
@@ -182,6 +211,8 @@ one annotation pass.
 
 ### Unit 4 — Dry-run integration test
 
+**State:** complete — implemented in c5d3e17
+
 - [ ] `tests/test_annotation_quality.py` — end-to-end: seed a DB with 10 mixed-quality nodes,
       call `find_low_quality_annotations` → assert reasons; call `requeue_low_quality(dry_run=
       True)` → assert no DB mutation; `requeue_low_quality(dry_run=False)` → assert mutation.
@@ -189,6 +220,8 @@ one annotation pass.
       current repo.
 
 ### Unit 5 — Orchestrator prompt update
+
+**State:** pending
 
 - [ ] Update the annotation-orchestrator agent(s) documentation (likely
       `plugins/kitty/agents/cartographing-kitten.md` if that's where annotation guidance lives;
@@ -202,6 +235,8 @@ one annotation pass.
 implementation).
 
 ### Unit 6 — Documentation
+
+**State:** pending
 
 - [ ] Update `README.md` annotation section.
 - [ ] Update `CLAUDE.md` tool list.

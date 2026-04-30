@@ -85,7 +85,8 @@ _KNOWN_FRONTMATTER_KEYS = {
 }
 
 _UNIT_HEADER_RE = re.compile(
-    r"^###[ \t]+Unit[ \t]+(\d+)[ \t]*[—:\-][ \t]*(.+?)[ \t]*$", re.MULTILINE
+    r"^(?:###[ \t]+Unit[ \t]+|##[ \t]+U)(\d+)[ \t]*[—:\-][ \t]*(.+?)[ \t]*$",
+    re.MULTILINE,
 )
 _STATE_LINE_RE = re.compile(r"^\*\*State:\*\*[ \t]+(.+?)[ \t]*$", re.MULTILINE)
 _FRONTMATTER_RE = re.compile(r"^---\n(.*?)\n---\n", re.DOTALL)
