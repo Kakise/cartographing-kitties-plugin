@@ -18,7 +18,7 @@ units:
     state: complete
   - id: 4
     title: Pre-commit and CI enforcement
-    state: pending
+    state: complete
   - id: 5
     title: Migration sweep across all 22 existing plans
     state: pending
@@ -417,7 +417,7 @@ Deferred (decide later, do not block this plan):
 
 ### Unit 4 — Pre-commit and CI enforcement
 
-**State:** pending
+**State:** complete
 
 - [ ] Goal: Make schema drift impossible by failing pre-commit (and therefore CI) on any plan
   that is malformed, missing required companions, or whose body/frontmatter disagree.
