@@ -86,11 +86,18 @@ def _git_log_for_path(path: Path) -> list[str]:
     return [line for line in result.stdout.splitlines() if line.strip()]
 
 
+_BRANCH_MATCH_STOPWORDS = frozenset({"feat", "fix", "refactor", "plan"})
+
+
 def _branch_match(branch: str | None, plan: Plan) -> bool:
     if not branch:
         return False
     slug = plan.path.stem
-    parts = [part for part in slug.split("-") if not part.isdigit() and len(part) > 2]
+    parts = [
+        part
+        for part in slug.split("-")
+        if not part.isdigit() and len(part) > 2 and part not in _BRANCH_MATCH_STOPWORDS
+    ]
     return any(part in branch for part in parts)
 
 
@@ -187,21 +194,23 @@ def cmd_audit(args: argparse.Namespace) -> int:
     return 0
 
 
-def _resolve_plan(arg: str) -> Path:
+def _resolve_plan(arg: str, plans_dir: Path | None = None) -> Path:
     candidate = Path(arg)
     if candidate.is_absolute() and candidate.exists():
         return candidate
     rel = REPO_ROOT / arg
     if rel.exists():
         return rel
-    name = PLANS_DIR / arg
+    base = plans_dir if plans_dir is not None else PLANS_DIR
+    name = base / arg
     if name.exists():
         return name
     raise FileNotFoundError(f"plan not found: {arg}")
 
 
 def cmd_set_unit(args: argparse.Namespace) -> int:
-    path = _resolve_plan(args.plan)
+    plans_dir = Path(args.plans_dir) if args.plans_dir else None
+    path = _resolve_plan(args.plan, plans_dir=plans_dir)
     plan = parse_plan(path)
     if args.state not in UNIT_STATES:
         print(f"invalid state: {args.state}", file=sys.stderr)
@@ -223,7 +232,8 @@ def cmd_set_unit(args: argparse.Namespace) -> int:
 
 
 def cmd_set_status(args: argparse.Namespace) -> int:
-    path = _resolve_plan(args.plan)
+    plans_dir = Path(args.plans_dir) if args.plans_dir else None
+    path = _resolve_plan(args.plan, plans_dir=plans_dir)
     plan = parse_plan(path)
     if args.status not in PLAN_STATUSES:
         print(f"invalid status: {args.status}", file=sys.stderr)

@@ -181,3 +181,77 @@ class TestPlanResolution:
     def test_unknown_plan_raises(self, tmp_path: Path) -> None:
         with pytest.raises(FileNotFoundError):
             plan_status.main(["set-unit", str(tmp_path / "missing.md"), "1", "complete"])
+
+    def test_set_unit_resolves_via_plans_dir_override(
+        self, temp_plans_dir: Path
+    ) -> None:
+        rc = plan_status.main(
+            [
+                "--plans-dir",
+                str(temp_plans_dir),
+                "set-unit",
+                "new_format.md",
+                "3",
+                "in_progress",
+            ]
+        )
+        assert rc == 0
+
+        from scripts.plan_state import parse_plan
+
+        plan = parse_plan(temp_plans_dir / "new_format.md")
+        unit_3 = next(u for u in plan.units if u.id == 3)
+        assert unit_3.state == "in_progress"
+
+    def test_set_status_resolves_via_plans_dir_override(
+        self, temp_plans_dir: Path
+    ) -> None:
+        rc = plan_status.main(
+            [
+                "--plans-dir",
+                str(temp_plans_dir),
+                "set-status",
+                "legacy_minimal.md",
+                "abandoned",
+                "--abandoned-reason",
+                "test",
+            ]
+        )
+        assert rc == 0
+
+        from scripts.plan_state import parse_plan
+
+        plan = parse_plan(temp_plans_dir / "legacy_minimal.md")
+        assert plan.status == "abandoned"
+
+
+class TestBranchMatch:
+    def test_stopwords_alone_do_not_match(self, tmp_path: Path) -> None:
+        from scripts.plan_state import Plan
+        from scripts.plan_status import _branch_match
+
+        plan = Plan(
+            path=tmp_path / "2026-01-01-001-feat-something-plan.md",
+            title="x",
+            type="feat",
+            status="active",
+            date="2026-01-01",
+        )
+        # Branch shares only the generic "feat" stop-word; should NOT match.
+        assert _branch_match("feat/unrelated", plan) is False
+        # Branch shares the distinctive "something" part; should match.
+        assert _branch_match("feat/something-bug", plan) is True
+
+    def test_pure_stopword_slug_never_matches(self, tmp_path: Path) -> None:
+        from scripts.plan_state import Plan
+        from scripts.plan_status import _branch_match
+
+        plan = Plan(
+            path=tmp_path / "2026-01-01-001-feat-plan.md",
+            title="x",
+            type="feat",
+            status="active",
+            date="2026-01-01",
+        )
+        # All non-numeric parts are stop-words → no match possible.
+        assert _branch_match("feat/anything", plan) is False
