@@ -1,9 +1,47 @@
 ---
 title: Cat-Themed Rebranding + Memory System + Commands
 type: feat
-status: active
+status: complete
 date: 2026-03-28
 origin: docs/brainstorms/2026-03-28-003-cat-rebrand-requirements.md
+implemented_in: 231a403
+units:
+  - id: 1
+    title: Core Infrastructure (env var + data dir + FastMCP name)
+    state: complete
+    implemented_in: 231a403
+  - id: 2
+    title: Web Explorer Branding
+    state: complete
+    implemented_in: 231a403
+  - id: 3
+    title: Memory System (Litter-Box + Treat-Box)
+    state: complete
+    implemented_in: 231a403
+  - id: 4
+    title: Plugin Directory + Manifest Rename
+    state: complete
+    implemented_in: 231a403
+  - id: 5
+    title: Skill Rename
+    state: complete
+    implemented_in: 231a403
+  - id: 6
+    title: Agent Rename
+    state: complete
+    implemented_in: 231a403
+  - id: 7
+    title: Slash Commands
+    state: complete
+    implemented_in: 231a403
+  - id: 8
+    title: Documentation + Prompt Text
+    state: complete
+    implemented_in: 231a403
+  - id: 9
+    title: CI Workflows + Tests
+    state: complete
+    implemented_in: 231a403
 ---
 
 # Cat-Themed Rebranding + Memory System + Commands — Plan
@@ -79,6 +117,8 @@ None — all resolved in brainstorm phase.
 
 ### Unit 1: Core Infrastructure (env var + data dir + FastMCP name)
 
+**State:** complete — implemented in 231a403
+
 **Goal**: Migrate data directory from `.cartograph/` to `.pawprints/`, support dual env vars, rename MCP server.
 
 **Requirements**: R4, R7
@@ -118,6 +158,8 @@ None — all resolved in brainstorm phase.
 
 ### Unit 2: Web Explorer Branding
 
+**State:** complete — implemented in 231a403
+
 **Goal**: Update all user-facing strings in the web explorer.
 
 **Requirements**: R5
@@ -147,6 +189,8 @@ None — all resolved in brainstorm phase.
 ---
 
 ### Unit 3: Memory System (Litter-Box + Treat-Box)
+
+**State:** complete — implemented in 231a403
 
 **Goal**: Implement persistent memory with SQLite storage + markdown export + 4 MCP tools.
 
@@ -237,6 +281,8 @@ def export_markdown(store: GraphStore, box: str, output_path: Path) -> int
 
 ### Unit 4: Plugin Directory + Manifest Rename
 
+**State:** complete — implemented in 231a403
+
 **Goal**: Rename plugin directory tree and update manifest files.
 
 **Requirements**: R3
@@ -262,6 +308,8 @@ def export_markdown(store: GraphStore, box: str, output_path: Path) -> int
 ---
 
 ### Unit 5: Skill Rename
+
+**State:** complete — implemented in 231a403
 
 **Goal**: Rename all 9 skill directories and update skill IDs + cross-references.
 
@@ -291,6 +339,8 @@ def export_markdown(store: GraphStore, box: str, output_path: Path) -> int
 ---
 
 ### Unit 6: Agent Rename
+
+**State:** complete — implemented in 231a403
 
 **Goal**: Rename all 9 agent files with cat role prefixes and update all dispatch references.
 
@@ -336,6 +386,8 @@ def export_markdown(store: GraphStore, box: str, output_path: Path) -> int
 ---
 
 ### Unit 7: Slash Commands
+
+**State:** complete — implemented in 231a403
 
 **Goal**: Add 3 slash commands to the plugin.
 
@@ -398,6 +450,8 @@ Call `annotation_status` to get the current index and annotation state. Then cal
 
 ### Unit 8: Documentation + Prompt Text
 
+**State:** complete — implemented in 231a403
+
 **Goal**: Update all documentation and MCP prompt output text.
 
 **Requirements**: R6
@@ -429,6 +483,8 @@ Call `annotation_status` to get the current index and annotation state. Then cal
 ---
 
 ### Unit 9: CI Workflows + Tests
+
+**State:** complete — implemented in 231a403
 
 **Goal**: Update CI paths and fix all test references.
 

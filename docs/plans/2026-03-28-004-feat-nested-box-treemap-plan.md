@@ -1,9 +1,35 @@
 ---
 title: Nested Box Treemap Graph Explorer
 type: feat
-status: active
+status: complete
 date: 2026-03-28
 origin: docs/brainstorms/2026-03-28-002-nested-box-graph-explorer-requirements.md
+implemented_in: 8e95726
+units:
+  - id: 1
+    title: Server — `/api/tree` endpoint and `full=true` graph param
+    state: complete
+    implemented_in: 8e95726
+  - id: 2
+    title: Frontend — Squarified treemap layout algorithm
+    state: complete
+    implemented_in: 8e95726
+  - id: 3
+    title: Frontend — Nested box rendering on canvas
+    state: complete
+    implemented_in: 8e95726
+  - id: 4
+    title: Frontend — Semantic zoom (dot grid ↔ force-directed graph)
+    state: complete
+    implemented_in: 8e95726
+  - id: 5
+    title: Frontend — Curved bezier cross-box edges with bundling
+    state: complete
+    implemented_in: 8e95726
+  - id: 6
+    title: Frontend — Interaction (hit testing, focus-zoom, hover)
+    state: complete
+    implemented_in: 8e95726
 ---
 
 # Nested Box Treemap Graph Explorer — Implementation Plan
@@ -69,6 +95,8 @@ None blocking. Deferred: deep nesting collapse (4+ levels), manual zoom-threshol
 
 ### Unit 1: Server — `/api/tree` endpoint and `full=true` graph param
 
+**State:** complete — implemented in 8e95726
+
 **Goal:** Provide the frontend with hierarchical tree data and unrestricted graph loading.
 
 **Requirements:** R15, R16
@@ -127,6 +155,8 @@ None blocking. Deferred: deep nesting collapse (4+ levels), manual zoom-threshol
 
 ### Unit 2: Frontend — Squarified treemap layout algorithm
 
+**State:** complete — implemented in 8e95726
+
 **Goal:** Replace `buildGroups()` with a recursive treemap that positions nested directory/file boxes.
 
 **Requirements:** R1, R2, R3
@@ -179,6 +209,8 @@ const TREEMAP_HEADER = [28, 24, 20, 18]; // header height at each depth
 
 ### Unit 3: Frontend — Nested box rendering on canvas
 
+**State:** complete — implemented in 8e95726
+
 **Goal:** Render the treemap as nested rounded rectangles with headers on the canvas.
 
 **Requirements:** R1, R4
@@ -225,6 +257,8 @@ Replace the existing `draw()` function's file-group rendering with recursive box
 
 ### Unit 4: Frontend — Semantic zoom (dot grid ↔ force-directed graph)
 
+**State:** complete — implemented in 8e95726
+
 **Goal:** File boxes show compact colored dots when small on screen, expand to force-directed node graphs when large.
 
 **Requirements:** R5, R6, R7
@@ -270,6 +304,8 @@ Replace the existing `draw()` function's file-group rendering with recursive box
 ---
 
 ### Unit 5: Frontend — Curved bezier cross-box edges with bundling
+
+**State:** complete — implemented in 8e95726
 
 **Goal:** Draw cross-file-box relationships as curved bezier paths, bundled when multiple edges connect the same two files.
 
@@ -320,6 +356,8 @@ Replace the existing `draw()` function's file-group rendering with recursive box
 ---
 
 ### Unit 6: Frontend — Interaction (hit testing, focus-zoom, hover)
+
+**State:** complete — implemented in 8e95726
 
 **Goal:** Extend interactions for nested box layout: hierarchical hit testing, click-to-zoom-on-box, and box-level hover highlights.
 

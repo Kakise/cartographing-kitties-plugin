@@ -1,10 +1,31 @@
 ---
 title: Codex Plugin Alignment
 type: refactor
-status: active
+status: complete
 date: 2026-04-21
-supersedes:
-  - docs/plans/2026-03-28-001-feat-ast-centric-agents-plan.md
+supersedes: '[''docs/plans/2026-03-28-001-feat-ast-centric-agents-plan.md'']'
+implemented_in: d82e416
+units:
+  - id: 1
+    title: Correct the Public Contract
+    state: complete
+    implemented_in: d82e416
+  - id: 2
+    title: Establish a Canonical Workflow Spec
+    state: complete
+    implemented_in: d82e416
+  - id: 3
+    title: Make Workflow Skills Codex-Native and Fallback-Safe
+    state: complete
+    implemented_in: d82e416
+  - id: 4
+    title: Add Packaging and Consistency Tests
+    state: complete
+    implemented_in: d82e416
+  - id: 5
+    title: Tighten the Boundary Between Product and Integration
+    state: complete
+    implemented_in: d82e416
 ---
 
 # Codex Plugin Alignment — Implementation Plan
@@ -128,6 +149,8 @@ From the server/tool scope:
 
 ### Unit 1: Correct the Public Contract
 
+**State:** complete — implemented in d82e416
+
 - [x] Goal: make the public Codex/Claude installation and workflow story accurate
 - Requirements: R1
 - Dependencies: none
@@ -153,6 +176,8 @@ From the server/tool scope:
   - no doc section claims an executable feature that is not manifest-backed
 
 ### Unit 2: Establish a Canonical Workflow Spec
+
+**State:** complete — implemented in d82e416
 
 - [x] Goal: stop documentation drift by creating one source of truth for workflow behavior and preserve framework subagents explicitly across runtimes
 - Requirements: R2, R3
@@ -184,6 +209,8 @@ From the server/tool scope:
 
 ### Unit 3: Make Workflow Skills Codex-Native and Fallback-Safe
 
+**State:** complete — implemented in d82e416
+
 - [x] Goal: align `brainstorm`, `plan`, `work`, `review`, and `lfg` with Codex-native orchestration and inline fallback behavior
 - Requirements: R4, R5
 - Dependencies: Unit 2
@@ -214,6 +241,8 @@ From the server/tool scope:
 
 ### Unit 4: Add Packaging and Consistency Tests
 
+**State:** complete — implemented in d82e416
+
 - [x] Goal: enforce manifest/doc consistency in CI
 - Requirements: R6
 - Dependencies: Units 1-3
@@ -237,6 +266,8 @@ From the server/tool scope:
   - `uv run pytest` for the new packaging tests passes
 
 ### Unit 5: Tighten the Boundary Between Product and Integration
+
+**State:** complete — implemented in d82e416
 
 - [x] Goal: preserve the clean `src/cartograph/` product boundary and keep plugin logic thin
 - Requirements: R7

@@ -1,11 +1,11 @@
 ---
 name: cartographing-kitten
 description: >
-  Batch annotation specialist for Cartographing Kittens. Spawn this agent to process a batch
-  of pending nodes — it analyzes source code and context pre-fetched by the annotate
-  skill orchestrator, generates summaries/tags/roles, and returns results as a JSON
-  array. Use when annotating large codebases (50+ pending nodes) by spawning 2-3
-  instances in parallel, each with its own non-overlapping batch.
+  Batch annotation specialist for Cartographing Kittens. Spawn this agent to process a
+  batch of pending nodes — it analyzes source code and context pre-fetched by the annotate
+  skill orchestrator, generates summaries/tags/roles, and returns results as a JSON array.
+  Use when annotating large codebases (50+ pending nodes) by spawning 2-3 instances in
+  parallel, each with its own non-overlapping batch.
 model: inherit
 tools: Read, Grep, Glob, Bash
 color: green
@@ -27,10 +27,14 @@ nodes and generate high-quality summaries, tags, and roles for each one.
 You receive a batch of pending nodes pre-fetched by the annotate skill orchestrator.
 Each node in the batch includes:
 - **qualified_name**: The node's unique identifier (e.g., `module.path::ClassName::method`)
-- **source_code**: The node's source code
+- **source**: The node's source code
 - **file_path**: Where the node lives
 - **metadata**: Node kind, line range, and other structural data
 - **neighbors**: Context about callers, callees, imports, and containment relationships
+- **memory_context**: Relevant treat-box annotation conventions and litter-box annotation
+  failures gathered by the orchestrator
+- **recommended_model_tier**: Optional routing hint (`fast` or `strong`). Honor it when present.
+- **requeue_reason**: Optional list explaining why a prior annotation was rejected.
 
 You do NOT call any MCP tools. The orchestrator handles all MCP interactions.
 
@@ -38,8 +42,11 @@ You do NOT call any MCP tools. The orchestrator handles all MCP interactions.
 
 1. Review the batch of pending nodes provided in your task prompt
 2. For each node in the batch:
-   - Read the `source_code` field carefully
+   - Read the `source` field carefully
    - Consider the `neighbors` context (what calls/imports this node)
+   - Apply treat-box conventions and avoid litter-box failures from `memory_context`
+   - Use `recommended_model_tier` to choose the cheap or strong model path when your runtime supports it
+   - If `requeue_reason` is present, make sure the replacement annotation fixes those reasons
    - Use `Read` to examine additional source files if needed for deeper context
    - Generate a specific, accurate annotation
 3. Return the complete results as a JSON array (see Output Contract below)
@@ -118,3 +125,4 @@ If the provided batch context is insufficient to annotate specific nodes accurat
 ```
 
 Only request context for nodes you would otherwise mark as `failed` due to insufficient context. Do not request context speculatively.
+

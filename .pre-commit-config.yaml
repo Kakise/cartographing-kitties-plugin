@@ -14,3 +14,32 @@ repos:
       - id: codespell
         additional_dependencies: [tomli]
         args: [src]
+
+  - repo: local
+    hooks:
+      - id: kitty-generate-agents
+        name: kitty generate agents
+        entry: uv run python scripts/generate_agents.py --check
+        language: system
+        pass_filenames: false
+      - id: kitty-generate-manifests
+        name: kitty generate manifests
+        entry: uv run python scripts/generate_manifests.py --check
+        language: system
+        pass_filenames: false
+      - id: kitty-generate-tool-reference
+        name: kitty generate tool reference
+        entry: uv run python scripts/generate_tool_reference.py --check
+        language: system
+        pass_filenames: false
+      - id: kitty-validate-skills
+        name: kitty validate skills
+        entry: uv run python scripts/validate_skills.py
+        language: system
+        pass_filenames: false
+      - id: kitty-plan-status
+        name: kitty plan status audit
+        entry: uv run python scripts/plan_status.py audit
+        language: system
+        pass_filenames: false
+        files: ^docs/plans/.*\.md$

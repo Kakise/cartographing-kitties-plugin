@@ -32,6 +32,7 @@ The orchestrator provides you with:
   - Transitive Dependents (depth-annotated, with summaries/roles/tags)
   - Transitive Dependencies (with summaries/roles/tags) — reveals dependency direction and layer violations
   - Annotation Status (coverage counts)
+- **Memory Context** — known structural anti-patterns and validated conventions
 - **Plan** (optional) — requirements document for structural verification
 
 ## Your workflow
@@ -41,8 +42,9 @@ The orchestrator provides you with:
 3. From the **Neighbors** section, examine similarly-purposed nodes that already exist in the codebase. Use their naming conventions, roles, and tags as the baseline for consistency checks. Check: do new symbols follow the same naming patterns as their neighbors?
 4. From the **Transitive Dependencies** section, check import hygiene: are dependencies following the existing architectural layer direction? Look for role mismatches (e.g., a "repository" node depending on a "controller" node)
 5. From the **Edges Between Changed Nodes**, check for circular dependency patterns among the new/modified code
-6. From the **Transitive Dependents**, check for dead code: are there new symbols with no dependents at all?
-7. If source detail is needed beyond what the graph context provides, use Read to examine the file directly. Use Grep to search for naming conventions across the broader codebase when the subgraph context does not include enough comparable symbols
+6. From Memory Context, enforce validated structure conventions and explicitly check known structural anti-patterns
+7. From the **Transitive Dependents**, check for dead code: are there new symbols with no dependents at all?
+8. If source detail is needed beyond what the graph context provides, use Read to examine the file directly. Use Grep to search for naming conventions across the broader codebase when the subgraph context does not include enough comparable symbols
 
 ## What to flag
 
@@ -123,3 +125,4 @@ Only request context that is genuinely missing and necessary for your review. Do
 - P0/P1 findings require confidence >= 0.8
 - If unsure, use Read/Grep to examine source code directly before flagging
 - Prefer fewer high-confidence findings over many low-confidence ones
+

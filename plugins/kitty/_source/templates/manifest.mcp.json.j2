@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "kitty": {
+      "command": "{{ mcp.command }}",
+      "args": {{ mcp.args|tojson(indent=6) }},
+      "env": {{ mcp.env|tojson(indent=6) }}
+    }
+  }
+}

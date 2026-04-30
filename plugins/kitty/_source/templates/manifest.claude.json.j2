@@ -1,0 +1,21 @@
+{
+  "name": "{{ plugin.name }}",
+  "version": "{{ plugin.version }}",
+  "description": "{{ plugin.description_long }}",
+  "author": {
+    "name": "{{ plugin.author.name }}",
+    "email": "{{ plugin.author.email }}",
+    "url": "{{ plugin.author.url }}"
+  },
+  "homepage": "{{ plugin.homepage }}",
+  "license": "{{ plugin.license }}",
+  "keywords": {{ plugin.keywords|tojson(indent=4) }},
+  "commands": "{{ paths.commands }}",
+  "mcpServers": {
+    "kitty": {
+      "command": "{{ mcp.command }}",
+      "args": {{ mcp.args|tojson }},
+      "env": {{ mcp.env|tojson(indent=8) }}
+    }
+  }
+}

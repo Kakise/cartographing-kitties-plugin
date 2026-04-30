@@ -1,6 +1,6 @@
 {
   "name": "kitty",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "AST-powered codebase intelligence for AI coding agents — dependency mapping, impact analysis, and semantic search via tree-sitter parsing and SQLite graph storage.",
   "author": {
     "name": "Kakise",
@@ -22,7 +22,9 @@
   "mcpServers": {
     "kitty": {
       "command": "uvx",
-      "args": ["cartographing-kittens"],
+      "args": [
+        "cartographing-kittens"
+      ],
       "env": {
         "KITTY_PROJECT_ROOT": "."
       }

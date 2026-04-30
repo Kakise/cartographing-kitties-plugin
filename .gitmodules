@@ -1,0 +1,3 @@
+[submodule "plugins/kitty/skills"]
+	path = plugins/kitty/skills
+	url = https://github.com/Kakise/cartographing-kitties-skills.git

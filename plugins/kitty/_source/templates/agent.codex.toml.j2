@@ -1,0 +1,15 @@
+name = {{ name|toml_string }}
+description = {{ description|toml_string }}
+model = {{ model|toml_string }}
+tools = {{ tools|json_array }}
+role = {{ role|toml_string }}
+framework_status = {{ framework_status|toml_string }}
+mcp_tools = {{ mcp_tools|json_array }}
+prompt = {{ developer_instructions|toml_string }}
+
+[runtime_support]
+claude_code = {{ runtime_support.claude_code|toml_string }}
+codex = {{ runtime_support.codex|toml_string }}
+
+[metadata]
+expected_context_pointer = {{ expected_context_pointer|toml_string }}

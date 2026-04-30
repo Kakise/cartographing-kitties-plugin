@@ -11,9 +11,10 @@ AST-powered codebase intelligence framework for AI coding agents.
 | Storage | `src/cartograph/storage/` | SQLite graph database with FTS5 search and recursive CTE traversal |
 | Annotation | `src/cartograph/annotation/` | LLM-driven semantic enrichment (summaries, tags, roles) |
 | Memory | `src/cartograph/memory/` | Litter-box (negative) and treat-box (positive) persistent memory |
-| MCP Server | `src/cartograph/server/` | FastMCP server — 13 tools, 3 prompts |
-| Server Tools | `src/cartograph/server/tools/` | Tool implementations (index, query, analysis, annotate, memory) |
+| MCP Server | `src/cartograph/server/` | FastMCP server — structural query, annotation, memory, and workflow tools |
+| Server Tools | `src/cartograph/server/tools/` | Tool implementations (index, query, analysis, annotate, memory, reactive) |
 | Server Prompts | `src/cartograph/server/prompts/` | Prompt implementations (explore, refactor, annotate) |
+| Web | `src/cartograph/web/` | Web-based graph viewer / browser UI |
 
 ## Conventions
 
@@ -23,6 +24,14 @@ AST-powered codebase intelligence framework for AI coding agents.
 - Graph stored at `.pawprints/graph.db` in project root by default
 - Set `KITTY_STORAGE_ROOT` to place per-project graph data under a centralized storage directory
 - Indexing is incremental by default — only changed files are re-parsed
+- `query_node`, `search`, `rank_nodes`, `get_context_summary`, and `get_file_structure`
+  responses include a `centrality` field — a weighted-PageRank score in `[0, 1]` reflecting
+  each node's structural importance. The cache is refreshed lazily on first read after the
+  graph changes.
+- Plans under `docs/plans/` carry machine-readable state (frontmatter `status` + per-unit
+  `**State:**` lines). See `docs/architecture/plan-state-conventions.md`. The
+  `/kitty-plans` slash command (or `uv run python scripts/plan_status.py report`) renders the
+  cross-plan dashboard; `audit` runs in pre-commit.
 
 ## Plugin Structure (Marketplace Layout)
 
@@ -30,11 +39,11 @@ AST-powered codebase intelligence framework for AI coding agents.
 plugins/
   kitty/                         # Plugin root (marketplace layout)
     .claude-plugin/plugin.json   # Plugin manifest (uvx-based MCP server)
-    skills/
+    skills/                      # Git submodule → Kakise/cartographing-kitties-skills
       kitty/                     # Router skill — delegates to sub-skills
         SKILL.md
         references/
-          tool-reference.md      # Detailed tool parameter docs
+          tool-reference/        # Generated detailed tool parameter docs by family
           annotation-workflow.md # Annotation workflow guide
       kitty-explore/             # Structural exploration
       kitty-impact/              # Impact analysis and refactoring
@@ -55,9 +64,30 @@ plugins/
       expert-kitten-testing.md     # Test coverage gaps (always-on)
       expert-kitten-impact.md      # Blast radius review (conditional)
       expert-kitten-structure.md   # Architecture review (conditional)
+    _source/
+      agents/*.yaml             # Single source of truth for generated agents
+      manifests/plugin.yaml     # Single source of truth for plugin manifests
+      templates/*.j2            # Generator templates for runtime artifacts
 src/cartograph/                  # Python source (MCP server + core library)
 tests/                           # Test suite
+.claude-plugin/                  # Claude Code plugin marketplace manifest
+.codex-plugin/                   # Codex runtime plugin manifest (dual-runtime support)
+scripts/                         # Repo-level developer scripts
 ```
+
+Generated harness artifacts must be edited through `plugins/kitty/_source/`, not by
+hand. Run `uv run python scripts/generate_agents.py` after changing
+`_source/agents/*.yaml`, and run `uv run python scripts/generate_manifests.py`
+after changing `_source/manifests/plugin.yaml`. CI and pre-commit use the
+matching `--check` commands plus `scripts/validate_skills.py` to catch drift.
+
+`plugins/kitty/skills/` is a Git submodule that points at
+[`Kakise/cartographing-kitties-skills`](https://github.com/Kakise/cartographing-kitties-skills),
+which is also a JetBrains-AI-Assistant-compatible skills catalog. Bootstrap it on
+first clone with `git submodule update --init --recursive`. Skill edits land via
+PRs against that submodule repo, not direct edits here. Framework agents under
+`plugins/kitty/agents/` stay in this repo because they are generated from
+`plugins/kitty/_source/agents/*.yaml`.
 
 ## Workflow Pipeline
 
@@ -79,6 +109,17 @@ Or use `kitty:lfg` for full autonomous execution (plan → work → review).
 | Building features | `kitty:work` |
 | Reviewing code changes | `kitty:review` |
 | Full autonomous pipeline | `kitty:lfg` |
+
+## MCP Tool Surface
+
+### Annotation
+
+| Tool | Purpose |
+|------|---------|
+| `get_pending_annotations` | Fetch pending nodes with source, neighbor context, seed taxonomy, `recommended_model_tier`, and `requeue_reason` when present. |
+| `submit_annotations` | Persist generated summaries, tags, and roles, or mark ambiguous nodes failed. |
+| `find_low_quality_annotations` | Audit annotated nodes for placeholder summaries, too-short summaries, missing name references, and generic fallback roles. |
+| `requeue_low_quality_annotations` | Move low-quality annotations back to pending; dry-run by default and caps repeat requeues by marking failed. |
 
 ### Workflow Contract
 
@@ -158,6 +199,8 @@ uv run ruff check src/        # Lint
 uv run ruff format --check src/  # Format check
 uv run basedpyright --level error  # Type check
 uv run codespell src          # Spell check
+uv run pre-commit install     # Install git hooks (one-time)
+uv run pre-commit run --all-files  # Run hooks against all files
 ```
 
 ## MCP Server (local dev)

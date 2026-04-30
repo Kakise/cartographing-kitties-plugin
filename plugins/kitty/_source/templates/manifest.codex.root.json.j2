@@ -1,0 +1,17 @@
+{
+  "name": "{{ plugin.name }}",
+  "version": "{{ plugin.version }}",
+  "description": "{{ plugin.description_short }}",
+  "author": {
+    "name": "{{ plugin.author.name }}",
+    "email": "{{ plugin.author.email }}",
+    "url": "{{ plugin.author.url }}"
+  },
+  "homepage": "{{ plugin.homepage }}",
+  "repository": "{{ plugin.repository }}",
+  "license": "{{ plugin.license }}",
+  "keywords": {{ plugin.keywords|tojson(indent=4) }},
+  "skills": "{{ paths.codex_root_skills }}",
+  "mcpServers": "{{ paths.codex_root_mcp }}",
+  "interface": {{ interface|tojson(indent=4) }}
+}

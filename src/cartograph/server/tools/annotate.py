@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import asdict
-from typing import Any
+from typing import Any, cast
 
-import cartograph.server.main as _main
-from cartograph.server.main import mcp
-from cartograph.server.tools.query import _summarise_node
+from cartograph.server.main import get_context, get_store, mcp
+from cartograph.server.tools.query import summarise_node
 
 
 @mcp.tool()
@@ -24,10 +23,11 @@ def get_pending_annotations(batch_size: int = 10, retry_failed: bool = False) ->
     Returns:
         Dict with batch of node contexts, the seed taxonomy, and count.
     """
-    store = _main._store
-    root = _main._root
-    if store is None:
+    context = get_context()
+    if context is None:
         return {"error": "Server not initialised"}
+    store = context.store
+    root = context.root
 
     batch_size = max(1, min(batch_size, 100))
 
@@ -45,7 +45,7 @@ def get_pending_annotations(batch_size: int = 10, retry_failed: bool = False) ->
 
 
 @mcp.tool()
-def submit_annotations(annotations: list[dict]) -> dict[str, Any]:
+def submit_annotations(annotations: list[Any]) -> dict[str, Any]:
     """Submit annotation results for pending nodes.
 
     Each annotation dict should have:
@@ -61,7 +61,7 @@ def submit_annotations(annotations: list[dict]) -> dict[str, Any]:
     Returns:
         Dict with written, failed, and skipped counts.
     """
-    store = _main._store
+    store = get_store()
     if store is None:
         return {"error": "Server not initialised"}
 
@@ -69,17 +69,21 @@ def submit_annotations(annotations: list[dict]) -> dict[str, Any]:
 
     results: list[AnnotationResult] = []
     skipped_input = 0
-    for a in annotations:
-        if not isinstance(a, dict):
+    for item in annotations:
+        if not isinstance(item, dict):
             skipped_input += 1
             continue
+        annotation = cast(dict[str, Any], item)
+        raw_tags = annotation.get("tags", [])
+        tag_values = cast(list[Any], raw_tags) if isinstance(raw_tags, list) else []
+        tags = [tag for tag in tag_values if isinstance(tag, str)]
         results.append(
             AnnotationResult(
-                qualified_name=a.get("qualified_name", ""),
-                summary=a.get("summary", ""),
-                tags=a.get("tags", []) if isinstance(a.get("tags"), list) else [],
-                role=a.get("role", ""),
-                failed=a.get("failed", False),
+                qualified_name=str(annotation.get("qualified_name", "")),
+                summary=str(annotation.get("summary", "")),
+                tags=tags,
+                role=str(annotation.get("role", "")),
+                failed=bool(annotation.get("failed", False)),
             )
         )
 
@@ -115,12 +119,52 @@ def find_stale_annotations(file_paths: list[str] | None = None, limit: int = 50)
     Returns:
         Dict with count and list of stale node summaries.
     """
-    store = _main._store
+    store = get_store()
     if store is None:
         return {"error": "Server not initialised"}
 
     stale = store.find_stale_nodes(file_paths=file_paths, limit=limit)
     return {
         "count": len(stale),
-        "stale_nodes": [{**_summarise_node(n), "reason": "content_hash_changed"} for n in stale],
+        "stale_nodes": [{**summarise_node(n), "reason": "content_hash_changed"} for n in stale],
     }
+
+
+@mcp.tool()
+def find_low_quality_annotations(limit: int = 100) -> dict[str, Any]:
+    """Find annotated nodes with placeholder or generic annotation quality.
+
+    Args:
+        limit: Maximum number of annotated nodes to inspect (default 100).
+
+    Returns:
+        Dict with count and low-quality node summaries including reasons.
+    """
+    store = get_store()
+    if store is None:
+        return {"error": "Server not initialised"}
+
+    from cartograph.annotation.quality import find_low_quality_annotations as find_low_quality
+
+    nodes = find_low_quality(store, limit=limit)
+    return {"count": len(nodes), "low_quality_nodes": nodes}
+
+
+@mcp.tool()
+def requeue_low_quality_annotations(dry_run: bool = True, limit: int = 100) -> dict[str, Any]:
+    """Requeue low-quality annotations so the next annotation pass rewrites them.
+
+    Args:
+        dry_run: If True, report what would be requeued without mutating the DB.
+        limit: Maximum number of annotated nodes to inspect (default 100).
+
+    Returns:
+        Dict with low-quality, requeued, failed, and dry-run counts.
+    """
+    store = get_store()
+    if store is None:
+        return {"error": "Server not initialised"}
+
+    from cartograph.annotation.quality import requeue_low_quality
+
+    return requeue_low_quality(store, dry_run=dry_run, limit=limit).to_dict()

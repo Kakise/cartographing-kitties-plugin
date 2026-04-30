@@ -5,8 +5,7 @@ from __future__ import annotations
 from dataclasses import asdict
 from typing import Any
 
-import cartograph.server.main as _main
-from cartograph.server.main import mcp
+from cartograph.server.main import get_context, get_store, mcp
 
 
 @mcp.tool()
@@ -30,10 +29,11 @@ def add_litter_box_entry(
     Returns:
         Dict with the new entry id, box name, and export path.
     """
-    store = _main._store
-    paths = _main._storage_paths
-    if store is None or paths is None:
+    runtime_context = get_context()
+    if runtime_context is None:
         return {"error": "Server not initialised"}
+    store = runtime_context.store
+    paths = runtime_context.storage_paths
 
     from cartograph.memory import add_entry, export_markdown
 
@@ -64,7 +64,7 @@ def query_litter_box(
     Returns:
         Dict with count and list of matching entries.
     """
-    store = _main._store
+    store = get_store()
     if store is None:
         return {"error": "Server not initialised"}
 
@@ -102,10 +102,11 @@ def add_treat_box_entry(
     Returns:
         Dict with the new entry id, box name, and export path.
     """
-    store = _main._store
-    paths = _main._storage_paths
-    if store is None or paths is None:
+    runtime_context = get_context()
+    if runtime_context is None:
         return {"error": "Server not initialised"}
+    store = runtime_context.store
+    paths = runtime_context.storage_paths
 
     from cartograph.memory import add_entry, export_markdown
 
@@ -136,7 +137,7 @@ def query_treat_box(
     Returns:
         Dict with count and list of matching entries.
     """
-    store = _main._store
+    store = get_store()
     if store is None:
         return {"error": "Server not initialised"}
 

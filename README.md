@@ -122,6 +122,26 @@ The Claude plugin layout under [`plugins/kitty`](./plugins/kitty) preserves the 
 
 The framework subagents remain part of the repository for both Claude Code and Codex. Their canonical declaration lives in [`plugins/kitty/agents/manifest.json`](./plugins/kitty/agents/manifest.json). In Claude Code, agents are expected to be discovered from the preserved plugin directory layout. In Codex, they are currently preserved as framework-declared components rather than a manifest-backed runtime registry.
 
+## Skills Submodule
+
+The nine `kitty:*` skills under [`plugins/kitty/skills`](./plugins/kitty/skills) are mounted
+from the standalone catalog at
+[`Kakise/cartographing-kitties-skills`](https://github.com/Kakise/cartographing-kitties-skills),
+which doubles as a JetBrains-AI-Assistant-compatible skills repository.
+
+Bootstrap the submodule on first clone:
+
+```bash
+git submodule update --init --recursive
+```
+
+Edit skills in the submodule (PRs against `Kakise/cartographing-kitties-skills`) — direct
+edits to `plugins/kitty/skills/` here will be lost on the next `git submodule update`.
+
+Framework agents under [`plugins/kitty/agents`](./plugins/kitty/agents) stay in this product
+repository because they are generated artifacts from
+[`plugins/kitty/_source/agents/*.yaml`](./plugins/kitty/_source/agents).
+
 ## Install in Gemini
 
 Gemini support is preserved through [`plugins/kitty/gemini-extension.json`](./plugins/kitty/gemini-extension.json).
@@ -278,7 +298,7 @@ may be used where available, but it is not the only execution path.
 
 1. **Index first** — Run `index_codebase` at the start of a conversation if you're unsure about graph freshness. All workflow skills do this automatically.
 
-2. **Annotate for semantic search** — `search` works on node names by default. Run `kitty:annotate` to add summaries and tags for domain queries like "find auth code".
+2. **Annotate for semantic search** — `search` works on node names by default. Run `kitty:annotate` to add summaries and tags for domain queries like "find auth code"; the workflow honors model-tier hints and can requeue low-quality annotations before the next pass.
 
 3. **Use impact analysis before changes** — Before modifying shared code, run `kitty:impact` or ask "what depends on X?" to understand the blast radius.
 
@@ -348,8 +368,10 @@ Used by the framework for structural code review. Runtime-specific delegation is
 
 | Tool | Description |
 |------|-------------|
-| `get_pending_annotations` | Get nodes needing annotation, with source code context. |
+| `get_pending_annotations` | Get nodes needing annotation, with source code context and model-tier hints. |
 | `submit_annotations` | Write summaries, tags, and roles back to the graph. |
+| `find_low_quality_annotations` | Audit annotated nodes for placeholder summaries and generic fallback roles. |
+| `requeue_low_quality_annotations` | Re-flag low-quality annotations as pending; dry-run by default. |
 
 ### Memory (Litter-Box & Treat-Box)
 

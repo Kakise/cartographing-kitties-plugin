@@ -12,53 +12,8 @@
       }
     },
     {
-      "name": "librarian-kitten-researcher",
-      "path": "./librarian-kitten-researcher.md",
-      "role": "research",
-      "runtimes": {
-        "claude_code": "directory-discovered",
-        "codex": "framework-declared"
-      }
-    },
-    {
-      "name": "librarian-kitten-pattern",
-      "path": "./librarian-kitten-pattern.md",
-      "role": "research",
-      "runtimes": {
-        "claude_code": "directory-discovered",
-        "codex": "framework-declared"
-      }
-    },
-    {
-      "name": "librarian-kitten-impact",
-      "path": "./librarian-kitten-impact.md",
-      "role": "research",
-      "runtimes": {
-        "claude_code": "directory-discovered",
-        "codex": "framework-declared"
-      }
-    },
-    {
-      "name": "librarian-kitten-flow",
-      "path": "./librarian-kitten-flow.md",
-      "role": "research",
-      "runtimes": {
-        "claude_code": "directory-discovered",
-        "codex": "framework-declared"
-      }
-    },
-    {
       "name": "expert-kitten-correctness",
       "path": "./expert-kitten-correctness.md",
-      "role": "review",
-      "runtimes": {
-        "claude_code": "directory-discovered",
-        "codex": "framework-declared"
-      }
-    },
-    {
-      "name": "expert-kitten-testing",
-      "path": "./expert-kitten-testing.md",
       "role": "review",
       "runtimes": {
         "claude_code": "directory-discovered",
@@ -78,6 +33,51 @@
       "name": "expert-kitten-structure",
       "path": "./expert-kitten-structure.md",
       "role": "review",
+      "runtimes": {
+        "claude_code": "directory-discovered",
+        "codex": "framework-declared"
+      }
+    },
+    {
+      "name": "expert-kitten-testing",
+      "path": "./expert-kitten-testing.md",
+      "role": "review",
+      "runtimes": {
+        "claude_code": "directory-discovered",
+        "codex": "framework-declared"
+      }
+    },
+    {
+      "name": "librarian-kitten-flow",
+      "path": "./librarian-kitten-flow.md",
+      "role": "research",
+      "runtimes": {
+        "claude_code": "directory-discovered",
+        "codex": "framework-declared"
+      }
+    },
+    {
+      "name": "librarian-kitten-impact",
+      "path": "./librarian-kitten-impact.md",
+      "role": "research",
+      "runtimes": {
+        "claude_code": "directory-discovered",
+        "codex": "framework-declared"
+      }
+    },
+    {
+      "name": "librarian-kitten-pattern",
+      "path": "./librarian-kitten-pattern.md",
+      "role": "research",
+      "runtimes": {
+        "claude_code": "directory-discovered",
+        "codex": "framework-declared"
+      }
+    },
+    {
+      "name": "librarian-kitten-researcher",
+      "path": "./librarian-kitten-researcher.md",
+      "role": "research",
       "runtimes": {
         "claude_code": "directory-discovered",
         "codex": "framework-declared"

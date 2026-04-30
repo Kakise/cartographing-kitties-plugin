@@ -2,16 +2,23 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
-import cartograph.server.main as _main
-from cartograph.server.main import mcp
-from cartograph.server.tools.query import _summarise_node
+from cartograph.server.main import get_store, mcp
+from cartograph.server.response_shape import (
+    ResponseShape,
+    apply_token_budget,
+    cursor_offset,
+    paginate_items,
+    query_hash,
+    validate_response_shape,
+)
+from cartograph.server.tools.query import summarise_node
 
 
 def _resolve_node(name: str) -> dict[str, Any] | None:
     """Look up a node by qualified name, falling back to name match."""
-    store = _main._store
+    store = get_store()
     if store is None:
         return None
     node = store.get_node_by_name(name)
@@ -22,14 +29,22 @@ def _resolve_node(name: str) -> dict[str, Any] | None:
     return node
 
 
-@mcp.tool()
-def find_dependencies(
+def _traverse(
     name: str,
-    edge_kinds: list[str] | None = None,
-    max_depth: int = 5,
+    *,
+    direction: str,
+    edge_kinds: list[str] | None,
+    max_depth: int,
+    response_shape: str,
+    token_budget: int | None,
+    cursor: str | None,
+    limit: int | None,
 ) -> dict[str, Any]:
-    """Find transitive dependencies of a node. Returns nodes this depends on."""
-    store = _main._store
+    """Shared traversal implementation for dependencies and dependents."""
+    if error := validate_response_shape(response_shape):
+        return error
+
+    store = get_store()
     if store is None:
         return {"error": "Server not initialised"}
 
@@ -37,14 +52,73 @@ def find_dependencies(
     if node is None:
         return {"found": False, "message": f"No node found matching '{name}'"}
 
-    deps = store.transitive_dependencies(node["id"], edge_kinds=edge_kinds, max_depth=max_depth)
+    if direction == "forward":
+        nodes = store.transitive_dependencies(
+            node["id"], edge_kinds=edge_kinds, max_depth=max_depth
+        )
+        tool_name = "find_dependencies"
+        source_key = "source"
+        list_key = "dependencies"
+    elif direction == "reverse":
+        nodes = store.reverse_dependencies(node["id"], edge_kinds=edge_kinds, max_depth=max_depth)
+        tool_name = "find_dependents"
+        source_key = "target"
+        list_key = "dependents"
+    else:
+        return {"error": f"Unknown traversal direction '{direction}'."}
 
-    return {
-        "found": True,
-        "source": {"id": node["id"], "qualified_name": node["qualified_name"]},
-        "count": len(deps),
-        "dependencies": [_summarise_node(d) for d in deps],
-    }
+    qhash = query_hash(
+        tool_name,
+        {
+            "name": name,
+            "edge_kinds": edge_kinds,
+            "max_depth": max_depth,
+            "response_shape": response_shape,
+        },
+    )
+    page, next_cursor, cursor_error = paginate_items(
+        nodes,
+        cursor=cursor,
+        page_size=limit,
+        query_hash_value=qhash,
+    )
+    if cursor_error is not None:
+        return cursor_error
+
+    shape = cast(ResponseShape, response_shape)
+    return apply_token_budget(
+        {
+            "found": True,
+            source_key: {"id": node["id"], "qualified_name": node["qualified_name"]},
+            "count": len(page),
+            list_key: [summarise_node(item, response_shape=shape) for item in page],
+            "next_cursor": next_cursor,
+        },
+        token_budget,
+    )
+
+
+@mcp.tool()
+def find_dependencies(
+    name: str,
+    edge_kinds: list[str] | None = None,
+    max_depth: int = 5,
+    response_shape: str = "standard",
+    token_budget: int | None = None,
+    cursor: str | None = None,
+    limit: int | None = None,
+) -> dict[str, Any]:
+    """Find transitive dependencies of a node. Returns nodes this depends on."""
+    return _traverse(
+        name,
+        direction="forward",
+        edge_kinds=edge_kinds,
+        max_depth=max_depth,
+        response_shape=response_shape,
+        token_budget=token_budget,
+        cursor=cursor,
+        limit=limit,
+    )
 
 
 @mcp.tool()
@@ -52,24 +126,22 @@ def find_dependents(
     name: str,
     edge_kinds: list[str] | None = None,
     max_depth: int = 5,
+    response_shape: str = "standard",
+    token_budget: int | None = None,
+    cursor: str | None = None,
+    limit: int | None = None,
 ) -> dict[str, Any]:
     """Find what depends on a node (impact analysis). Returns nodes that depend on this."""
-    store = _main._store
-    if store is None:
-        return {"error": "Server not initialised"}
-
-    node = _resolve_node(name)
-    if node is None:
-        return {"found": False, "message": f"No node found matching '{name}'"}
-
-    deps = store.reverse_dependencies(node["id"], edge_kinds=edge_kinds, max_depth=max_depth)
-
-    return {
-        "found": True,
-        "target": {"id": node["id"], "qualified_name": node["qualified_name"]},
-        "count": len(deps),
-        "dependents": [_summarise_node(d) for d in deps],
-    }
+    return _traverse(
+        name,
+        direction="reverse",
+        edge_kinds=edge_kinds,
+        max_depth=max_depth,
+        response_shape=response_shape,
+        token_budget=token_budget,
+        cursor=cursor,
+        limit=limit,
+    )
 
 
 def _is_file_path(entry: str) -> bool:
@@ -83,6 +155,9 @@ def rank_nodes(
     kind: str | None = None,
     limit: int = 20,
     algorithm: str = "in_degree",
+    response_shape: str = "standard",
+    token_budget: int | None = None,
+    cursor: str | None = None,
 ) -> dict[str, Any]:
     """Rank nodes by importance (in-degree or transitive dependents).
 
@@ -98,7 +173,10 @@ def rank_nodes(
         "in_degree" (default) for direct edge count, or "transitive" for
         recursive reverse-dependency count.
     """
-    store = _main._store
+    if error := validate_response_shape(response_shape):
+        return error
+
+    store = get_store()
     if store is None:
         return {"error": "Server not initialised"}
 
@@ -114,16 +192,17 @@ def rank_nodes(
         scope_file_paths = fps or None
         scope_qnames = qns or None
 
+    fetch_limit = cursor_offset(cursor) + limit + 1
+    results: list[dict[str, Any]] = []
     if algorithm == "in_degree":
         ranked = store.rank_by_in_degree(
             scope_file_paths=scope_file_paths,
             scope_qnames=scope_qnames,
             kind=kind,
-            limit=limit,
+            limit=fetch_limit,
         )
-        results = []
         for node in ranked:
-            entry = _summarise_node(node)
+            entry = summarise_node(node, response_shape=cast(ResponseShape, response_shape))
             entry["in_degree"] = node.get("in_degree", 0)
             entry["out_degree"] = node.get("out_degree", 0)
             entry["score"] = node.get("in_degree", 0)
@@ -131,14 +210,31 @@ def rank_nodes(
     else:
         ranked = store.rank_by_transitive(
             scope_qnames=scope_qnames,
-            limit=limit,
+            limit=fetch_limit,
         )
-        results = []
         for node in ranked:
-            entry = _summarise_node(node)
+            entry = summarise_node(node, response_shape=cast(ResponseShape, response_shape))
             entry["in_degree"] = node.get("in_degree", 0)
             entry["out_degree"] = node.get("out_degree", 0)
             entry["score"] = node.get("transitive_count", 0)
             results.append(entry)
 
-    return {"ranked": results}
+    qhash = query_hash(
+        "rank_nodes",
+        {
+            "scope": scope,
+            "kind": kind,
+            "algorithm": algorithm,
+            "response_shape": response_shape,
+        },
+    )
+    page, next_cursor, cursor_error = paginate_items(
+        results,
+        cursor=cursor,
+        page_size=limit,
+        query_hash_value=qhash,
+    )
+    if cursor_error is not None:
+        return cursor_error
+
+    return apply_token_budget({"ranked": page, "next_cursor": next_cursor}, token_budget)

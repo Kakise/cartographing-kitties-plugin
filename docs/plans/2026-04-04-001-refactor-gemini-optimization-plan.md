@@ -1,8 +1,9 @@
 ---
 title: Optimize Extension for Gemini CLI
 type: refactor
-status: active
+status: superseded
 date: 2026-04-04
+superseded_by: docs/plans/2026-04-21-002-refactor-codex-plugin-alignment-plan.md
 ---
 
 ## Overview

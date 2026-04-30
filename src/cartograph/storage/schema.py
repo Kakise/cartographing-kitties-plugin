@@ -21,6 +21,8 @@ CREATE TABLE IF NOT EXISTS nodes (
     properties TEXT,
     annotated_content_hash TEXT,
     graph_version INTEGER DEFAULT 0,
+    centrality REAL,
+    in_degree_cache INTEGER,
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now'))
 );
@@ -38,7 +40,8 @@ CREATE TABLE IF NOT EXISTS edges (
 
 CREATE TABLE IF NOT EXISTS graph_meta (
     id INTEGER PRIMARY KEY CHECK(id = 1),
-    graph_version INTEGER NOT NULL DEFAULT 0
+    graph_version INTEGER NOT NULL DEFAULT 0,
+    centrality_version INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE VIRTUAL TABLE IF NOT EXISTS nodes_fts USING fts5(
@@ -75,6 +78,7 @@ CREATE INDEX IF NOT EXISTS idx_nodes_name ON nodes(name);
 CREATE INDEX IF NOT EXISTS idx_nodes_qualified_name ON nodes(qualified_name);
 CREATE INDEX IF NOT EXISTS idx_nodes_annotation_status ON nodes(annotation_status);
 CREATE INDEX IF NOT EXISTS idx_nodes_graph_version ON nodes(graph_version);
+CREATE INDEX IF NOT EXISTS idx_nodes_centrality ON nodes(centrality DESC);
 CREATE INDEX IF NOT EXISTS idx_edges_source ON edges(source_id);
 CREATE INDEX IF NOT EXISTS idx_edges_target ON edges(target_id);
 CREATE INDEX IF NOT EXISTS idx_edges_kind ON edges(kind);

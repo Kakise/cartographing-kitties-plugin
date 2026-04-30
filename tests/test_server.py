@@ -15,8 +15,10 @@ from cartograph.compat import StoragePaths
 from cartograph.indexing import Indexer
 from cartograph.server.tools.analysis import find_dependencies, find_dependents, rank_nodes
 from cartograph.server.tools.annotate import (
+    find_low_quality_annotations,
     find_stale_annotations,
     get_pending_annotations,
+    requeue_low_quality_annotations,
     submit_annotations,
 )
 from cartograph.server.tools.index import annotation_status, index_codebase
@@ -301,6 +303,7 @@ class TestGetPendingAnnotations:
         assert "kind" in first
         assert "source" in first
         assert "neighbors" in first
+        assert "recommended_model_tier" in first
 
     def test_returns_empty_when_no_pending(self, graph_store: GraphStore):
         result = get_pending_annotations()
@@ -345,7 +348,14 @@ class TestSubmitAnnotations:
         qname = pending["batch"][0]["qualified_name"]
 
         submit_annotations(
-            [{"qualified_name": qname, "summary": "A test node", "tags": ["api", "testing"], "role": "Test handler"}]
+            [
+                {
+                    "qualified_name": qname,
+                    "summary": "A test node",
+                    "tags": ["api", "testing"],
+                    "role": "Test handler",
+                }
+            ]
         )
 
         result = query_node(qname)
@@ -360,7 +370,14 @@ class TestSubmitAnnotations:
         pending = get_pending_annotations(batch_size=5)
         for node in pending["batch"]:
             submit_annotations(
-                [{"qualified_name": node["qualified_name"], "summary": "Annotated", "tags": ["database"], "role": "Data layer"}]
+                [
+                    {
+                        "qualified_name": node["qualified_name"],
+                        "summary": "Annotated",
+                        "tags": ["database"],
+                        "role": "Data layer",
+                    }
+                ]
             )
 
         result = find_dependents("file::src/models/user.py")
@@ -375,7 +392,14 @@ class TestSubmitAnnotations:
         pending = get_pending_annotations(batch_size=5)
         for node in pending["batch"]:
             submit_annotations(
-                [{"qualified_name": node["qualified_name"], "summary": "Annotated", "tags": ["utilities"], "role": "Helper"}]
+                [
+                    {
+                        "qualified_name": node["qualified_name"],
+                        "summary": "Annotated",
+                        "tags": ["utilities"],
+                        "role": "Helper",
+                    }
+                ]
             )
 
         result = find_dependencies("file::src/main.py")
@@ -391,7 +415,14 @@ class TestSubmitAnnotations:
         qname = pending["batch"][0]["qualified_name"]
 
         submit_annotations(
-            [{"qualified_name": qname, "summary": "Searchable node", "tags": ["config"], "role": "Configuration"}]
+            [
+                {
+                    "qualified_name": qname,
+                    "summary": "Searchable node",
+                    "tags": ["config"],
+                    "role": "Configuration",
+                }
+            ]
         )
 
         result = search("Searchable")
@@ -405,7 +436,14 @@ class TestSubmitAnnotations:
         pending = get_pending_annotations(batch_size=10)
         for node in pending["batch"]:
             submit_annotations(
-                [{"qualified_name": node["qualified_name"], "summary": "Annotated", "tags": ["models"], "role": "Data model"}]
+                [
+                    {
+                        "qualified_name": node["qualified_name"],
+                        "summary": "Annotated",
+                        "tags": ["models"],
+                        "role": "Data model",
+                    }
+                ]
             )
 
         result = get_file_structure("src/models/user.py")
@@ -450,7 +488,14 @@ class TestFindStaleAnnotations:
         qname = pending["batch"][0]["qualified_name"]
 
         submit_annotations(
-            [{"qualified_name": qname, "summary": "Original summary", "tags": ["test"], "role": "test"}]
+            [
+                {
+                    "qualified_name": qname,
+                    "summary": "Original summary",
+                    "tags": ["test"],
+                    "role": "test",
+                }
+            ]
         )
 
         # Verify not stale yet.
@@ -528,6 +573,83 @@ class TestFindStaleAnnotations:
 
         result = annotation_status()
         assert result["stale"] == 1
+
+
+class TestLowQualityAnnotations:
+    def test_detects_low_quality_annotations(self, graph_store: GraphStore):
+        graph_store.upsert_nodes(
+            [
+                {
+                    "kind": "function",
+                    "name": "unknown_node",
+                    "qualified_name": "mod::unknown_node",
+                    "file_path": "mod.py",
+                    "start_line": 1,
+                    "end_line": 3,
+                    "language": "python",
+                    "summary": "Code node representing unknown in the system.",
+                    "annotation_status": "annotated",
+                    "properties": {"role": "Specific role"},
+                }
+            ]
+        )
+
+        result = find_low_quality_annotations()
+
+        assert result["count"] == 1
+        assert result["low_quality_nodes"][0]["qualified_name"] == "mod::unknown_node"
+        assert "placeholder_phrase" in result["low_quality_nodes"][0]["reasons"]
+
+    def test_requeue_low_quality_annotations_dry_run_default(self, graph_store: GraphStore):
+        graph_store.upsert_nodes(
+            [
+                {
+                    "kind": "function",
+                    "name": "unknown_node",
+                    "qualified_name": "mod::unknown_node",
+                    "file_path": "mod.py",
+                    "start_line": 1,
+                    "end_line": 3,
+                    "language": "python",
+                    "summary": "Code node representing unknown in the system.",
+                    "annotation_status": "annotated",
+                    "properties": {"role": "Specific role"},
+                }
+            ]
+        )
+
+        result = requeue_low_quality_annotations()
+
+        assert result["dry_run"] is True
+        assert result["low_quality"] == 1
+        assert result["requeued"] == 0
+        node = graph_store.get_node_by_name("mod::unknown_node")
+        assert node["annotation_status"] == "annotated"
+
+    def test_requeue_low_quality_annotations_mutates_when_requested(self, graph_store: GraphStore):
+        graph_store.upsert_nodes(
+            [
+                {
+                    "kind": "function",
+                    "name": "unknown_node",
+                    "qualified_name": "mod::unknown_node",
+                    "file_path": "mod.py",
+                    "start_line": 1,
+                    "end_line": 3,
+                    "language": "python",
+                    "summary": "Code node representing unknown in the system.",
+                    "annotation_status": "annotated",
+                    "properties": {"role": "Specific role"},
+                }
+            ]
+        )
+
+        result = requeue_low_quality_annotations(dry_run=False)
+
+        assert result["low_quality"] == 1
+        assert result["requeued"] == 1
+        node = graph_store.get_node_by_name("mod::unknown_node")
+        assert node["annotation_status"] == "pending"
 
 
 class TestRankNodes:
@@ -713,6 +835,8 @@ class TestStdioToolDiscovery:
             "add_treat_box_entry",
             "query_treat_box",
             "find_stale_annotations",
+            "find_low_quality_annotations",
+            "requeue_low_quality_annotations",
             "graph_diff",
             "rank_nodes",
             "batch_query_nodes",
@@ -780,9 +904,7 @@ class TestGetContextSummary:
             assert "in_degree" in entry
 
     def test_context_summary_with_edges(self, indexed_store: GraphStore):
-        result = get_context_summary(
-            file_paths=["src/models/user.py"], include_edges=True
-        )
+        result = get_context_summary(file_paths=["src/models/user.py"], include_edges=True)
         assert "edges" in result
         assert isinstance(result["edges"], list)
 
@@ -798,9 +920,7 @@ class TestGetContextSummary:
         result = get_context_summary(qualified_names=["models.user::User"])
         assert result["total_nodes"] >= 1
         all_qnames = [
-            entry["qualified_name"]
-            for entries in result["groups"].values()
-            for entry in entries
+            entry["qualified_name"] for entries in result["groups"].values() for entry in entries
         ]
         assert "models.user::User" in all_qnames
 

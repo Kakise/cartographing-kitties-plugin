@@ -1,8 +1,22 @@
 ---
 title: Web Graph Explorer — Separate Entrypoints
 type: feat
-status: active
+status: complete
 date: 2026-03-28
+implemented_in: 5ad1145
+units:
+  - id: 1
+    title: Add `check_same_thread` to `create_connection()`
+    state: complete
+    implemented_in: 5ad1145
+  - id: 2
+    title: Create `serve()` entrypoint and simplify `main()`
+    state: complete
+    implemented_in: 5ad1145
+  - id: 3
+    title: Tests
+    state: complete
+    implemented_in: 5ad1145
 ---
 
 # Web Graph Explorer — Implementation Plan (Revised)
@@ -56,6 +70,8 @@ The current `main()` function overloads two concerns (MCP server + web explorer)
 
 ### Unit 1: Add `check_same_thread` to `create_connection()`
 
+**State:** complete — implemented in 5ad1145
+
 - [ ] **Goal:** Allow web server to use the canonical connection factory
 - **Requirements:** R4
 - **Dependencies:** None
@@ -70,6 +86,8 @@ The current `main()` function overloads two concerns (MCP server + web explorer)
 - **Verification:** Existing tests pass unchanged
 
 ### Unit 2: Create `serve()` entrypoint and simplify `main()`
+
+**State:** complete — implemented in 5ad1145
 
 - [ ] **Goal:** `kitty-graph` command works; `cartographing-kittens` is MCP-only
 - **Requirements:** R1, R2, R3, R6
@@ -89,6 +107,8 @@ The current `main()` function overloads two concerns (MCP server + web explorer)
 - **Verification:** `kitty-graph --help` shows `--port` and `--project-root`. `cartographing-kittens --help` shows no `--serve` flag.
 
 ### Unit 3: Tests
+
+**State:** complete — implemented in 5ad1145
 
 - [ ] **Goal:** Test the new `serve()` error handling and `main()` simplification
 - **Requirements:** R1, R3, R6
