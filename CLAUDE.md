@@ -28,6 +28,10 @@ AST-powered codebase intelligence framework for AI coding agents.
   responses include a `centrality` field — a weighted-PageRank score in `[0, 1]` reflecting
   each node's structural importance. The cache is refreshed lazily on first read after the
   graph changes.
+- Plans under `docs/plans/` carry machine-readable state (frontmatter `status` + per-unit
+  `**State:**` lines). See `docs/architecture/plan-state-conventions.md`. The
+  `/kitty-plans` slash command (or `uv run python scripts/plan_status.py report`) renders the
+  cross-plan dashboard; `audit` runs in pre-commit.
 
 ## Plugin Structure (Marketplace Layout)
 

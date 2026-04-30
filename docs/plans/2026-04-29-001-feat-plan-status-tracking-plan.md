@@ -21,10 +21,12 @@ units:
     state: complete
   - id: 5
     title: Migration sweep across all 22 existing plans
-    state: pending
+    state: complete
+    implemented_in: cdccd5c
   - id: 6
     title: Consolidated remaining-work plan (replaces R1–R9 roadmap)
-    state: pending
+    state: complete
+    implemented_in: 96988bf
   - id: 7
     title: Convention documentation and skill follow-up note
     state: pending
@@ -442,7 +444,7 @@ Deferred (decide later, do not block this plan):
 
 ### Unit 5 — Migration sweep across all 22 existing plans
 
-**State:** pending
+**State:** complete — implemented in cdccd5c
 
 - [ ] Goal: Bring every existing plan onto the new schema with the correct status, with
   demonstrably-completed units flipped to `complete`, abandoned/superseded plans marked, and
@@ -495,7 +497,7 @@ Deferred (decide later, do not block this plan):
 
 ### Unit 6 — Consolidated remaining-work plan
 
-**State:** pending
+**State:** complete — implemented in 96988bf
 
 - [ ] Goal: Replace the existing R1–R9 roadmap with a single plan that lists every still-pending
   unit across the active and partial sub-plans, so a future contributor can pick a unit and run
