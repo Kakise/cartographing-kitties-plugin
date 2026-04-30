@@ -12,9 +12,10 @@ units:
   - id: 2
     title: kitty-plans status CLI
     state: complete
+    implemented_in: a41a3cc
   - id: 3
     title: Slash command wiring (Claude + Codex)
-    state: pending
+    state: complete
   - id: 4
     title: Pre-commit and CI enforcement
     state: pending
@@ -337,7 +338,7 @@ Deferred (decide later, do not block this plan):
 
 ### Unit 2 — `kitty-plans` status CLI
 
-**State:** complete
+**State:** complete — implemented in a41a3cc
 
 - [ ] Goal: A CLI script that reports plan status across `docs/plans/`, audits the schema, and
   mutates plan files in a controlled way (used by `kitty:work` follow-up integration).
@@ -382,7 +383,7 @@ Deferred (decide later, do not block this plan):
 
 ### Unit 3 — Slash command wiring (Claude + Codex)
 
-**State:** pending
+**State:** complete
 
 - [ ] Goal: Expose the report via `/kitty-plans` in both Claude Code and Codex without duplicating
   command logic.
