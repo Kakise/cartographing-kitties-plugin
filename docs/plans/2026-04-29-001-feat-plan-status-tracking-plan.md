@@ -1,9 +1,10 @@
 ---
 title: Plan Status Tracking & Roadmap Consolidation
 type: feat
-status: in_progress
+status: complete
 date: 2026-04-29
 origin: direct-request
+implemented_in: 7afbfb8
 units:
   - id: 1
     title: Plan-state schema and parser module
@@ -29,7 +30,8 @@ units:
     implemented_in: 96988bf
   - id: 7
     title: Convention documentation and skill follow-up note
-    state: pending
+    state: complete
+    implemented_in: 7afbfb8
 ---
 
 # Plan Status Tracking & Roadmap Consolidation — Implementation Plan
@@ -563,7 +565,7 @@ Deferred (decide later, do not block this plan):
 
 ### Unit 7 — Convention documentation and skill follow-up note
 
-**State:** pending
+**State:** complete — implemented in 7afbfb8
 
 - [ ] Goal: Document the new plan-state convention for human contributors and capture the
   follow-up that the skills submodule must take on.
