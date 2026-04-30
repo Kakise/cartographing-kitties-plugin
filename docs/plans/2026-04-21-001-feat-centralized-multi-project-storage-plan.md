@@ -1,9 +1,10 @@
 ---
 title: Centralized Multi-Project Storage Plan
 type: feat
-status: active
+status: complete
 date: 2026-04-21
 origin: direct-request
+implemented_in: d82e416
 ---
 
 ## Overview

@@ -1,9 +1,39 @@
 ---
 title: Graph-Reactive Engineering
 type: feat
-status: active
+status: complete
 date: 2026-03-28
 origin: docs/brainstorms/2026-03-28-004-graph-reactive-engineering-requirements.md
+implemented_in: '4469920'
+units:
+  - id: 1
+    title: Custom Schema Migration System
+    state: complete
+    implemented_in: '4469920'
+  - id: 2
+    title: Schema Changes (graph_meta, definition hashing, edge timestamps)
+    state: complete
+    implemented_in: '4469920'
+  - id: 3
+    title: '`graph_diff` Tool + `index_codebase` Modification'
+    state: complete
+    implemented_in: '4469920'
+  - id: 4
+    title: '`validate_graph` Tool'
+    state: complete
+    implemented_in: '4469920'
+  - id: 5
+    title: '`batch_query_nodes` + `get_context_summary` Tools'
+    state: complete
+    implemented_in: '4469920'
+  - id: 6
+    title: '`find_stale_annotations` Tool + Existing Tool Modifications'
+    state: complete
+    implemented_in: '4469920'
+  - id: 7
+    title: '`rank_nodes` Tool'
+    state: complete
+    implemented_in: '4469920'
 ---
 
 # Graph-Reactive Engineering — Implementation Plan
@@ -100,6 +130,8 @@ The current pipeline treats the AST graph as a utility. The graph should be the 
 
 ### Unit 1: Custom Schema Migration System
 
+**State:** complete — implemented in 4469920
+
 **Goal:** Replace the static `CREATE IF NOT EXISTS` approach with a versioned migration system that can handle ALTER TABLE operations.
 
 **Requirements:** R0
@@ -153,6 +185,8 @@ The baseline migration (0001) contains the exact current `SCHEMA_SQL` content. E
 ---
 
 ### Unit 2: Schema Changes (graph_meta, definition hashing, edge timestamps)
+
+**State:** complete — implemented in 4469920
 
 **Goal:** Add the schema infrastructure needed by all new tools: `graph_meta` table, `annotated_content_hash` column, `graph_version` column on nodes, `updated_at` on edges, and definition-level content hashing in the indexer.
 
@@ -232,6 +266,8 @@ Annotator changes:
 
 ### Unit 3: `graph_diff` Tool + `index_codebase` Modification
 
+**State:** complete — implemented in 4469920
+
 **Goal:** The linchpin of the reactive loop. After re-indexing, returns what structurally changed. Also modifies `index_codebase` to include diff summary in its return.
 
 **Requirements:** R1.2-R1.8, R7.1
@@ -299,6 +335,8 @@ def graph_diff(file_paths: list[str] | None = None, include_edges: bool = True) 
 
 ### Unit 4: `validate_graph` Tool
 
+**State:** complete — implemented in 4469920
+
 **Goal:** Structural health checks. Detects broken references, orphan nodes, and stale annotations after changes.
 
 **Requirements:** R2
@@ -358,6 +396,8 @@ Scope filtering: when `scope_file_paths` or `scope_qnames` provided, add WHERE c
 ---
 
 ### Unit 5: `batch_query_nodes` + `get_context_summary` Tools
+
+**State:** complete — implemented in 4469920
 
 **Goal:** Efficient bulk context building for orchestrators. Replace N x `query_node` + N x `get_file_structure` with single calls.
 
@@ -426,6 +466,8 @@ def batch_query_nodes(names: list[str], include_neighbors: bool = True) -> dict[
 ---
 
 ### Unit 6: `find_stale_annotations` Tool + Existing Tool Modifications
+
+**State:** complete — implemented in 4469920
 
 **Goal:** Detect nodes whose code changed since annotation. Modify `annotation_status` to include stale count and `submit_annotations` to set `annotated_content_hash`.
 
@@ -499,6 +541,8 @@ stale_count = stale_cur.fetchone()[0]
 ---
 
 ### Unit 7: `rank_nodes` Tool
+
+**State:** complete — implemented in 4469920
 
 **Goal:** PageRank-lite importance scoring. Enables weighted impact analysis and prioritized review.
 

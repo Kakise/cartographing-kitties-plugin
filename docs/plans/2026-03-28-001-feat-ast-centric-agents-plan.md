@@ -1,9 +1,35 @@
 ---
 title: AST-Centric Agent Architecture
 type: feat
-status: active
+status: complete
 date: 2026-03-28
 origin: docs/brainstorms/2026-03-28-001-ast-centric-agents-requirements.md
+implemented_in: c2199ea
+units:
+  - id: 1
+    title: Surface Annotation Data in Tool Responses
+    state: complete
+    implemented_in: c2199ea
+  - id: 2
+    title: Define Standard Subgraph Context Format
+    state: complete
+    implemented_in: c2199ea
+  - id: 3
+    title: Review Skill Orchestrator + Reviewer Agents
+    state: complete
+    implemented_in: c2199ea
+  - id: 4
+    title: Plan & Brainstorm Skill Orchestrators + Research Agents
+    state: complete
+    implemented_in: c2199ea
+  - id: 5
+    title: Work Skill Orchestrator + Annotator Agent
+    state: complete
+    implemented_in: c2199ea
+  - id: 6
+    title: Reference Documentation Updates
+    state: complete
+    implemented_in: c2199ea
 ---
 
 # AST-Centric Agent Architecture — Implementation Plan
@@ -104,6 +130,8 @@ The storage layer (`graph_store.py`) returns complete data — `_row_to_dict` de
 
 ### Unit 1: Surface Annotation Data in Tool Responses
 
+**State:** complete — implemented in c2199ea
+
 - [ ] **Goal:** Make `tags`, `role`, `summary`, and `annotation_status` available in ALL MCP tool responses that return node data
 - **Requirements:** R1, R2, R3
 - **Dependencies:** None (prerequisite for all other units)
@@ -135,6 +163,8 @@ The storage layer (`graph_store.py`) returns complete data — `_row_to_dict` de
 ---
 
 ### Unit 2: Define Standard Subgraph Context Format
+
+**State:** complete — implemented in c2199ea
 
 - [ ] **Goal:** Define the structured text format that orchestrators produce and agents consume, so all parties agree on the contract
 - **Requirements:** R22
@@ -174,6 +204,8 @@ The storage layer (`graph_store.py`) returns complete data — `_row_to_dict` de
 ---
 
 ### Unit 3: Review Skill Orchestrator + Reviewer Agents
+
+**State:** complete — implemented in c2199ea
 
 - [ ] **Goal:** The review skill pre-computes an annotated subgraph of changed symbols and passes it to reviewer agents. Reviewers work from this graph context to check relationships, not just individual nodes.
 - **Requirements:** R4, R5, R6, R10, R11, R12, R13, R14
@@ -228,6 +260,8 @@ The storage layer (`graph_store.py`) returns complete data — `_row_to_dict` de
 
 ### Unit 4: Plan & Brainstorm Skill Orchestrators + Research Agents
 
+**State:** complete — implemented in c2199ea
+
 - [ ] **Goal:** Plan and brainstorm skills pre-compute graph context for their scope area and pass it to research agents. Research agents analyze pre-computed context instead of attempting MCP calls.
 - **Requirements:** R7, R9, R15, R16, R17
 - **Dependencies:** Unit 1 (enriched tool responses), Unit 2 (context format)
@@ -279,6 +313,8 @@ The storage layer (`graph_store.py`) returns complete data — `_row_to_dict` de
 
 ### Unit 5: Work Skill Orchestrator + Annotator Agent
 
+**State:** complete — implemented in c2199ea
+
 - [ ] **Goal:** Work skill pre-computes graph context for each implementation unit's target files. Annotator agent is handled via orchestrator mediation (the annotate skill pre-fetches pending nodes and submits results).
 - **Requirements:** R8, R18, R19, R20, R21
 - **Dependencies:** Unit 1 (enriched tool responses), Unit 2 (context format)
@@ -325,6 +361,8 @@ The storage layer (`graph_store.py`) returns complete data — `_row_to_dict` de
 ---
 
 ### Unit 6: Reference Documentation Updates
+
+**State:** complete — implemented in c2199ea
 
 - [ ] **Goal:** Update all reference documentation to reflect the new architecture — enriched tool responses, orchestrator-mediated context, agent contracts
 - **Requirements:** Supports all requirements (documentation)

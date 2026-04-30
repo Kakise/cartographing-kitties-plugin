@@ -1,9 +1,10 @@
 ---
 title: Memory Workflow Enforcement
 type: fix
-status: active
+status: complete
 date: 2026-04-27
 origin: docs/brainstorms/2026-03-28-003-cat-rebrand-requirements.md
+implemented_in: c5d3e17
 ---
 
 # Memory Workflow Enforcement Plan

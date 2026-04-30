@@ -1,9 +1,10 @@
 ---
 title: Skills Submodule Repository (JetBrains-compatible)
 type: feat
-status: active
+status: complete
 date: 2026-04-27
 origin: docs/brainstorms/2026-04-27-001-skills-submodule-repository-requirements.md
+implemented_in: d7ec32f
 ---
 
 # Skills Submodule Repository — Implementation Plan

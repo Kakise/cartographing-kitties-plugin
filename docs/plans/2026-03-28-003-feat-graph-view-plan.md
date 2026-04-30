@@ -1,8 +1,22 @@
 ---
 title: Visual Graph View with Node Modal
 type: feat
-status: active
+status: complete
 date: 2026-03-28
+implemented_in: b691992
+units:
+  - id: 1
+    title: '`/api/graph` Backend Endpoint'
+    state: complete
+    implemented_in: b691992
+  - id: 2
+    title: Node Detail Modal
+    state: complete
+    implemented_in: b691992
+  - id: 3
+    title: Canvas Graph View
+    state: complete
+    implemented_in: b691992
 ---
 
 # Visual Graph View — Implementation Plan
@@ -42,6 +56,8 @@ The current web explorer shows nodes only as a file-tree sidebar list. There's n
 
 ### Unit 1: `/api/graph` Backend Endpoint
 
+**State:** complete — implemented in b691992
+
 - [ ] **Goal:** Single API call returns all nodes and edges for graph rendering
 - **Requirements:** R5
 - **Dependencies:** None
@@ -63,6 +79,8 @@ The current web explorer shows nodes only as a file-tree sidebar list. There's n
 
 ### Unit 2: Node Detail Modal
 
+**State:** complete — implemented in b691992
+
 - [ ] **Goal:** Node detail appears as a modal overlay instead of replacing main content
 - **Requirements:** R4
 - **Dependencies:** None (can run in parallel with Unit 1)
@@ -82,6 +100,8 @@ The current web explorer shows nodes only as a file-tree sidebar list. There's n
 - **Verification:** Frontend test still passes; manual check that modal opens/closes
 
 ### Unit 3: Canvas Graph View
+
+**State:** complete — implemented in b691992
 
 - [ ] **Goal:** Force-directed graph visualization in the main content area
 - **Requirements:** R1, R2, R3, R6, R7
