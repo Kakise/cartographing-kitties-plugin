@@ -21,6 +21,16 @@ def test_root_codex_plugin_manifest_paths_exist() -> None:
     assert skills_path.exists()
     assert mcp_path.exists()
 
+    codex_config = REPO_ROOT / "plugins" / "kitty" / ".codex" / "config.toml"
+    assert codex_config.exists(), "missing plugins/kitty/.codex/config.toml"
+
+    for skill_name in ("kitty-lfg", "kitty-work"):
+        openai_yaml = SKILLS_ROOT / skill_name / "agents" / "openai.yaml"
+        assert openai_yaml.exists(), (
+            f"missing {openai_yaml.relative_to(REPO_ROOT)} — orchestrator skills must "
+            f"declare an implicit-invocation policy for Codex"
+        )
+
 
 def test_agent_manifest_declares_all_framework_agents() -> None:
     agents_dir = REPO_ROOT / "plugins" / "kitty" / "agents"

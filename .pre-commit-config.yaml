@@ -37,6 +37,12 @@ repos:
         entry: uv run python scripts/validate_skills.py
         language: system
         pass_filenames: false
+      - id: kitty-sync-claude-agents-md
+        name: kitty sync CLAUDE.md/AGENTS.md
+        entry: uv run python scripts/sync_claude_agents_md.py --check
+        language: system
+        pass_filenames: false
+        files: ^(CLAUDE\.md|AGENTS\.md|scripts/sync_claude_agents_md\.py)$
       - id: kitty-plan-status
         name: kitty plan status audit
         entry: uv run python scripts/plan_status.py audit
