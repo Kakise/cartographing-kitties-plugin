@@ -1,14 +1,16 @@
 ---
 title: Harness Overhaul — Skills, Agents, Codex Parity, Memory & Telemetry (Followup)
 type: feat
-status: in_progress
+status: complete
 date: 2026-05-04
 origin: docs/brainstorms/2026-04-27-002-harness-context-engineering-requirements.md
 parent: docs/plans/2026-04-27-003-feat-harness-context-engineering-plan.md
+implemented_in: c27125f
 units:
   - id: 1
     title: Skill restructuring (progressive disclosure, frontmatter expansion, dynamic context)
-    state: pending
+    state: complete
+    implemented_in: c27125f
   - id: 2
     title: Agent specialization (tool perms, Sonnet model, scaling rules, output contract, spawn map)
     state: complete
@@ -103,7 +105,7 @@ Unit 1 ↔ U4, Unit 2 ↔ U5, Unit 3 ↔ U6 *finish*, Unit 4 ↔ U7.
 
 ### Unit 1 — Skill restructuring (progressive disclosure, frontmatter expansion, dynamic context)
 
-**State:** pending
+**State:** complete — implemented in c27125f
 
 - [ ] **Goal.** Every skill is compaction-resilient (decision tree + tool matrix + contract
       in the first 5,000 tokens), uses the full Claude Code frontmatter spectrum, and
