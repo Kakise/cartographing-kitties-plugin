@@ -11,7 +11,8 @@ units:
     state: pending
   - id: 2
     title: Agent specialization (tool perms, Sonnet model, scaling rules, output contract, spawn map)
-    state: pending
+    state: complete
+    implemented_in: 6fc07ff
   - id: 3
     title: Codex parity finish (AGENTS.md, sync script, parity tests)
     state: complete
@@ -170,7 +171,7 @@ Unit 1 ↔ U4, Unit 2 ↔ U5, Unit 3 ↔ U6 *finish*, Unit 4 ↔ U7.
 
 ### Unit 2 — Agent specialization (tool perms, Sonnet model, scaling rules, output contract, spawn map)
 
-**State:** pending
+**State:** complete — implemented in 6fc07ff
 
 - [ ] **Goal.** Each agent has the smallest viable tool surface, runs on Sonnet by default,
       embeds a calibrated scaling rubric, returns a unified JSON contract, and links to
