@@ -1,9 +1,10 @@
 ---
 title: Plugin Evolution — Remaining Work
 type: feat
-status: in_progress
+status: abandoned
 date: 2026-04-29
 supersedes: docs/plans/2026-04-23-001-feat-plugin-evolution-roadmap.md
+abandoned_reason: Replaced by per-scope plans dated 2026-05-04 — aggregator no longer needed
 aggregates:
   - docs/plans/2026-04-23-002-feat-hybrid-search-plan.md
   - docs/plans/2026-04-23-003-feat-lsp-bridge-plan.md
@@ -114,7 +115,8 @@ units:
     state: pending
   - id: 33
     title: 'centrality-surface :: U3 (`get_context_summary` pruning)'
-    state: pending
+    state: complete
+    implemented_in: c5d3e17
   - id: 34
     title: 'centrality-surface :: U6 (Documentation)'
     state: pending
@@ -162,7 +164,8 @@ units:
   - id: 48
     title: 'harness-context-engineering :: U2 (MCP context-shaping (output schemas, response_shape, token_budget,
       cursors, cleanable))'
-    state: pending
+    state: complete
+    implemented_in: 5afcd5c
   - id: 49
     title: 'harness-context-engineering :: U4 (Skill restructuring (progressive disclosure, frontmatter
       expansion, dynamic context))'
@@ -452,7 +455,7 @@ applies:
 
 ### Unit 33 — centrality-surface :: U3 (`get_context_summary` pruning)
 
-**State:** pending
+**State:** complete — implemented in c5d3e17
 
 - [ ] Source: `docs/plans/2026-04-23-007-feat-centrality-surface-plan.md` (Unit 3)
 - [ ] Reference: see source plan for full design.
@@ -557,7 +560,7 @@ applies:
 
 ### Unit 48 — harness-context-engineering :: U2 (MCP context-shaping (output schemas, response_shape, token_budget, cursors, cleanable))
 
-**State:** pending
+**State:** complete — implemented in 5afcd5c
 
 - [ ] Source: `docs/plans/2026-04-27-003-feat-harness-context-engineering-plan.md` (Unit 2)
 - [ ] Reference: see source plan for full design.

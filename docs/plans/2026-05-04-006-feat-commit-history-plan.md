@@ -1,11 +1,9 @@
 ---
 title: Commit-History Dimension (R4)
 type: feat
-status: superseded
-date: 2026-04-23
+status: active
+date: 2026-05-04
 origin: docs/brainstorms/2026-04-23-001-plugin-evolution-requirements.md
-parent: docs/plans/2026-04-23-001-feat-plugin-evolution-roadmap.md
-superseded_by: docs/plans/2026-05-04-006-feat-commit-history-plan.md
 requirement: R4
 units:
   - id: 1
@@ -65,6 +63,10 @@ captures that signal.
   pruning, two new MCP tools, optional commit-message heuristics for memory entries.
 - **Out of scope:** blame-line-level attribution (too expensive for large files); merge-commit
   handling beyond first-parent; GitHub PR / review data; non-git VCS support.
+
+## Memory Context
+
+No relevant memory entries found.
 
 ## Context & Research
 
@@ -308,7 +310,7 @@ consumed in Unit 6 already exists.
 ## Sources & References
 
 - Origin: `docs/brainstorms/2026-04-23-001-plugin-evolution-requirements.md` (R4)
-- Parent roadmap: `docs/plans/2026-04-23-001-feat-plugin-evolution-roadmap.md`
+- Predecessor plan: `docs/plans/2026-04-23-005-feat-commit-history-plan.md` (refreshed by this plan)
 - Prior art (co-change analysis): "Using the Gini coefficient as a measure of unequal
   change-distribution" — D'Ambros et al., but simpler pair-count suffices for v1.
 

@@ -1,11 +1,9 @@
 ---
 title: LSP Bridge for Semantic Precision (R2)
 type: feat
-status: superseded
-date: 2026-04-23
+status: active
+date: 2026-05-04
 origin: docs/brainstorms/2026-04-23-001-plugin-evolution-requirements.md
-parent: docs/plans/2026-04-23-001-feat-plugin-evolution-roadmap.md
-superseded_by: docs/plans/2026-05-04-004-feat-lsp-bridge-plan.md
 requirement: R2
 units:
   - id: 1
@@ -68,6 +66,17 @@ cost), but to give agents a precise-on-demand escape hatch and a post-edit diagn
   pyright + tsserver, edge-provenance flag in `properties` JSON, fixture-based measurement harness.
 - **Out of scope:** rewriting the AST extraction pipeline; LSP-based annotation generation; managing
   the user's IDE LSP — Cartograph spawns its own dedicated server instances.
+
+## Memory Context
+
+Treat-box and litter-box queries (graph DB at `.pawprints/graph.db`, keywords: `embed`, `hybrid`,
+`search`, `lsp`, `pyright`, `rrf`, `vec`, `language server`, `reference`, `sqlite`) returned no
+topic-specific entries for LSP, pyright, JSON-RPC framing, or phantom-edge verification as of
+2026-05-04. The treat box currently holds only general process conventions (the plan-state
+`**State:**` standalone-paragraph rule and the `AskUserQuestion` skills protocol). The litter
+box is empty. No prior failures or anti-patterns constrain this plan. Proceed using the
+predecessor's technical decisions verbatim; record any LSP-process leak, pyright version-skew,
+or JSON-RPC framing lessons during execution so subsequent refreshes inherit them.
 
 ## Context & Research
 
@@ -305,7 +314,7 @@ in `servers.py` but don't change the client.
 ## Sources & References
 
 - Origin: `docs/brainstorms/2026-04-23-001-plugin-evolution-requirements.md` (R2)
-- Parent roadmap: `docs/plans/2026-04-23-001-feat-plugin-evolution-roadmap.md`
+- Predecessor plan (refresh source): `docs/plans/2026-04-23-003-feat-lsp-bridge-plan.md`
 - LSP spec: https://microsoft.github.io/language-server-protocol/
 - LSAP framing: https://github.com/lsp-client/LSAP
 

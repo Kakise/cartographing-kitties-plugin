@@ -1,11 +1,9 @@
 ---
 title: Hybrid Semantic + Lexical + Graph Search (R1)
 type: feat
-status: superseded
-date: 2026-04-23
+status: active
+date: 2026-05-04
 origin: docs/brainstorms/2026-04-23-001-plugin-evolution-requirements.md
-parent: docs/plans/2026-04-23-001-feat-plugin-evolution-roadmap.md
-superseded_by: docs/plans/2026-05-04-003-feat-hybrid-search-plan.md
 requirement: R1
 units:
   - id: 1
@@ -66,6 +64,17 @@ place; adding a dense leg and fusing the three closes the gap without leaving SQ
   query-side query-understanding/rewriting; re-indexing the existing 946 nodes — embeddings are
   generated lazily during the next annotation pass or on demand via `annotation_status`-driven
   fill.
+
+## Memory Context
+
+Treat-box and litter-box queries (graph DB at `.pawprints/graph.db`, keywords: `embed`, `hybrid`,
+`search`, `lsp`, `pyright`, `rrf`, `vec`, `language server`, `reference`, `sqlite`) returned no
+topic-specific entries for hybrid retrieval, embeddings, `sqlite-vec`, or RRF as of 2026-05-04.
+The treat box currently holds only general process conventions (the plan-state `**State:**`
+standalone-paragraph rule and the `AskUserQuestion` skills protocol). The litter box is empty.
+No prior failures or anti-patterns constrain this plan. Proceed using the predecessor's
+technical decisions verbatim; record any embedding-model-load, `sqlite-vec` platform, or RRF
+tuning lessons during execution so subsequent refreshes inherit them.
 
 ## Context & Research
 
@@ -334,7 +343,7 @@ baseline metrics and the model-swap migration path is proven.
 ## Sources & References
 
 - Origin: `docs/brainstorms/2026-04-23-001-plugin-evolution-requirements.md` (R1)
-- Parent roadmap: `docs/plans/2026-04-23-001-feat-plugin-evolution-roadmap.md`
+- Predecessor plan (refresh source): `docs/plans/2026-04-23-002-feat-hybrid-search-plan.md`
 - `sqlite-vec` docs: https://github.com/asg017/sqlite-vec
 - `bge-small-en-v1.5` model card: https://huggingface.co/BAAI/bge-small-en-v1.5
 - Cormack et al. "Reciprocal Rank Fusion outperforms Condorcet and individual Rank Learning

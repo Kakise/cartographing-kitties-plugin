@@ -1,11 +1,9 @@
 ---
 title: Language Expansion — Go, Rust, Java (R3)
 type: feat
-status: superseded
-date: 2026-04-23
+status: active
+date: 2026-05-04
 origin: docs/brainstorms/2026-04-23-001-plugin-evolution-requirements.md
-parent: docs/plans/2026-04-23-001-feat-plugin-evolution-roadmap.md
-superseded_by: docs/plans/2026-05-04-005-feat-language-expansion-plan.md
 requirement: R3
 units:
   - id: 1
@@ -57,6 +55,10 @@ Rust, and Java are mature and stable; the work is pattern-matching them to our
   cross-file symbol resolution per language, test fixtures, uniform integration tests.
 - **Out of scope:** language-specific *semantic* analysis (delegate to LSP/R2); scripting languages
   (Ruby, PHP, Kotlin) — defer to a later plan; language-specific linters (ruff/eslint/gofmt).
+
+## Memory Context
+
+No relevant memory entries found.
 
 ## Context & Research
 
@@ -287,7 +289,7 @@ R5 (test coverage) depends on R3 to discover Go/Java/Rust test functions.
 ## Sources & References
 
 - Origin: `docs/brainstorms/2026-04-23-001-plugin-evolution-requirements.md` (R3)
-- Parent roadmap: `docs/plans/2026-04-23-001-feat-plugin-evolution-roadmap.md`
+- Predecessor plan: `docs/plans/2026-04-23-004-feat-language-expansion-plan.md` (refreshed by this plan)
 - tree-sitter-go: https://github.com/tree-sitter/tree-sitter-go
 - tree-sitter-rust: https://github.com/tree-sitter/tree-sitter-rust
 - tree-sitter-java: https://github.com/tree-sitter/tree-sitter-java

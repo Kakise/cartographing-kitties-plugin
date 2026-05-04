@@ -1,10 +1,11 @@
 ---
 title: Centrality & Re-Ranking Surface (R6)
 type: feat
-status: in_progress
+status: superseded
 date: 2026-04-23
 origin: docs/brainstorms/2026-04-23-001-plugin-evolution-requirements.md
 parent: docs/plans/2026-04-23-001-feat-plugin-evolution-roadmap.md
+superseded_by: docs/plans/2026-05-04-001-feat-centrality-surface-docs-plan.md
 requirement: R6
 units:
   - id: 1
@@ -17,7 +18,8 @@ units:
     implemented_in: c5d3e17
   - id: 3
     title: '`get_context_summary` pruning'
-    state: pending
+    state: complete
+    implemented_in: c5d3e17
   - id: 4
     title: Expose on query responses
     state: complete
@@ -158,7 +160,7 @@ on next read.
 
 ### Unit 3 — `get_context_summary` pruning
 
-**State:** pending
+**State:** complete — implemented in c5d3e17
 
 - [ ] In `query.py::get_context_summary`, if the resolved node list for any single file exceeds
       `max_nodes` (existing param, default 50), **select the top-K by centrality** rather than by

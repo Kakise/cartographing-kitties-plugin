@@ -61,7 +61,15 @@ def query_node(
     response_shape: str = "standard",
     token_budget: int | None = None,
 ) -> dict[str, Any]:
-    """Find a node by name or qualified name. Returns node details with immediate neighbors."""
+    """Find a node by name or qualified name. Returns node details with immediate neighbors.
+
+    The returned ``node`` (and each ``neighbors[i].node``) carries a
+    ``centrality`` field — a weighted-PageRank score in ``[0, 1]`` reflecting
+    structural importance. The cache is refreshed lazily on first read after
+    the graph changes and is stable within a graph version, so callers may use
+    it as a secondary sort key. See ``summarise_node`` in this module for the
+    canonical per-node schema.
+    """
     if error := validate_response_shape(response_shape):
         return error
 
@@ -102,7 +110,15 @@ def batch_query_nodes(
     cursor: str | None = None,
     limit: int | None = None,
 ) -> dict[str, Any]:
-    """Query multiple nodes in one call. Returns found nodes with optional neighbors."""
+    """Query multiple nodes in one call. Returns found nodes with optional neighbors.
+
+    Each entry in ``nodes`` (and any nested ``neighbors[i].node``) carries a
+    ``centrality`` field — a weighted-PageRank score in ``[0, 1]`` reflecting
+    structural importance. The cache is refreshed lazily on first read after
+    the graph changes and is stable within a graph version, so callers may use
+    it as a secondary sort key. See ``summarise_node`` in this module for the
+    canonical per-node schema.
+    """
     if error := validate_response_shape(response_shape):
         return error
 
@@ -162,7 +178,14 @@ def get_context_summary(
     token_budget: int | None = None,
     cursor: str | None = None,
 ) -> dict[str, Any]:
-    """Get a compact grouped summary of nodes, optionally with edges between them."""
+    """Get a compact grouped summary of nodes, optionally with edges between them.
+
+    Each entry under ``groups`` carries a ``centrality`` field — a
+    weighted-PageRank score in ``[0, 1]`` reflecting structural importance.
+    The cache is refreshed lazily on first read after the graph changes and is
+    stable within a graph version, so callers may use it as a secondary sort
+    key. See ``summarise_node`` in this module for the canonical per-node schema.
+    """
     if error := validate_response_shape(response_shape):
         return error
 
@@ -260,7 +283,14 @@ def search(
     token_budget: int | None = None,
     cursor: str | None = None,
 ) -> dict[str, Any]:
-    """Full-text search across node names and summaries. Returns ranked results."""
+    """Full-text search across node names and summaries. Returns ranked results.
+
+    Each entry in ``results`` carries a ``centrality`` field — a
+    weighted-PageRank score in ``[0, 1]`` reflecting structural importance.
+    The cache is refreshed lazily on first read after the graph changes and is
+    stable within a graph version, so callers may use it as a secondary sort
+    key. See ``summarise_node`` in this module for the canonical per-node schema.
+    """
     if error := validate_response_shape(response_shape):
         return error
 
@@ -300,7 +330,14 @@ def get_file_structure(
     cursor: str | None = None,
     limit: int | None = None,
 ) -> dict[str, Any]:
-    """Get all nodes in a given file with their relationships."""
+    """Get all nodes in a given file with their relationships.
+
+    Each entry in ``nodes`` carries a ``centrality`` field — a weighted-PageRank
+    score in ``[0, 1]`` reflecting structural importance. The cache is
+    refreshed lazily on first read after the graph changes and is stable within
+    a graph version, so callers may use it as a secondary sort key. See
+    ``summarise_node`` in this module for the canonical per-node schema.
+    """
     if error := validate_response_shape(response_shape):
         return error
 

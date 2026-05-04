@@ -1,11 +1,9 @@
 ---
 title: Test-Coverage Edges (R5)
 type: feat
-status: superseded
-date: 2026-04-23
+status: active
+date: 2026-05-04
 origin: docs/brainstorms/2026-04-23-001-plugin-evolution-requirements.md
-parent: docs/plans/2026-04-23-001-feat-plugin-evolution-roadmap.md
-superseded_by: docs/plans/2026-05-04-007-feat-test-coverage-edges-plan.md
 requirement: R5
 units:
   - id: 1
@@ -67,6 +65,10 @@ the same precise view.
 - **Out of scope:** Running the test suite itself (plugin consumes pre-existing coverage files);
   per-line coverage visualization; differential coverage between runs; Go/Rust/Java coverage
   formats — accept heuristic-only for v1 (ground-truth pass per language is future work).
+
+## Memory Context
+
+No relevant memory entries found.
 
 ## Context & Research
 
@@ -280,7 +282,7 @@ their own heuristic rules; can ship Python + JS/TS first with R3 still pending.
 ## Sources & References
 
 - Origin: `docs/brainstorms/2026-04-23-001-plugin-evolution-requirements.md` (R5)
-- Parent roadmap: `docs/plans/2026-04-23-001-feat-plugin-evolution-roadmap.md`
+- Predecessor plan: `docs/plans/2026-04-23-006-feat-test-coverage-edges-plan.md` (refreshed by this plan)
 - coverage.py contexts: https://coverage.readthedocs.io/en/latest/contexts.html
 - Istanbul JSON schema: https://github.com/istanbuljs/schema
 

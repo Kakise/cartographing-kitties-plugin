@@ -1,11 +1,9 @@
 ---
 title: Watch Mode / Live Graph Subscription (R7)
 type: feat
-status: superseded
-date: 2026-04-23
+status: active
+date: 2026-05-04
 origin: docs/brainstorms/2026-04-23-001-plugin-evolution-requirements.md
-parent: docs/plans/2026-04-23-001-feat-plugin-evolution-roadmap.md
-superseded_by: docs/plans/2026-05-04-008-feat-watch-mode-plan.md
 requirement: R7
 units:
   - id: 1
@@ -57,6 +55,15 @@ like R2's `get_diagnostics`.
 - **Out of scope:** multi-process coordination (single-server assumption); Windows-specific
   quirks beyond what `watchdog` handles; network filesystems; persistent subscription across
   server restarts.
+
+## Memory Context
+
+No relevant memory entries found. The `.pawprints/memory/` directory does not exist in the
+working tree as of 2026-05-04, so neither the treat box nor the litter box contributes prior
+lessons for filesystem watching, debounce strategies, or MCP long-poll subscription patterns.
+Proceed using the predecessor's technical decisions verbatim; record any `watchdog` platform
+quirks, debounce-tuning regressions, or MCP timeout edge cases discovered during execution so
+subsequent refreshes inherit them.
 
 ## Context & Research
 
@@ -235,7 +242,7 @@ a watch-mode diff) but doesn't require it.
 ## Sources & References
 
 - Origin: `docs/brainstorms/2026-04-23-001-plugin-evolution-requirements.md` (R7)
-- Parent roadmap: `docs/plans/2026-04-23-001-feat-plugin-evolution-roadmap.md`
+- Predecessor plan (refresh source): `docs/plans/2026-04-23-008-feat-watch-mode-plan.md`
 - watchdog docs: https://python-watchdog.readthedocs.io/
 - Existing reactive infrastructure: `docs/plans/2026-03-28-006-feat-graph-reactive-engineering-plan.md`
 

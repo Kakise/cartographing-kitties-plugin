@@ -1,11 +1,9 @@
 ---
 title: Shared / Remote Graph Cache (R8)
 type: feat
-status: superseded
-date: 2026-04-23
+status: active
+date: 2026-05-04
 origin: docs/brainstorms/2026-04-23-001-plugin-evolution-requirements.md
-parent: docs/plans/2026-04-23-001-feat-plugin-evolution-roadmap.md
-superseded_by: docs/plans/2026-05-04-009-feat-shared-graph-cache-plan.md
 requirement: R8
 units:
   - id: 1
@@ -60,6 +58,15 @@ artifact-first (simple, no service) with pull-from-URL as the second mode.
   paths, staleness detection, privacy stripping of author-email data from R4.
 - **Out of scope:** a hosted Cartograph service; delta / incremental shared updates (full
   artifact swap only for v1); access control (assume users wrap auth at the transport layer).
+
+## Memory Context
+
+No relevant memory entries found. The `.pawprints/memory/` directory does not exist in the
+working tree as of 2026-05-04, so neither the treat box nor the litter box contributes prior
+lessons for artifact packing, transport adapters, staleness catch-up, or privacy stripping.
+Proceed using the predecessor's technical decisions verbatim; record any `boto3` adapter
+quirks, manifest-versioning regressions, or backup/restore edge cases discovered during
+execution so subsequent refreshes inherit them.
 
 ## Context & Research
 
@@ -255,7 +262,7 @@ diff.
 ## Sources & References
 
 - Origin: `docs/brainstorms/2026-04-23-001-plugin-evolution-requirements.md` (R8)
-- Parent roadmap: `docs/plans/2026-04-23-001-feat-plugin-evolution-roadmap.md`
+- Predecessor plan (refresh source): `docs/plans/2026-04-23-009-feat-shared-graph-cache-plan.md`
 
 ## Handoff
 
