@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 from typing import Any
@@ -20,11 +21,15 @@ REPO_ROOT = _repo_root()
 SKILLS_ROOT = REPO_ROOT / "plugins" / "kitty" / "skills"
 MAX_SKILL_LINES = 500
 KNOWN_TOOLS = {
+    "add_litter_box_entry",
+    "add_treat_box_entry",
     "annotation_status",
     "batch_query_nodes",
     "find_dependencies",
     "find_dependents",
+    "find_low_quality_annotations",
     "find_stale_annotations",
+    "get_agent_handoff",
     "get_context_summary",
     "get_file_structure",
     "get_pending_annotations",
@@ -34,6 +39,7 @@ KNOWN_TOOLS = {
     "query_node",
     "query_treat_box",
     "rank_nodes",
+    "requeue_low_quality_annotations",
     "search",
     "submit_annotations",
     "validate_graph",
@@ -115,10 +121,34 @@ def validate_skill(path: Path) -> list[str]:
     return errors
 
 
+def _validate_kitty_router_spawn_map() -> list[str]:
+    """Enforce: every agent in agents/manifest.json appears in kitty/SKILL.md spawn map."""
+
+    router_path = SKILLS_ROOT / "kitty" / "SKILL.md"
+    manifest_path = REPO_ROOT / "plugins" / "kitty" / "agents" / "manifest.json"
+    if not router_path.exists() or not manifest_path.exists():
+        return []
+
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    declared_names = {entry["name"] for entry in manifest["agents"]}
+    body = router_path.read_text(encoding="utf-8")
+    if "## Agent Spawn Map" not in body:
+        return [f"{router_path.relative_to(REPO_ROOT)}: missing `## Agent Spawn Map` section"]
+
+    missing = sorted(name for name in declared_names if f"`{name}`" not in body)
+    if missing:
+        return [
+            f"{router_path.relative_to(REPO_ROOT)}: spawn map does not reference "
+            f"{', '.join(missing)} (declared in agents/manifest.json)"
+        ]
+    return []
+
+
 def validate_all() -> list[str]:
     errors: list[str] = []
     for skill_path in sorted(SKILLS_ROOT.glob("*/SKILL.md")):
         errors.extend(validate_skill(skill_path))
+    errors.extend(_validate_kitty_router_spawn_map())
     return errors
 
 

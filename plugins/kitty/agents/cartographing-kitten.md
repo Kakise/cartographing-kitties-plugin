@@ -6,7 +6,7 @@ description: >
   skill orchestrator, generates summaries/tags/roles, and returns results as a JSON array.
   Use when annotating large codebases (50+ pending nodes) by spawning 2-3 instances in
   parallel, each with its own non-overlapping batch.
-model: inherit
+model: claude-sonnet-4-6
 tools: Read, Grep, Glob, Bash
 color: green
 framework_status: active-framework-agent

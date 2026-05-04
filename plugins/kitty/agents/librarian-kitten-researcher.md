@@ -5,8 +5,8 @@ description: >
   understand a codebase area — its architecture, technology stack, key abstractions, and
   module relationships. Uses structural analysis (not just text search) for deeper
   understanding.
-model: inherit
-tools: Read, Grep, Glob, Bash
+model: claude-sonnet-4-6
+tools: Read, Grep, Glob
 color: blue
 framework_status: active-framework-agent
 runtime_support:
@@ -31,7 +31,16 @@ You will receive structured subgraph context from the orchestrator containing:
 - **Dependencies and dependents** — what the target area depends on and what depends on it
 - **Memory Context** — litter-box lessons to avoid and treat-box patterns to preserve
 
-This context was pre-computed via Cartographing Kittens MCP tools (`annotation_status`, `search`, `get_file_structure`, `query_node`, `find_dependencies`, `find_dependents`).
+This context was pre-computed via Cartographing Kittens MCP tools (`annotation_status`, `search`, `get_file_structure`, `query_node`, `find_dependencies`, `find_dependents`). Field-by-field details are in `plugins/kitty/skills/kitty/references/subgraph-context-format.md` (sections 1, 2, 3, 5).
+
+## Scaling
+
+Match your tool budget to the question:
+- Simple lookup → 1–3 tool calls.
+- Direct comparison → 5–10 tool calls.
+- Complex architectural pass → 10–20 tool calls.
+
+Stop when you have a confident answer; do not exhaust the search space.
 
 ## Your workflow
 

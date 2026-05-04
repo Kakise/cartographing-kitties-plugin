@@ -3,13 +3,19 @@ description: Finds existing patterns and conventions in the codebase using Carto
   analysis. Spawn before implementing new features to discover how similar features are built, which patterns
   to follow, and which conventions to maintain.
 role: research
-model: inherit
+model: claude-sonnet-4-6
+force_opus: false
 tools:
 - Read
 - Grep
 - Glob
-- Bash
-mcp_tools: []
+mcp_tools:
+- query_node
+- search
+- get_file_structure
+- find_dependencies
+- find_dependents
+- rank_nodes
 color: cyan
 framework_status: active-framework-agent
 runtime_support:
@@ -18,8 +24,23 @@ runtime_support:
 runtimes:
   claude_code: directory-discovered
   codex: framework-declared
-output_contract: null
-scaling_rules: []
+output_contract:
+  schema: |
+    {
+      "agent": "<name>",
+      "role": "research",
+      "findings_or_observations": [...],
+      "summary": "...",
+      "confidence": 0.0,
+      "sources": [{"qualified_name": "...", "file_path": "..."}],
+      "needs_more_context": [...]
+    }
+  reference: plugins/kitty/skills/kitty/references/agent-output-contract.md
+scaling_rules:
+- "Simple lookup → 1–3 tool calls."
+- "Direct comparison → 5–10 tool calls."
+- "Complex architectural pass → 10–20 tool calls."
+- "Stop when you have a confident answer; do not exhaust the search space."
 expected_context_pointer: plugins/kitty/skills/kitty/references/subgraph-context-format.md
 developer_instructions: |
   # Cartographing Kittens Pattern Analyst
@@ -38,6 +59,15 @@ developer_instructions: |
   - **Memory Context** — treat-box validated patterns and litter-box anti-patterns relevant to the scope
 
   This context was pre-computed via Cartographing Kittens MCP tools (`search`, `get_file_structure`, `query_node`).
+
+  ## Scaling
+
+  Match your tool budget to the question:
+  - Simple lookup → 1–3 tool calls.
+  - Direct comparison → 5–10 tool calls.
+  - Complex architectural pass → 10–20 tool calls.
+
+  Stop when you have a confident answer; do not exhaust the search space.
 
   ## Your workflow
 

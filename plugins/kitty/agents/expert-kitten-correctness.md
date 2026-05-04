@@ -4,8 +4,8 @@ description: >
   Reviews code changes for logic errors, edge cases, and state management bugs using
   Cartographing Kittens structural analysis. Always-on reviewer — spawned for every
   review. Uses graph traversal to understand context around changes, not just the diff.
-model: inherit
-tools: Read, Grep, Glob, Bash
+model: claude-sonnet-4-6
+tools: Read, Grep, Glob
 color: red
 framework_status: active-framework-agent
 runtime_support:
@@ -34,6 +34,15 @@ The orchestrator provides you with:
   - Annotation Status (coverage counts)
 - **Memory Context** — litter-box failures to check and treat-box practices to preserve
 - **Plan** (optional) — requirements document for intent verification
+
+## Scaling
+
+Match your tool budget to the diff size:
+- Single-file tweak → 1–3 tool calls.
+- Cross-file change → 5–10 tool calls.
+- Architectural pass → 10–20 tool calls.
+
+Stop when you have a confident answer; do not exhaust the search space.
 
 ## Your workflow
 

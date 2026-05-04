@@ -1,23 +1,28 @@
 ---
 title: Harness Overhaul — Skills, Agents, Codex Parity, Memory & Telemetry (Followup)
 type: feat
-status: active
+status: complete
 date: 2026-05-04
 origin: docs/brainstorms/2026-04-27-002-harness-context-engineering-requirements.md
 parent: docs/plans/2026-04-27-003-feat-harness-context-engineering-plan.md
+implemented_in: c27125f
 units:
   - id: 1
     title: Skill restructuring (progressive disclosure, frontmatter expansion, dynamic context)
-    state: pending
+    state: complete
+    implemented_in: c27125f
   - id: 2
     title: Agent specialization (tool perms, Sonnet model, scaling rules, output contract, spawn map)
-    state: pending
+    state: complete
+    implemented_in: 6fc07ff
   - id: 3
     title: Codex parity finish (AGENTS.md, sync script, parity tests)
-    state: pending
+    state: complete
+    implemented_in: 3b8562b
   - id: 4
     title: Memory + handoff + observability + smoke tests
-    state: pending
+    state: complete
+    implemented_in: 73d8f31
 ---
 
 # Harness Overhaul — Followup (U4–U7 of 2026-04-27-003)
@@ -100,7 +105,7 @@ Unit 1 ↔ U4, Unit 2 ↔ U5, Unit 3 ↔ U6 *finish*, Unit 4 ↔ U7.
 
 ### Unit 1 — Skill restructuring (progressive disclosure, frontmatter expansion, dynamic context)
 
-**State:** pending
+**State:** complete — implemented in c27125f
 
 - [ ] **Goal.** Every skill is compaction-resilient (decision tree + tool matrix + contract
       in the first 5,000 tokens), uses the full Claude Code frontmatter spectrum, and
@@ -169,7 +174,7 @@ Unit 1 ↔ U4, Unit 2 ↔ U5, Unit 3 ↔ U6 *finish*, Unit 4 ↔ U7.
 
 ### Unit 2 — Agent specialization (tool perms, Sonnet model, scaling rules, output contract, spawn map)
 
-**State:** pending
+**State:** complete — implemented in 6fc07ff
 
 - [ ] **Goal.** Each agent has the smallest viable tool surface, runs on Sonnet by default,
       embeds a calibrated scaling rubric, returns a unified JSON contract, and links to
@@ -261,7 +266,7 @@ Unit 1 ↔ U4, Unit 2 ↔ U5, Unit 3 ↔ U6 *finish*, Unit 4 ↔ U7.
 
 ### Unit 3 — Codex parity finish (AGENTS.md, sync script, parity tests)
 
-**State:** pending
+**State:** complete — implemented in 3b8562b
 
 - [ ] **Goal.** Close the unfinished slice of the predecessor's U6. The nine
       `plugins/kitty/.codex/agents/*.toml` files already exist (cartographing-kitten +
@@ -335,7 +340,7 @@ Unit 1 ↔ U4, Unit 2 ↔ U5, Unit 3 ↔ U6 *finish*, Unit 4 ↔ U7.
 
 ### Unit 4 — Memory + handoff + observability + smoke tests
 
-**State:** pending
+**State:** complete — implemented in 73d8f31
 
 - [ ] **Goal.** Subagents write to a persistent handoff store; the orchestrator drops
       `cleanable: true` payloads on compaction; memory queries are budgeted; per-skill

@@ -1,0 +1,9 @@
+# Codex runtime defaults for the Cartographing Kittens plugin.
+#
+# These caps keep Codex execution predictable for skills like kitty:work and
+# kitty:lfg that may delegate to multiple agents. Adjust here rather than
+# per-skill so Claude Code parity is preserved.
+
+max_threads = 4
+max_depth = 1
+job_max_runtime_seconds = 300

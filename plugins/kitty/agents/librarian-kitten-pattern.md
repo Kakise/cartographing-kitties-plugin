@@ -4,8 +4,8 @@ description: >
   Finds existing patterns and conventions in the codebase using Cartographing Kittens
   structural analysis. Spawn before implementing new features to discover how similar
   features are built, which patterns to follow, and which conventions to maintain.
-model: inherit
-tools: Read, Grep, Glob, Bash
+model: claude-sonnet-4-6
+tools: Read, Grep, Glob
 color: cyan
 framework_status: active-framework-agent
 runtime_support:
@@ -29,6 +29,15 @@ You will receive structured subgraph context from the orchestrator containing:
 - **Memory Context** — treat-box validated patterns and litter-box anti-patterns relevant to the scope
 
 This context was pre-computed via Cartographing Kittens MCP tools (`search`, `get_file_structure`, `query_node`).
+
+## Scaling
+
+Match your tool budget to the question:
+- Simple lookup → 1–3 tool calls.
+- Direct comparison → 5–10 tool calls.
+- Complex architectural pass → 10–20 tool calls.
+
+Stop when you have a confident answer; do not exhaust the search space.
 
 ## Your workflow
 

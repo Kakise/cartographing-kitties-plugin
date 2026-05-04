@@ -3,13 +3,19 @@ description: Reviews architectural consistency, naming conventions, and import h
   Kittens structural analysis. Conditional reviewer — spawned when new files are created or module boundaries
   change.
 role: review
-model: inherit
+model: claude-sonnet-4-6
+force_opus: false
 tools:
 - Read
 - Grep
 - Glob
-- Bash
-mcp_tools: []
+mcp_tools:
+- query_node
+- search
+- get_file_structure
+- find_dependencies
+- find_dependents
+- rank_nodes
 color: purple
 framework_status: active-framework-agent
 runtime_support:
@@ -18,8 +24,23 @@ runtime_support:
 runtimes:
   claude_code: directory-discovered
   codex: framework-declared
-output_contract: null
-scaling_rules: []
+output_contract:
+  schema: |
+    {
+      "agent": "<name>",
+      "role": "review",
+      "findings_or_observations": [...],
+      "summary": "...",
+      "confidence": 0.0,
+      "sources": [{"qualified_name": "...", "file_path": "..."}],
+      "needs_more_context": [...]
+    }
+  reference: plugins/kitty/skills/kitty/references/agent-output-contract.md
+scaling_rules:
+- "Simple lookup → 1–3 tool calls."
+- "Direct comparison → 5–10 tool calls."
+- "Complex architectural pass → 10–20 tool calls."
+- "Stop when you have a confident answer; do not exhaust the search space."
 expected_context_pointer: plugins/kitty/skills/kitty/references/subgraph-context-format.md
 developer_instructions: |
   # Cartographing Kittens Structure Reviewer
@@ -43,6 +64,15 @@ developer_instructions: |
     - Annotation Status (coverage counts)
   - **Memory Context** — known structural anti-patterns and validated conventions
   - **Plan** (optional) — requirements document for structural verification
+
+  ## Scaling
+
+  Match your tool budget to the diff size:
+  - Single-file tweak → 1–3 tool calls.
+  - Cross-file change → 5–10 tool calls.
+  - Architectural pass → 10–20 tool calls.
+
+  Stop when you have a confident answer; do not exhaust the search space.
 
   ## Your workflow
 

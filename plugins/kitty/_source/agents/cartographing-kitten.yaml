@@ -4,13 +4,16 @@ description: Batch annotation specialist for Cartographing Kittens. Spawn this a
   generates summaries/tags/roles, and returns results as a JSON array. Use when annotating large codebases
   (50+ pending nodes) by spawning 2-3 instances in parallel, each with its own non-overlapping batch.
 role: annotation
-model: inherit
+model: claude-sonnet-4-6
+force_opus: false
 tools:
 - Read
 - Grep
 - Glob
 - Bash
-mcp_tools: []
+mcp_tools:
+- query_node
+- get_file_structure
 color: green
 framework_status: active-framework-agent
 runtime_support:
@@ -19,7 +22,18 @@ runtime_support:
 runtimes:
   claude_code: directory-discovered
   codex: framework-declared
-output_contract: null
+output_contract:
+  schema: |
+    {
+      "agent": "<name>",
+      "role": "annotation",
+      "findings_or_observations": [...],
+      "summary": "...",
+      "confidence": 0.0,
+      "sources": [{"qualified_name": "...", "file_path": "..."}],
+      "needs_more_context": [...]
+    }
+  reference: plugins/kitty/skills/kitty/references/agent-output-contract.md
 scaling_rules: []
 expected_context_pointer: plugins/kitty/skills/kitty/references/subgraph-context-format.md
 developer_instructions: |

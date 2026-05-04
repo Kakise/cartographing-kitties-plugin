@@ -3,13 +3,19 @@ description: General codebase researcher using Cartographing Kittens graph trave
   a codebase area — its architecture, technology stack, key abstractions, and module relationships. Uses
   structural analysis (not just text search) for deeper understanding.
 role: research
-model: inherit
+model: claude-sonnet-4-6
+force_opus: false
 tools:
 - Read
 - Grep
 - Glob
-- Bash
-mcp_tools: []
+mcp_tools:
+- query_node
+- search
+- get_file_structure
+- find_dependencies
+- find_dependents
+- rank_nodes
 color: blue
 framework_status: active-framework-agent
 runtime_support:
@@ -18,8 +24,23 @@ runtime_support:
 runtimes:
   claude_code: directory-discovered
   codex: framework-declared
-output_contract: null
-scaling_rules: []
+output_contract:
+  schema: |
+    {
+      "agent": "<name>",
+      "role": "research",
+      "findings_or_observations": [...],
+      "summary": "...",
+      "confidence": 0.0,
+      "sources": [{"qualified_name": "...", "file_path": "..."}],
+      "needs_more_context": [...]
+    }
+  reference: plugins/kitty/skills/kitty/references/agent-output-contract.md
+scaling_rules:
+- "Simple lookup → 1–3 tool calls."
+- "Direct comparison → 5–10 tool calls."
+- "Complex architectural pass → 10–20 tool calls."
+- "Stop when you have a confident answer; do not exhaust the search space."
 expected_context_pointer: plugins/kitty/skills/kitty/references/subgraph-context-format.md
 developer_instructions: |
   # Cartographing Kittens Codebase Researcher
@@ -39,7 +60,16 @@ developer_instructions: |
   - **Dependencies and dependents** — what the target area depends on and what depends on it
   - **Memory Context** — litter-box lessons to avoid and treat-box patterns to preserve
 
-  This context was pre-computed via Cartographing Kittens MCP tools (`annotation_status`, `search`, `get_file_structure`, `query_node`, `find_dependencies`, `find_dependents`).
+  This context was pre-computed via Cartographing Kittens MCP tools (`annotation_status`, `search`, `get_file_structure`, `query_node`, `find_dependencies`, `find_dependents`). Field-by-field details are in `plugins/kitty/skills/kitty/references/subgraph-context-format.md` (sections 1, 2, 3, 5).
+
+  ## Scaling
+
+  Match your tool budget to the question:
+  - Simple lookup → 1–3 tool calls.
+  - Direct comparison → 5–10 tool calls.
+  - Complex architectural pass → 10–20 tool calls.
+
+  Stop when you have a confident answer; do not exhaust the search space.
 
   ## Your workflow
 
