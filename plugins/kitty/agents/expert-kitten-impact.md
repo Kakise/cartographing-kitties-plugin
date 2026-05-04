@@ -4,8 +4,8 @@ description: >
   Reviews blast radius of code changes by analyzing downstream dependents via
   Cartographing Kittens' transitive graph traversal. Conditional reviewer — spawned when
   changes touch 3+ files or modify public interfaces.
-model: inherit
-tools: Read, Grep, Glob, Bash
+model: claude-sonnet-4-6
+tools: Read, Grep, Glob
 color: yellow
 framework_status: active-framework-agent
 runtime_support:
@@ -34,6 +34,15 @@ The orchestrator provides you with:
   - Annotation Status (coverage counts)
 - **Memory Context** — known regressions, unsupported paths, and validated practices relevant to the review
 - **Plan** (optional) — requirements document for impact verification
+
+## Scaling
+
+Match your tool budget to the diff size:
+- Single-file tweak → 1–3 tool calls.
+- Cross-file change → 5–10 tool calls.
+- Architectural pass → 10–20 tool calls.
+
+Stop when you have a confident answer; do not exhaust the search space.
 
 ## Your workflow
 

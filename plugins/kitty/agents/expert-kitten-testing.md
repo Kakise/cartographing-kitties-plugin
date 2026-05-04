@@ -3,8 +3,8 @@ name: expert-kitten-testing
 description: >
   Reviews test coverage gaps using Cartographing Kittens dependency graph to identify
   which tests should cover modified code. Always-on reviewer — spawned for every review.
-model: inherit
-tools: Read, Grep, Glob, Bash
+model: claude-sonnet-4-6
+tools: Read, Grep, Glob
 color: green
 framework_status: active-framework-agent
 runtime_support:
@@ -33,6 +33,15 @@ The orchestrator provides you with:
   - Annotation Status (coverage counts)
 - **Memory Context** — prior flaky tests, regression patterns, and validated testing conventions
 - **Plan** (optional) — requirements document for coverage verification
+
+## Scaling
+
+Match your tool budget to the diff size:
+- Single-file tweak → 1–3 tool calls.
+- Cross-file change → 5–10 tool calls.
+- Architectural pass → 10–20 tool calls.
+
+Stop when you have a confident answer; do not exhaust the search space.
 
 ## Your workflow
 

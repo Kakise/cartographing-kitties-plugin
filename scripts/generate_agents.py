@@ -107,6 +107,12 @@ def _load_agent_sources() -> list[dict[str, Any]]:
         agent.setdefault("mcp_tools", [])
         agent.setdefault("color", None)
         agent.setdefault("framework_status", "active-framework-agent")
+        agent.setdefault("force_opus", False)
+        if agent["force_opus"] is True and not agent.get("force_opus_reason"):
+            raise ValueError(
+                f"{path}: force_opus=true requires a non-empty force_opus_reason. "
+                f"Sonnet is the default; document why Opus is needed before opting in."
+            )
         agent.setdefault(
             "runtime_support",
             {

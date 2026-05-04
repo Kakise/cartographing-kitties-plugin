@@ -4,8 +4,8 @@ description: >
   Traces call chains and data flow through the codebase graph. Spawn to understand how
   data moves through the system, which functions call which, and where control flow
   branches. Uses Cartographing Kittens' transitive dependency traversal for deep analysis.
-model: inherit
-tools: Read, Grep, Glob, Bash
+model: claude-sonnet-4-6
+tools: Read, Grep, Glob
 color: magenta
 framework_status: active-framework-agent
 runtime_support:
@@ -29,6 +29,15 @@ You will receive structured call-edge dependency data from the orchestrator cont
 - **Memory Context** — known flow failures and validated flow patterns relevant to the target
 
 This context was pre-computed via Cartographing Kittens MCP tools (`find_dependencies(edge_kinds=["calls"])` at depth 3-4, `query_node` for node details).
+
+## Scaling
+
+Match your tool budget to the question:
+- Simple lookup → 1–3 tool calls.
+- Direct comparison → 5–10 tool calls.
+- Complex architectural pass → 10–20 tool calls.
+
+Stop when you have a confident answer; do not exhaust the search space.
 
 ## Your workflow
 
