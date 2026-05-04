@@ -21,11 +21,15 @@ REPO_ROOT = _repo_root()
 SKILLS_ROOT = REPO_ROOT / "plugins" / "kitty" / "skills"
 MAX_SKILL_LINES = 500
 KNOWN_TOOLS = {
+    "add_litter_box_entry",
+    "add_treat_box_entry",
     "annotation_status",
     "batch_query_nodes",
     "find_dependencies",
     "find_dependents",
+    "find_low_quality_annotations",
     "find_stale_annotations",
+    "get_agent_handoff",
     "get_context_summary",
     "get_file_structure",
     "get_pending_annotations",
@@ -35,6 +39,7 @@ KNOWN_TOOLS = {
     "query_node",
     "query_treat_box",
     "rank_nodes",
+    "requeue_low_quality_annotations",
     "search",
     "submit_annotations",
     "validate_graph",
