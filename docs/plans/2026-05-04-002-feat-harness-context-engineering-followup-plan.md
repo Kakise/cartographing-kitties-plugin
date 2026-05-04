@@ -19,7 +19,8 @@ units:
     implemented_in: 3b8562b
   - id: 4
     title: Memory + handoff + observability + smoke tests
-    state: pending
+    state: complete
+    implemented_in: 73d8f31
 ---
 
 # Harness Overhaul — Followup (U4–U7 of 2026-04-27-003)
@@ -337,7 +338,7 @@ Unit 1 ↔ U4, Unit 2 ↔ U5, Unit 3 ↔ U6 *finish*, Unit 4 ↔ U7.
 
 ### Unit 4 — Memory + handoff + observability + smoke tests
 
-**State:** pending
+**State:** complete — implemented in 73d8f31
 
 - [ ] **Goal.** Subagents write to a persistent handoff store; the orchestrator drops
       `cleanable: true` payloads on compaction; memory queries are budgeted; per-skill
