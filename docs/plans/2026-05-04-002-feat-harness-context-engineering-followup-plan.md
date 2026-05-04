@@ -1,7 +1,7 @@
 ---
 title: Harness Overhaul — Skills, Agents, Codex Parity, Memory & Telemetry (Followup)
 type: feat
-status: active
+status: in_progress
 date: 2026-05-04
 origin: docs/brainstorms/2026-04-27-002-harness-context-engineering-requirements.md
 parent: docs/plans/2026-04-27-003-feat-harness-context-engineering-plan.md
@@ -14,7 +14,8 @@ units:
     state: pending
   - id: 3
     title: Codex parity finish (AGENTS.md, sync script, parity tests)
-    state: pending
+    state: complete
+    implemented_in: 3b8562b
   - id: 4
     title: Memory + handoff + observability + smoke tests
     state: pending
@@ -261,7 +262,7 @@ Unit 1 ↔ U4, Unit 2 ↔ U5, Unit 3 ↔ U6 *finish*, Unit 4 ↔ U7.
 
 ### Unit 3 — Codex parity finish (AGENTS.md, sync script, parity tests)
 
-**State:** pending
+**State:** complete — implemented in 3b8562b
 
 - [ ] **Goal.** Close the unfinished slice of the predecessor's U6. The nine
       `plugins/kitty/.codex/agents/*.toml` files already exist (cartographing-kitten +
