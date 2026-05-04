@@ -12,6 +12,15 @@
       }
     },
     {
+      "name": "expert-kitten-context",
+      "path": "./expert-kitten-context.md",
+      "role": "review",
+      "runtimes": {
+        "claude_code": "directory-discovered",
+        "codex": "framework-declared"
+      }
+    },
+    {
       "name": "expert-kitten-correctness",
       "path": "./expert-kitten-correctness.md",
       "role": "review",

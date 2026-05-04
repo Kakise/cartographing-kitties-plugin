@@ -834,6 +834,7 @@ class TestStdioToolDiscovery:
             "query_litter_box",
             "add_treat_box_entry",
             "query_treat_box",
+            "get_agent_handoff",
             "find_stale_annotations",
             "find_low_quality_annotations",
             "requeue_low_quality_annotations",
