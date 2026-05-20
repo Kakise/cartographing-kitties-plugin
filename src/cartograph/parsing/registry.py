@@ -4,18 +4,32 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import tree_sitter_cpp
 import tree_sitter_javascript
 import tree_sitter_python
+import tree_sitter_rust
 import tree_sitter_typescript
 from tree_sitter import Language, Parser, Tree
 
-# Extension -> language name mapping
+# Extension -> language name mapping.
+# Note: `.h` is mapped to the C++ grammar; tree-sitter-cpp accepts the C subset
+# syntactically, so pure-C headers still parse without errors.
 EXTENSION_MAP: dict[str, str] = {
     ".py": "python",
     ".ts": "typescript",
     ".tsx": "tsx",
     ".js": "javascript",
     ".jsx": "javascript",
+    ".rs": "rust",
+    ".cpp": "cpp",
+    ".cc": "cpp",
+    ".cxx": "cpp",
+    ".c++": "cpp",
+    ".hpp": "cpp",
+    ".hh": "cpp",
+    ".hxx": "cpp",
+    ".h++": "cpp",
+    ".h": "cpp",
 }
 
 
@@ -29,6 +43,10 @@ def _get_language(lang_name: str) -> Language:
         return Language(tree_sitter_typescript.language_tsx())
     elif lang_name == "javascript":
         return Language(tree_sitter_javascript.language())
+    elif lang_name == "rust":
+        return Language(tree_sitter_rust.language())
+    elif lang_name == "cpp":
+        return Language(tree_sitter_cpp.language())
     else:
         raise ValueError(f"Unsupported language: {lang_name}")
 

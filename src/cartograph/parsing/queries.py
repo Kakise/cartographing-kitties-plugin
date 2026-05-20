@@ -95,6 +95,30 @@ QUERIES: dict[str, dict[str, str]] = {
 # TSX shares TypeScript queries
 QUERIES["tsx"] = QUERIES["typescript"]
 
+QUERIES["rust"] = {
+    "definitions": """
+        [
+            (function_item name: (identifier) @def.name) @def.node
+            (function_signature_item name: (identifier) @def.name) @def.node
+            (struct_item name: (type_identifier) @class.name) @class.node
+            (enum_item name: (type_identifier) @enum.name) @enum.node
+            (trait_item name: (type_identifier) @iface.name) @iface.node
+            (type_item name: (type_identifier) @type.name) @type.node
+            (impl_item) @impl.node
+            (mod_item name: (identifier) @mod.name) @mod.node
+        ]
+    """,
+    "imports": """
+        (use_declaration) @import.node
+    """,
+    "calls": """
+        [
+            (call_expression) @call.node
+            (macro_invocation) @macro.node
+        ]
+    """,
+}
+
 # Node type sets used by extractors for tree walking
 PYTHON_DEF_TYPES = {"function_definition", "class_definition", "decorated_definition"}
 PYTHON_IMPORT_TYPES = {"import_statement", "import_from_statement"}
@@ -112,3 +136,52 @@ TS_DEF_TYPES = {
 TS_IMPORT_TYPES = {"import_statement"}
 TS_CALL_TYPES = {"call_expression", "new_expression"}
 TS_EXPORT_TYPES = {"export_statement"}
+
+RUST_DEF_TYPES = {
+    "function_item",
+    "function_signature_item",
+    "struct_item",
+    "enum_item",
+    "trait_item",
+    "type_item",
+    "impl_item",
+    "mod_item",
+}
+RUST_IMPORT_TYPES = {"use_declaration"}
+RUST_CALL_TYPES = {"call_expression", "macro_invocation"}
+
+QUERIES["cpp"] = {
+    "definitions": """
+        [
+            (function_definition) @def.node
+            (class_specifier name: (type_identifier) @class.name) @class.node
+            (struct_specifier name: (type_identifier) @class.name) @class.node
+            (namespace_definition name: (namespace_identifier) @mod.name) @mod.node
+            (enum_specifier name: (type_identifier) @enum.name) @enum.node
+            (type_definition) @typedef.node
+            (alias_declaration name: (type_identifier) @type.name) @type.node
+        ]
+    """,
+    "imports": """
+        (preproc_include) @import.node
+    """,
+    "calls": """
+        (call_expression) @call.node
+    """,
+}
+
+# Note: `field_declaration` is intentionally not in CPP_DEF_TYPES — we walk it
+# manually from inside class/struct bodies so we can distinguish member
+# variables (skip) from method declarations / pure-virtual decls (extract as
+# methods).
+CPP_DEF_TYPES = {
+    "function_definition",
+    "class_specifier",
+    "struct_specifier",
+    "namespace_definition",
+    "enum_specifier",
+    "type_definition",
+    "alias_declaration",
+}
+CPP_IMPORT_TYPES = {"preproc_include"}
+CPP_CALL_TYPES = {"call_expression"}

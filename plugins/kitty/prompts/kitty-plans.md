@@ -1,7 +1,4 @@
-description = "Show status of every plan under docs/plans/"
-
-prompt = """
-Run `uv run python scripts/plan_status.py report {{args}}` and present the resulting table to the user.
+Run `uv run python scripts/plan_status.py report` and present the resulting table to the user.
 
 For each plan, surface:
 - File name and plan title
@@ -10,5 +7,5 @@ For each plan, surface:
 - implemented_in / superseded_by / abandoned_reason when set
 - Whether the current branch matches the plan slug
 
-If the user passes flags through `{{args}}` (for example `--format json`), forward them verbatim.
-"""
+If the user supplied extra plan-status flags in the surrounding request, forward them verbatim
+to `scripts/plan_status.py`.

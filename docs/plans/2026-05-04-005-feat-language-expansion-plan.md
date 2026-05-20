@@ -14,7 +14,8 @@ units:
     state: pending
   - id: 3
     title: Rust extractor
-    state: pending
+    state: skipped
+    skipped_reason: Superseded by docs/plans/2026-05-15-002-feat-rust-cpp-language-support-plan.md
   - id: 4
     title: Mixed-language integration
     state: pending
@@ -214,7 +215,7 @@ Java/Go use `.`). This is a Cartograph internal convention, not a language-nativ
 
 ### Unit 3 — Rust extractor
 
-**State:** pending
+**State:** skipped — Superseded by docs/plans/2026-05-15-002-feat-rust-cpp-language-support-plan.md
 
 - [ ] Add `tree-sitter-rust>=0.25.0`.
 - [ ] Register in `registry.py`; extension `.rs`.

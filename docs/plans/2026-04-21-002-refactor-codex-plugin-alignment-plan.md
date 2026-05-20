@@ -43,10 +43,10 @@ optional rather than assumed.
 The core product in `src/cartograph/` is solid: the MCP server and tool surface are real,
 modular, and already tested. The weak point is the packaging/workflow layer:
 
-- the root Codex manifest exposes `skills` and `mcpServers`, but the local Codex manifest spec does not provide an explicit `agents` field
+- the root Codex manifest exposes `skills` and `mcpServers`, but the generated Codex custom agents live under `plugins/kitty/.codex/agents`
 - `plugins/kitty/agents/*.md` exist as framework subagents, but the repo lacks a runtime-neutral declaration proving they are intentional cross-runtime components
 - README and several skills describe automatic multi-agent workflows as if they were guaranteed runtime behavior
-- guidance is duplicated across `README.md`, `CLAUDE.md`, `GEMINI.md`, and multiple skills, so drift is likely
+- guidance is duplicated across `README.md`, `CLAUDE.md`, `legacy runtime docs`, and multiple skills, so drift is likely
 
 The result is a mismatch between product reality and repo narrative. This plan fixes the mismatch,
 preserves the subagents as part of the framework, and makes their status explicit for both runtimes
@@ -143,7 +143,7 @@ From the server/tool scope:
 ### Deferred
 
 - Whether to introduce a Codex-specific agent registry format later if/when the platform supports it cleanly
-- Whether to generate README/CLAUDE/GEMINI sections from a single source document instead of maintaining them by hand
+- Whether to generate README/CLAUDE/runtime docs sections from a single source document instead of maintaining them by hand
 
 ## Implementation Units
 
@@ -157,7 +157,7 @@ From the server/tool scope:
 - Files:
   - modify `README.md`
   - modify `CLAUDE.md`
-  - modify `GEMINI.md`
+  - modify `legacy runtime docs`
 - Approach:
   - remove claims that imply agent executability or automatic swarms where the manifest/runtime does not prove that behavior
   - distinguish clearly between:
@@ -195,7 +195,7 @@ From the server/tool scope:
     - how Claude Code and Codex each relate to the same framework subagents
   - add a runtime-neutral `plugins/kitty/agents/manifest.json` enumerating all framework subagents
   - add a short status banner or frontmatter field to each agent markdown file clarifying its current role in the framework and any runtime-specific notes
-  - have README/CLAUDE/GEMINI point to this document instead of restating the same behavioral contract in different words
+  - have README/CLAUDE/runtime docs point to this document instead of restating the same behavioral contract in different words
 - Patterns to follow:
   - keep contracts short and operational
   - prefer a single matrix/table over repeated prose
@@ -324,7 +324,7 @@ Strengthening action:
 - `plugins/kitty/.claude-plugin/plugin.json`
 - `README.md`
 - `CLAUDE.md`
-- `GEMINI.md`
+- `legacy runtime docs`
 - `plugins/kitty/skills/kitty-brainstorm/SKILL.md`
 - `plugins/kitty/skills/kitty-plan/SKILL.md`
 - `plugins/kitty/skills/kitty-work/SKILL.md`

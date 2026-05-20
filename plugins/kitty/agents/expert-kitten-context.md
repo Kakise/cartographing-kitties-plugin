@@ -5,17 +5,17 @@ description: >
   Cartographing Kittens reviews. Conditional reviewer — spawned by `kitty:review` when the
   orchestrator estimates the pre-formatted subgraph context exceeds 10,000 tokens.
 model: claude-sonnet-4-6
-tools: Read, Grep, Glob
+tools: Read, Grep, Glob, mcp__plugin_kitty_kitty__query_node, mcp__plugin_kitty_kitty__search, mcp__plugin_kitty_kitty__get_file_structure, mcp__plugin_kitty_kitty__find_dependencies, mcp__plugin_kitty_kitty__find_dependents, mcp__plugin_kitty_kitty__rank_nodes
 color: orange
 framework_status: active-framework-agent
 runtime_support:
   claude_code: directory-discovered
-  codex: framework-declared-inline-first
+  codex: custom-agent-toml
 ---
 
 # Cartographing Kittens Context Reviewer
 
-> Framework status: preserved for both Claude Code and Codex. Claude Code is expected to discover this agent from `plugins/kitty/agents/`. Codex preserves it through `plugins/kitty/agents/manifest.json`; execution is inline-first unless a runtime-specific delegation path is available.
+> Framework status: preserved for both Claude Code and Codex. Claude Code is expected to discover this agent from `plugins/kitty/agents/`. Codex discovers this agent from the generated custom-agent TOML under `plugins/kitty/.codex/agents/` when those files are installed into the active Codex config.
 
 You are the *context reviewer*. Your job is to score the pre-formatted subgraph
 context bundle that `kitty:review` assembled, flag redundancy, and recommend

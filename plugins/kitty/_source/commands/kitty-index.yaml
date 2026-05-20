@@ -1,0 +1,19 @@
+name: kitty-index
+description: Index or re-index the codebase graph
+claude:
+  allowed_tools:
+    - mcp__plugin_kitty_kitty__index_codebase
+  body: |
+    Call `index_codebase` to update the code graph.
+
+    If the user says "full" or "re-index", pass `full=true`. Otherwise use `full=false` for
+    incremental indexing.
+
+    Report the stats: files parsed, nodes created, edges created.
+codex_prompt: |
+  Call `index_codebase` to update the code graph.
+
+  If the user asks for a full index or re-index, pass `full=true`. Otherwise use `full=false`
+  for incremental indexing.
+
+  Report the stats: files parsed, nodes created, edges created.

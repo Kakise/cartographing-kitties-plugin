@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -20,38 +21,43 @@ def _repo_root() -> Path:
 REPO_ROOT = _repo_root()
 SKILLS_ROOT = REPO_ROOT / "plugins" / "kitty" / "skills"
 MAX_SKILL_LINES = 500
-KNOWN_TOOLS = {
-    "add_litter_box_entry",
-    "add_treat_box_entry",
-    "annotation_status",
-    "batch_query_nodes",
-    "find_dependencies",
-    "find_dependents",
-    "find_low_quality_annotations",
-    "find_stale_annotations",
-    "get_agent_handoff",
-    "get_context_summary",
-    "get_file_structure",
-    "get_pending_annotations",
-    "graph_diff",
-    "index_codebase",
-    "query_litter_box",
-    "query_node",
-    "query_treat_box",
-    "rank_nodes",
-    "requeue_low_quality_annotations",
-    "search",
-    "submit_annotations",
-    "validate_graph",
-    "Read",
-    "Grep",
-    "Glob",
-    "Bash",
-    "Task",
-    "Write",
-    "Edit",
-    "MultiEdit",
-}
+# Limits from https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices
+MAX_DESCRIPTION_CHARS = 1024
+MAX_WHEN_TO_USE_CHARS = 1024
+# https://code.claude.com/docs/en/skills — `name` is lowercase letters, numbers, hyphens, ≤64.
+NAME_PATTERN = re.compile(r"^[a-z0-9-]{1,64}$")
+# Plugin prefix Claude Code applies to MCP tools served by `plugins/kitty` for server `kitty`.
+MCP_PREFIX = "mcp__plugin_kitty_kitty__"
+KITTY_MCP_TOOLS = frozenset(
+    {
+        "add_litter_box_entry",
+        "add_treat_box_entry",
+        "annotation_status",
+        "batch_query_nodes",
+        "find_dependencies",
+        "find_dependents",
+        "find_low_quality_annotations",
+        "find_stale_annotations",
+        "get_agent_handoff",
+        "get_context_summary",
+        "get_file_structure",
+        "get_pending_annotations",
+        "graph_diff",
+        "index_codebase",
+        "query_litter_box",
+        "query_node",
+        "query_treat_box",
+        "rank_nodes",
+        "requeue_low_quality_annotations",
+        "search",
+        "submit_annotations",
+        "validate_graph",
+    }
+)
+BUILTIN_TOOLS = frozenset({"Read", "Grep", "Glob", "Bash", "Task", "Write", "Edit", "MultiEdit"})
+KNOWN_TOOLS: frozenset[str] = frozenset(
+    KITTY_MCP_TOOLS | {f"{MCP_PREFIX}{tool}" for tool in KITTY_MCP_TOOLS} | BUILTIN_TOOLS
+)
 
 
 def _parse_frontmatter(path: Path) -> tuple[dict[str, Any], str, list[str]]:
@@ -86,27 +92,67 @@ def _referenced_markdown_files(body: str) -> set[str]:
     return references
 
 
+def _display_path(path: Path) -> Path | str:
+    try:
+        return path.relative_to(REPO_ROOT)
+    except ValueError:
+        return path
+
+
 def validate_skill(path: Path) -> list[str]:
     errors: list[str] = []
     try:
         frontmatter, body, lines = _parse_frontmatter(path)
     except ValueError as exc:
-        return [f"{path.relative_to(REPO_ROOT)}: {exc}"]
+        return [f"{_display_path(path)}: {exc}"]
 
-    display = path.relative_to(REPO_ROOT)
+    display = _display_path(path)
     if len(lines) > MAX_SKILL_LINES:
         errors.append(f"{display}: {len(lines)} lines exceeds {MAX_SKILL_LINES}")
 
     for key in ("name", "description"):
-        if key not in frontmatter:
-            errors.append(f"{display}: frontmatter missing `{key}`")
+        value = frontmatter.get(key)
+        if not (isinstance(value, str) and value.strip()):
+            # Catches both missing-key and empty-string ("must be non-empty" per spec).
+            errors.append(f"{display}: frontmatter missing or empty `{key}`")
+
+    name = frontmatter.get("name")
+    if isinstance(name, str) and name and not NAME_PATTERN.match(name):
+        errors.append(
+            f"{display}: name `{name}` must match {NAME_PATTERN.pattern} "
+            f"(lowercase letters, numbers, hyphens; the plugin namespace prefix is "
+            f"added automatically by Claude Code)"
+        )
+
+    # Strip YAML literal-block trailing newlines before length-checking so we measure
+    # payload, not YAML serialization (a `description: |\n  …\n` block always carries
+    # a trailing newline).
+    description = frontmatter.get("description", "")
+    if isinstance(description, str):
+        payload = description.rstrip()
+        if len(payload) > MAX_DESCRIPTION_CHARS:
+            errors.append(
+                f"{display}: description length {len(payload)} exceeds {MAX_DESCRIPTION_CHARS}"
+            )
+
+    when_to_use = frontmatter.get("when_to_use", "")
+    if isinstance(when_to_use, str):
+        payload = when_to_use.rstrip()
+        if len(payload) > MAX_WHEN_TO_USE_CHARS:
+            errors.append(
+                f"{display}: when_to_use length {len(payload)} exceeds {MAX_WHEN_TO_USE_CHARS}"
+            )
 
     if "$ARGUMENTS" in body and "argument-hint" not in frontmatter:
         errors.append(f"{display}: references $ARGUMENTS but lacks `argument-hint`")
 
     for tool in _normalise_allowed_tools(frontmatter.get("allowed-tools")):
-        base_tool = tool.split("__", 1)[-1] if "__" in tool else tool
-        if base_tool not in KNOWN_TOOLS:
+        if tool.startswith("mcp__") and not tool.startswith(MCP_PREFIX):
+            errors.append(
+                f"{display}: MCP tool `{tool}` must use prefix `{MCP_PREFIX}` "
+                f"(plugin `kitty`, server `kitty`)"
+            )
+        if tool not in KNOWN_TOOLS:
             errors.append(f"{display}: unknown allowed-tool `{tool}`")
 
     for reference in _referenced_markdown_files(body):

@@ -4,71 +4,11 @@ AST-powered codebase intelligence for AI coding agents.
 
 Cartographing Kittens parses your code with [tree-sitter](https://tree-sitter.github.io/tree-sitter/), builds a structural graph in SQLite, and exposes it as an [MCP](https://modelcontextprotocol.io/) server. It answers questions that grep can't: *what depends on this function?*, *what breaks if I change this class?*, *show me all the auth-related code*.
 
-It is also available with repo-local integrations for **OpenCode**, **Codex**, **Claude Code**, and **Gemini**, plus a complete engineering workflow framework for brainstorm, plan, implement, and review loops powered by Cartographing Kittens.
-
-## Install in OpenCode
-
-This repository now includes a project-local OpenCode setup:
-
-- [`opencode.json`](./opencode.json) wires in the Cartographing Kittens MCP server
-- [`.opencode/skills`](./.opencode/skills) exposes the `kitty` workflow as OpenCode skills
-- [`.opencode/commands`](./.opencode/commands) adds slash commands like `/kitty-plan` and `/kitty-review`
-- [`.opencode/agents`](./.opencode/agents) ports the research, annotation, and review subagents
-
-### Use from a checkout
-
-Clone the repository and open it in OpenCode:
-
-```bash
-git clone https://github.com/Kakise/cartographing-kitties-plugin.git ~/src/cartographing-kitties-plugin
-cd ~/src/cartographing-kitties-plugin
-opencode
-```
-
-OpenCode will discover `opencode.json` and `.opencode/` automatically.
-
-### Install globally in OpenCode
-
-If you want Cartographing Kittens available in every project, install its OpenCode assets into your global OpenCode config directory.
-
-1. Clone this repository somewhere stable:
-
-```bash
-git clone https://github.com/Kakise/cartographing-kitties-plugin.git ~/src/cartographing-kitties-plugin
-```
-
-2. Run the helper installer:
-
-```bash
-~/src/cartographing-kitties-plugin/scripts/install-opencode-global.sh
-```
-
-The script:
-
-- creates `~/.config/opencode/{skills,commands,agents}` if needed
-- symlinks this repo's `.opencode/` assets into that global config directory
-- adds or updates the `kitty` MCP server in `~/.config/opencode/opencode.json`
-
-After that, OpenCode will load the `kitty` skills, commands, and subagents in any repository you open.
-
-### OpenCode commands
-
-- `/kitty-index`
-- `/kitty-status`
-- `/kitty-explore <path-or-symbol>`
-- `/kitty-impact <symbol-or-path>`
-- `/kitty-annotate`
-- `/kitty-brainstorm <feature>`
-- `/kitty-plan <feature-or-doc>`
-- `/kitty-work <plan-path>`
-- `/kitty-review [mode:report-only|mode:autofix]`
-- `/kitty-lfg <feature>`
-
-Skill names use OpenCode-compatible hyphenated identifiers: `kitty`, `kitty-explore`, `kitty-plan`, `kitty-review`, and so on.
+It is also available with repo-local integrations for **Codex** and **Claude Code**, plus a complete engineering workflow framework for brainstorm, plan, implement, and review loops powered by Cartographing Kittens.
 
 ## Install as Codex Plugin
 
-This repository is now a root-level Codex plugin. The repository entrypoint manifest lives at [`.codex-plugin/plugin.json`](./.codex-plugin/plugin.json), and it reuses the existing `kitty` skills under [`plugins/kitty/skills`](./plugins/kitty/skills).
+This repository is a root-level Codex plugin. The repository entrypoint manifest lives at [`.codex-plugin/plugin.json`](./.codex-plugin/plugin.json), and it uses generated `kitty` skills under [`plugins/kitty/skills`](./plugins/kitty/skills).
 
 The MCP server config used by the root plugin lives at [`.mcp.json`](./.mcp.json).
 
@@ -107,7 +47,32 @@ Then point Codex at that clone as the plugin path. If you use the home-local mar
 
 If your Codex setup supports installing directly from a Git checkout path, use the clone root itself because `.codex-plugin/plugin.json` now exists at the repository root.
 
-The older marketplace-ready layout under [`plugins/kitty`](./plugins/kitty) is still preserved.
+The marketplace-ready layout under [`plugins/kitty`](./plugins/kitty) is still preserved.
+
+### Manual Codex Asset Install
+
+Codex custom agents and prompt commands can also be installed into a specific Codex config path:
+
+```bash
+uv run python scripts/generate_agents.py
+uv run python scripts/generate_skills.py
+uv run python scripts/generate_commands.py
+uv run python scripts/install_codex_assets.py ~/.codex --delete-old
+```
+
+For JetBrains' Codex cache layout, pass the cache root and let the installer auto-detect it:
+
+```bash
+uv run python scripts/install_codex_assets.py /path/to/aia/codex --delete-old
+```
+
+The installer copies:
+
+- generated Codex custom agents from [`plugins/kitty/.codex/agents`](./plugins/kitty/.codex/agents)
+- generated skills from [`plugins/kitty/skills`](./plugins/kitty/skills)
+- generated Codex prompt commands from [`plugins/kitty/prompts`](./plugins/kitty/prompts)
+
+`--delete-old` only removes previously installed Kitty-owned assets before copying.
 
 ## Install as Claude Code Plugin
 
@@ -120,31 +85,31 @@ The Claude plugin layout under [`plugins/kitty`](./plugins/kitty) preserves the 
 - `agents/`
 - `.mcp.json`
 
-The framework subagents remain part of the repository for both Claude Code and Codex. Their canonical declaration lives in [`plugins/kitty/agents/manifest.json`](./plugins/kitty/agents/manifest.json). In Claude Code, agents are expected to be discovered from the preserved plugin directory layout. In Codex, they are currently preserved as framework-declared components rather than a manifest-backed runtime registry.
+The framework subagents remain part of the repository for both Claude Code and Codex. Their
+canonical source lives in [`plugins/kitty/_source/agents`](./plugins/kitty/_source/agents).
+In Claude Code, agents are generated as markdown files under
+[`plugins/kitty/agents`](./plugins/kitty/agents). In Codex, they are generated as custom-agent
+TOML files under [`plugins/kitty/.codex/agents`](./plugins/kitty/.codex/agents).
 
-## Skills Submodule
+## Generated Plugin Assets
 
-The nine `kitty:*` skills under [`plugins/kitty/skills`](./plugins/kitty/skills) are mounted
-from the standalone catalog at
-[`Kakise/cartographing-kitties-skills`](https://github.com/Kakise/cartographing-kitties-skills),
-which doubles as a JetBrains-AI-Assistant-compatible skills repository.
+Agents, skills, and command prompts are generated from YAML sources:
 
-Bootstrap the submodule on first clone:
+| Surface | Source | Generated output |
+|---|---|---|
+| Agents | `plugins/kitty/_source/agents/*.yaml` | Claude markdown in `plugins/kitty/agents/`, Codex TOML in `plugins/kitty/.codex/agents/` |
+| Skills | `plugins/kitty/_source/skills/*.yaml` | `plugins/kitty/skills/*/SKILL.md` and optional `agents/openai.yaml` |
+| Commands | `plugins/kitty/_source/commands/*.yaml` | Claude command markdown in `plugins/kitty/commands/`, Codex prompt markdown in `plugins/kitty/prompts/` |
+| Plugin manifests | `plugins/kitty/_source/manifests/plugin.yaml` | `.codex-plugin`, `.claude-plugin`, and `.mcp.json` manifests |
+
+Regenerate after editing sources:
 
 ```bash
-git submodule update --init --recursive
+uv run python scripts/generate_agents.py
+uv run python scripts/generate_skills.py
+uv run python scripts/generate_commands.py
+uv run python scripts/generate_manifests.py
 ```
-
-Edit skills in the submodule (PRs against `Kakise/cartographing-kitties-skills`) — direct
-edits to `plugins/kitty/skills/` here will be lost on the next `git submodule update`.
-
-Framework agents under [`plugins/kitty/agents`](./plugins/kitty/agents) stay in this product
-repository because they are generated artifacts from
-[`plugins/kitty/_source/agents/*.yaml`](./plugins/kitty/_source/agents).
-
-## Install in Gemini
-
-Gemini support is preserved through [`plugins/kitty/gemini-extension.json`](./plugins/kitty/gemini-extension.json).
 
 ## Manual installation (MCP server only)
 
@@ -193,11 +158,25 @@ This keeps one isolated Cartograph data directory per project under the shared s
 
 ## Supported Languages
 
-| Language   | Extensions         |
-| ---------- | ------------------ |
-| Python     | `.py`              |
-| TypeScript | `.ts`, `.tsx`      |
-| JavaScript | `.js`, `.jsx`      |
+| Language   | Extensions                                                       |
+| ---------- | ---------------------------------------------------------------- |
+| Python     | `.py`                                                            |
+| TypeScript | `.ts`, `.tsx`                                                    |
+| JavaScript | `.js`, `.jsx`                                                    |
+| Rust       | `.rs`                                                            |
+| C++        | `.cpp`, `.cc`, `.cxx`, `.c++`, `.hpp`, `.hh`, `.hxx`, `.h++`, `.h` |
+
+Notes:
+
+- `.h` files are routed to the C++ grammar. Pure-C headers still parse without
+  errors (C is accepted as a syntactic subset of C++), but C-only constructs
+  may surface fewer definitions than they would under a dedicated C grammar.
+- Rust support resolves `use crate::…`, `use self::…`, and `use super::…` to
+  files within the same crate (one `Cargo.toml`). Cargo workspaces are not
+  resolved; external crates (`std::`, `serde::…`) are recorded as leaf imports.
+- C++ `#include "foo.h"` resolves relative to the source file and to a sibling
+  `include/` directory. Angle-bracket includes (`<vector>`) are leaves. Macro
+  expansion and template instantiation are not tracked.
 
 ## Skills
 
@@ -216,8 +195,8 @@ Use these skills when you need specific structural information from the codebase
 
 Use these skills to go from idea to shipped code with Cartographing Kittens-powered workflow orchestration.
 The framework subagents remain part of the repository, but runtime behavior differs by tool:
-Claude Code preserves the `agents/` layout directly, while Codex is currently inline-first and
-uses the framework agent declaration in [`plugins/kitty/agents/manifest.json`](./plugins/kitty/agents/manifest.json).
+Claude Code preserves the `agents/` layout directly, while Codex uses generated custom-agent
+TOML under [`plugins/kitty/.codex/agents`](./plugins/kitty/.codex/agents).
 The canonical cross-runtime contract lives in [`docs/architecture/codex-workflow-contract.md`](./docs/architecture/codex-workflow-contract.md).
 The product vs integration boundary is documented in [`docs/architecture/repo-boundaries.md`](./docs/architecture/repo-boundaries.md).
 
@@ -228,6 +207,7 @@ The product vs integration boundary is documented in [`docs/architecture/repo-bo
 | `kitty:work` | "Build this", "Implement the plan" | Execute plans with Cartographing Kittens-first workflow steps and optional delegation |
 | `kitty:review` | "Review this", "Check my code" | Structural code review, inline first with optional reviewer delegation |
 | `kitty:lfg` | Full autonomous mode | Chains plan, work, and review without interaction |
+| `kitty:install-codex` | "Install into this Codex path" | Copies generated agents, skills, and prompt commands into a Codex config directory |
 
 ## How to Use the Framework
 
@@ -261,7 +241,7 @@ Builds structural context for the target area, then uses the framework research 
 /kitty:plan Add rate limiting to the API
 ```
 Produces an implementation plan with ordered units, test scenarios, and file paths. When the
-runtime supports delegation cleanly, the framework may use the preserved research subagents;
+runtime supports delegation cleanly, the framework may use the generated research subagents;
 otherwise the orchestrator runs inline from the same workflow contract.
 
 **Step 3: Work**
@@ -280,7 +260,7 @@ Delegation remains framework-supported, but it is runtime-specific rather than g
 ```
 /kitty:review
 ```
-Builds structural review context and applies the review workflow. The preserved reviewer subagents
+Builds structural review context and applies the review workflow. The generated reviewer subagents
 remain part of the framework, but the orchestrator must still make sense in an inline execution path.
 
 ### Full autonomous mode
@@ -308,8 +288,9 @@ may be used where available, but it is not the only execution path.
 
 ## Agents
 
-The files under [`plugins/kitty/agents`](./plugins/kitty/agents) remain first-class framework
-components for both Claude Code and Codex. The runtime-neutral declaration lives in
+The files under [`plugins/kitty/agents`](./plugins/kitty/agents) and
+[`plugins/kitty/.codex/agents`](./plugins/kitty/.codex/agents) are generated first-class
+framework components. The runtime-neutral declaration lives in
 [`plugins/kitty/agents/manifest.json`](./plugins/kitty/agents/manifest.json).
 
 ### Research Agents

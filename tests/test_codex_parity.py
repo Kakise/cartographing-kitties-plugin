@@ -40,17 +40,22 @@ def test_every_manifest_agent_has_a_codex_toml() -> None:
 def test_codex_config_toml_parses_with_required_keys() -> None:
     assert CODEX_CONFIG_PATH.exists(), f"missing {CODEX_CONFIG_PATH.relative_to(REPO_ROOT)}"
     config = tomllib.loads(CODEX_CONFIG_PATH.read_text(encoding="utf-8"))
-    assert config["max_threads"] == 4
-    assert config["max_depth"] == 1
-    assert config["job_max_runtime_seconds"] == 300
+    assert config["agents"]["max_threads"] == 4
+    assert config["agents"]["max_depth"] == 1
+    assert config["agents"]["job_max_runtime_seconds"] == 300
 
 
 def test_codex_agent_tomls_parse() -> None:
     for path in sorted(CODEX_AGENTS_DIR.glob("*.toml")):
         try:
-            tomllib.loads(path.read_text(encoding="utf-8"))
+            data = tomllib.loads(path.read_text(encoding="utf-8"))
         except tomllib.TOMLDecodeError as exc:
             raise AssertionError(f"{path.relative_to(REPO_ROOT)} failed to parse: {exc}") from exc
+        assert data["name"] == path.stem
+        assert data["description"]
+        assert data["developer_instructions"].startswith("# ")
+        assert "model" not in data
+        assert "prompt" not in data
 
 
 def test_orchestrator_skills_ship_openai_yaml() -> None:

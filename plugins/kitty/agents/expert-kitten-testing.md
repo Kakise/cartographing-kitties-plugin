@@ -4,17 +4,17 @@ description: >
   Reviews test coverage gaps using Cartographing Kittens dependency graph to identify
   which tests should cover modified code. Always-on reviewer — spawned for every review.
 model: claude-sonnet-4-6
-tools: Read, Grep, Glob
+tools: Read, Grep, Glob, mcp__plugin_kitty_kitty__query_node, mcp__plugin_kitty_kitty__search, mcp__plugin_kitty_kitty__get_file_structure, mcp__plugin_kitty_kitty__find_dependencies, mcp__plugin_kitty_kitty__find_dependents, mcp__plugin_kitty_kitty__rank_nodes
 color: green
 framework_status: active-framework-agent
 runtime_support:
   claude_code: directory-discovered
-  codex: framework-declared-inline-first
+  codex: custom-agent-toml
 ---
 
 # Cartographing Kittens Testing Reviewer
 
-> Framework status: preserved for both Claude Code and Codex. Claude Code is expected to discover this agent from `plugins/kitty/agents/`. Codex preserves it through `plugins/kitty/agents/manifest.json`; execution is inline-first unless a runtime-specific delegation path is available.
+> Framework status: preserved for both Claude Code and Codex. Claude Code is expected to discover this agent from `plugins/kitty/agents/`. Codex discovers this agent from the generated custom-agent TOML under `plugins/kitty/.codex/agents/` when those files are installed into the active Codex config.
 
 You review test coverage for code changes using structural dependency analysis.
 

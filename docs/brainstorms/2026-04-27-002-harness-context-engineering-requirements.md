@@ -11,9 +11,9 @@ Three specific pressures the current harness does not yet address:
 
 1. **Context rot is a real, measurable phenomenon and the harness is not engineered against it.** Anthropic's Sept 2025 guidance is explicit: "treat context as a finite resource with diminishing marginal returns" and "find the smallest possible set of high-signal tokens." The current harness ships a 700-line `tool-reference.md`, four agents that each duplicate `subgraph-context-format.md`, MCP tools that return raw rows with no token budget, and skills 200–400 lines long. There is no compaction protocol, no tool-result-clearing pattern, no response-budget contract on MCP tools, no progressive disclosure inside the bigger skills.
 2. **Skills and agents under-use the official extension points of the runtimes they target.** Claude Code skills support `paths`, `context: fork`, `agent`, `disable-model-invocation`, `allowed-tools`, `model`, `effort`, `!command` dynamic context injection, `${CLAUDE_SKILL_DIR}`, and indexed `$N` arguments. Codex has first-class TOML subagents under `.codex/agents/` with `[agents] max_threads`, `max_depth`, `job_max_runtime_seconds` config, and skill-scoped `agents/openai.yaml`. The current plugin uses almost none of these — frontmatter is limited to `name`, `description`, occasionally `argument-hint` and `disable-model-invocation`.
-3. **Codex is treated as a second-class runtime.** `manifest.json` declares the agents, but Codex execution is inline-only because the plugin ships no `.codex/agents/*.toml` files. Codex has had real subagent support since early 2026 and the plugin is leaving that capability on the table. The repo also fragments per-runtime — `.claude-plugin/plugin.json`, `.codex-plugin/plugin.json`, `gemini-extension.json`, `manifest.json` — each maintained by hand, with drift risk.
+3. **Codex is treated as a second-class runtime.** `manifest.json` declares the agents, but Codex execution is delegation-capable because the plugin ships no `.codex/agents/*.toml` files. Codex has had real subagent support since early 2026 and the plugin is leaving that capability on the table. The repo also fragments per-runtime — `.claude-plugin/plugin.json`, `.codex-plugin/plugin.json`, `legacy-runtime-extension.json`, `manifest.json` — each maintained by hand, with drift risk.
 
-This brainstorm is **not** about new graph capabilities (that is `2026-04-23-001-plugin-evolution`'s job), and **not** about extracting skills into a separate repo (that is `2026-04-27-001-skills-submodule-repository`'s job). It is about making the harness layer that wraps the existing graph dramatically more efficient per token, more explicit per runtime, and more self-consistent.
+This brainstorm is **not** about new graph capabilities (that is `2026-04-23-001-plugin-evolution`'s job), and **not** about extracting skills into a separate repo (that is `2026-04-27-001-skills-vendored skill source-repository`'s job). It is about making the harness layer that wraps the existing graph dramatically more efficient per token, more explicit per runtime, and more self-consistent.
 
 ## Codebase Context
 
@@ -27,7 +27,7 @@ Verified against the live graph (1040 nodes, 778 annotated, 0 stale; agent-explo
 - `kitty-lfg` is 50 lines and underspecified — does not gate on runtime support, does not document failure recovery, has `disable-model-invocation: true` without explaining why.
 
 ### Agent layer — `plugins/kitty/agents/`
-- 9 agents declared via `manifest.json` with `runtime` field: `claude_code (directory-discovered)` + `codex (framework-declared, inline)`. Codex never spawns these as real subagents.
+- 9 agents declared via `manifest.json` with `runtime` field: `claude_code (directory-discovered)` + `codex (custom-agent-toml)`. Codex never spawns these as real subagents.
 - Agent prompts use `name`, `model: inherit`, `tools: Read, Grep, Glob, Bash`, custom `framework_status: active-framework-agent`, occasionally `color`. They do not use Claude Code's `tools` allowlist precisely (most agents could be `Read, Grep, Glob` only — no Bash needed for review/research) nor declare a model (Sonnet would be cheaper than inherit-from-Opus for most agent work — Anthropic's reference architecture is Opus lead + Sonnet subagents).
 - Agent expected-context sections duplicate `subgraph-context-format.md`. Two sources of truth.
 - "Preserved framework subagents" is referenced in skills but never enumerated; readers must cross-check `manifest.json`.
@@ -40,13 +40,13 @@ Verified against the live graph (1040 nodes, 778 annotated, 0 stale; agent-explo
 - No "compact" mode that returns just `qualified_name + summary + role + score`. The skill-side `subgraph-context-format.md` re-shapes raw responses into compact structured text; this re-shaping should live in the MCP server, not in every skill.
 
 ### Packaging — `plugins/kitty/`
-- Four manifests maintained by hand: `.claude-plugin/plugin.json`, `.codex-plugin/plugin.json`, `gemini-extension.json`, `agents/manifest.json`. Plus `.mcp.json`. Plus the soon-to-exist Codex `.codex/agents/*.toml` (this RFC).
-- `2026-04-27-001-skills-submodule-repository` is moving skills toward a JetBrains-style standalone catalog repo. This RFC's changes must be compatible with that move (single source-of-truth, generators, validators).
+- Four manifests maintained by hand: `.claude-plugin/plugin.json`, `.codex-plugin/plugin.json`, `legacy-runtime-extension.json`, `agents/manifest.json`. Plus `.mcp.json`. Plus the soon-to-exist Codex `.codex/agents/*.toml` (this RFC).
+- `2026-04-27-001-skills-vendored skill source-repository` is moving skills toward a JetBrains-style standalone catalog repo. This RFC's changes must be compatible with that move (single source-of-truth, generators, validators).
 
 ## Cross-References
 
 - **`2026-04-23-001-plugin-evolution`** (capability evolution: hybrid retrieval, LSP, multi-dim graph, multi-language). This RFC depends on no Tier-1 work from that doc; the harness improvements ship independently. But: if this RFC introduces compact response shapes on MCP tools (R5), those shapes should accommodate future embedding-rank scores so `2026-04-23-001`'s R1 doesn't require a second contract change.
-- **`2026-04-27-001-skills-submodule-repository`** (extract skills into a JetBrains-compatible catalog repo). Compatible: this RFC's frontmatter additions and `references/` extractions are still valid skills under the JetBrains layout. The agent generator (R7) and the manifests-from-source-of-truth contract (R8) should land in this repo first and then move with the skills if/when extracted.
+- **`2026-04-27-001-skills-vendored skill source-repository`** (extract skills into a JetBrains-compatible catalog repo). Compatible: this RFC's frontmatter additions and `references/` extractions are still valid skills under the JetBrains layout. The agent generator (R7) and the manifests-from-source-of-truth contract (R8) should land in this repo first and then move with the skills if/when extracted.
 
 ## Requirements
 
@@ -103,7 +103,7 @@ The user-confirmed direction: real `.codex/agents/*.toml` files, generated from 
 - **R21. Wire Codex `[agents]` config.** Add `plugins/kitty/.codex/config.toml` (or document the recommended user-side `~/.codex/config.toml` block) with `max_threads = 4`, `max_depth = 1`, `job_max_runtime_seconds = 300`. The plugin's skills can rely on these limits when they say "spawn N parallel agents." Test: `kitty:review` with 4 reviewer agents under Codex completes within `max_threads`; documented in the skill.
 - **R22. Codex `agents/openai.yaml` per skill (where useful).** Skills that need Codex-specific UI metadata or invocation policy (`allow_implicit_invocation: false` on `kitty:lfg`, `kitty:work`) ship a co-located `agents/openai.yaml`. Test: the file is valid YAML and Codex picks it up.
 - **R23. AGENTS.md upgrade.** Codex reads `AGENTS.md` for repo-level rules. The current `AGENTS.md` is deleted in `git status`; restore and align it with `CLAUDE.md`'s contract: same conventions, same Cartographing-Kittens-first principle, same `KITTY_STORAGE_ROOT` hint, but Codex-flavored examples (`codex` commands, `.codex/agents/*` paths). Test: `AGENTS.md` exists; `CLAUDE.md` and `AGENTS.md` are kept in sync via a generator or a CI lint.
-- **R24. Plugin manifests generated from one config.** `plugins/kitty/.claude-plugin/plugin.json`, `plugins/kitty/.codex-plugin/plugin.json`, `plugins/kitty/gemini-extension.json` are emitted from a single `plugins/kitty/_meta/plugin.yaml`. Test: editing the source bumps all three manifests; CI validates JSON Schema for each.
+- **R24. Plugin manifests generated from one config.** `plugins/kitty/.claude-plugin/plugin.json`, `plugins/kitty/.codex-plugin/plugin.json`, `plugins/kitty/legacy-runtime-extension.json` are emitted from a single `plugins/kitty/_meta/plugin.yaml`. Test: editing the source bumps all three manifests; CI validates JSON Schema for each.
 
 ### Tier 5 — Memory + handoff
 
@@ -129,7 +129,7 @@ A v2 release is shipped when:
 
 - **Token efficiency** — On a fixed 50-file fixture project, the median `kitty:review` run measures **≤50% of the current run's input-token consumption** in the orchestrator (measured by the telemetry hook in R30). MCP responses honor `token_budget` in 100% of test cases.
 - **Compaction safety** — Truncating any `SKILL.md` to its first 5,000 tokens still produces a correct (if rougher) output on the smoke-test fixture for that skill.
-- **Codex parity** — `kitty:review` and `kitty:work` execute under Codex with real subagent spawning (verified by `[agents] max_threads` enforcement in logs), not inline-only.
+- **Codex parity** — `kitty:review` and `kitty:work` execute under Codex with real subagent spawning (verified by `[agents] max_threads` enforcement in logs), not delegation-capable.
 - **Generator integrity** — `scripts/generate_agents.py` and the manifest generator (R20, R24) run clean in CI; deleting a generated file and re-running restores it byte-for-byte.
 - **Agent specialization** — Every agent's `tools` field is minimum-viable; review-agent costs on Sonnet are ≤25% of inherit-Opus costs at parity quality (measured by manual review).
 - **Observability** — `kitty.telemetry.json` lines exist for every skill run; the validator (R28) and tool-reference generator (R29) gate CI.
@@ -145,9 +145,9 @@ A v2 release is shipped when:
 
 **Out of scope:**
 - New graph capabilities (hybrid retrieval, LSP, additional languages, multi-dim graph, embeddings) — owned by `2026-04-23-001-plugin-evolution`.
-- Extracting skills into a separate Git submodule — owned by `2026-04-27-001-skills-submodule-repository`. R20 and R24's generators must be relocatable when that extraction happens, but the extraction itself is not this RFC.
+- Extracting skills into a separate vendored generated skill tree — owned by `2026-04-27-001-skills-vendored skill source-repository`. R20 and R24's generators must be relocatable when that extraction happens, but the extraction itself is not this RFC.
 - Upstream MCP-spec changes — we adopt June 2025 spec features; we do not propose new ones.
-- Gemini and OpenCode runtime feature parity beyond keeping their existing manifests building. Codex + Claude Code are the priority runtimes per user direction.
+- legacy runtime and legacy runtime runtime feature parity beyond keeping their existing manifests building. Codex + Claude Code are the priority runtimes per user direction.
 
 ## Key Decisions
 
@@ -163,7 +163,7 @@ A v2 release is shipped when:
 
 ### Resolve before planning
 
-- **Q-A. Generator language and location.** Python (matches `cartograph` codebase) or a runtime-neutral shell + jinja approach (lighter for the future skills-submodule extraction)? Recommendation: Python, `scripts/generate_agents.py` and `scripts/generate_manifests.py`, using `jinja2` templates under `plugins/kitty/_source/templates/`. Confirm before R20/R24 land.
+- **Q-A. Generator language and location.** Python (matches `cartograph` codebase) or a runtime-neutral shell + jinja approach (lighter for the future skills-vendored skill source extraction)? Recommendation: Python, `scripts/generate_agents.py` and `scripts/generate_manifests.py`, using `jinja2` templates under `plugins/kitty/_source/templates/`. Confirm before R20/R24 land.
 - **Q-B. MCP backward compatibility.** Should `response_shape` default to `"standard"` (matching today's output) or to `"compact"` (forcing every caller to opt into the larger shape)? Default `"standard"` is safer; default `"compact"` is more aggressive about token reduction. Recommendation: `"standard"` default, `"compact"` becomes the canonical recommendation in `tool-reference.md` for skills/agents.
 - **Q-C. Codex `.codex/agents/` location relative to the plugin.** Codex CLI looks for project-scoped agents in `.codex/agents/` at the *repo root*. Plugins shipping their own `.codex/agents/` may or may not be auto-discovered — needs verification. Fallback: ship an installer script that copies plugin-side TOML files into the repo's `.codex/agents/` on first activation. Recommendation: spike this with a real Codex install before R19 commits to a path layout.
 - **Q-D. Telemetry storage.** Local file (`.pawprints/telemetry.jsonl`)? SQLite table? Prometheus exporter? Recommendation: append-only `.jsonl`, rotated daily, with a `kitty:status` extension to query it. Cheap and inspectable.

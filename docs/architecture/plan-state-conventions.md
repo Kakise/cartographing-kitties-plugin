@@ -107,19 +107,18 @@ uv run python scripts/plan_status.py set-status <plan> <status> \
 Mutation commands write the file in place; the parser keeps the frontmatter cache and the
 body `**State:**` lines in sync.
 
-## Skills submodule follow-up
+## Skills Generator Follow-Up
 
-The `kitty:work` and `kitty:plan` skills (in
-[`Kakise/cartographing-kitties-skills`](https://github.com/Kakise/cartographing-kitties-skills),
-mounted at `plugins/kitty/skills/`) are the natural callers for `plan_status.py set-unit`.
-A future submodule PR should:
+The `kitty:work` and `kitty:plan` skills are generated from
+`plugins/kitty/_source/skills/*.yaml` and are the natural callers for
+`plan_status.py set-unit`. A future source update should:
 
 1. Update `kitty:work`'s "Implementation loop" so each unit transitions to `in_progress`
    before the worker starts and to `complete` only after the validation gates pass.
 2. Update `kitty:plan` so newly written plans use the new schema by default — frontmatter
    `units:` block plus `**State:** pending` lines under each unit header.
 3. Reference this doc and `docs/plans/2026-04-29-001-feat-plan-status-tracking-plan.md` in
-   the submodule PR description for context.
+   the change description for context.
 
 The framework agents under `plugins/kitty/agents/` do not need changes; they consume plan
 context as text and do not own state transitions.

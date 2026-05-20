@@ -1,0 +1,158 @@
+---
+name: kitty-annotate
+description: |
+  Annotate codebase nodes with summaries, tags, and roles to enable semantic search. Use when the user asks to "annotate the codebase", "enrich the graph", "enable semantic search", "add summaries", "tag nodes", or when annotation_status shows many pending nodes. Also use when search results are poor because nodes lack summaries. Requires the Cartographing Kittens MCP server (`uvx cartographing-kittens`).
+disable-model-invocation: true
+paths:
+- '**/*.py'
+- '**/*.ts'
+- '**/*.tsx'
+- '**/*.js'
+- '**/*.jsx'
+allowed-tools:
+- Read
+- Grep
+- Glob
+- Bash
+- mcp__plugin_kitty_kitty__annotation_status
+- mcp__plugin_kitty_kitty__get_pending_annotations
+- mcp__plugin_kitty_kitty__submit_annotations
+- mcp__plugin_kitty_kitty__find_low_quality_annotations
+- mcp__plugin_kitty_kitty__requeue_low_quality_annotations
+- mcp__plugin_kitty_kitty__index_codebase
+metadata:
+  short-description: Enrich the codebase graph with LLM-generated summaries, tags, and roles for semantic
+    search.
+requires:
+  mcp_servers:
+  - kitty
+---
+
+# Cartographing Kittens: Annotate
+
+Enrich the Cartographing Kittens graph with human-readable summaries, semantic tags, and role
+descriptions so that `search` returns meaningful results for domain queries.
+
+## When to use
+
+- After initial indexing when `annotation_status` shows pending nodes
+- When `search` results are poor or empty despite the graph being indexed
+- When the user wants semantic search ("find auth code", "what handles payments")
+- Proactively after large code changes to keep the graph enriched
+
+## Workflow
+
+The annotate skill orchestrator owns all MCP tool calls. The annotator agent receives
+pre-fetched context and returns annotation results as JSON.
+
+## MCP-only execution
+
+Annotation must use the Cartographing Kittens MCP tools exclusively.
+
+- Do not run scripts, CLIs, shell commands, Python snippets, Node snippets, `uv`,
+  package tasks, database commands, or any other local process to annotate nodes.
+- Do not read or write the graph database directly, even for bulk updates or cleanup.
+- Do not use helper scripts from this repository, the skill directory, or reference
+  docs as a shortcut for annotation.
+- The only allowed way to read annotation work is through MCP tools such as
+  `annotation_status()`, `get_pending_annotations(...)`, and
+  `find_low_quality_annotations(...)`.
+- The only allowed way to write annotation results is through MCP tools such as
+  `submit_annotations(...)` and `requeue_low_quality_annotations(...)`.
+- If MCP tools are unavailable or fail, stop and report the blocker instead of
+  falling back to scripts or direct file/database access.
+
+### 1. Ensure fresh graph
+
+Call `index_codebase(full=false)` to ensure the graph is up to date.
+
+### 2. Check status
+
+Call `annotation_status()` to see how many nodes are pending, annotated, and failed.
+If `pending` is 0, annotation is complete.
+
+### 3. Fetch a batch
+
+Call `get_pending_annotations(batch_size=N)` through MCP to receive pending nodes with:
+- Source code and file context
+- Neighbor information (what calls/imports the node)
+- The seed taxonomy of suggested tags
+- `recommended_model_tier` (`fast` or `strong`) for advisory model routing
+- `requeue_reason` when a previous annotation was rejected by quality gates
+
+### 4. Format context for the annotator agent
+
+Prepare the batch data as structured context for the annotator agent:
+- Include each node's qualified name, source code, file path, and metadata
+- Include neighbor context (callers, callees, imports) from the batch
+- Include the seed taxonomy reference
+- Tell the annotator to honor `recommended_model_tier` and to directly address
+  any `requeue_reason`
+
+### 5. Dispatch annotator agent
+
+Spawn the `cartographing-kitten` agent with the formatted batch data. The agent
+analyzes each node and returns a JSON array of annotation results:
+```json
+[
+  {"qualified_name": "...", "summary": "...", "tags": [...], "role": "...", "failed": false},
+  ...
+]
+```
+
+### 6. Submit results
+
+Receive the annotator's JSON array and call `submit_annotations(annotations=[...])`
+through MCP to write the results back to the graph. Do not submit by script, direct
+database write, generated patch, or any other non-MCP mechanism.
+
+### 7. Repeat
+
+Check if more nodes are pending with `annotation_status()`. If `pending > 0`, loop
+back to step 3 and fetch the next batch.
+
+### Quality gates
+
+Before starting a cleanup pass, call `find_low_quality_annotations(limit=N)` to audit
+annotated nodes for placeholder summaries, too-short summaries, missing name references,
+or generic fallback roles. To repair them, call
+`requeue_low_quality_annotations(dry_run=true)` first, inspect the reasons, then call
+`requeue_low_quality_annotations(dry_run=false)` to mark them pending for the next pass.
+
+## Parallel processing for large codebases
+
+For codebases with **50+ pending nodes**, use parallel annotator agents:
+
+1. Check total pending count with `annotation_status`
+2. Fetch multiple non-overlapping batches via `get_pending_annotations`
+3. Format each batch as context and dispatch 2-3 `cartographing-kitten` agents in parallel
+4. Collect JSON results from each agent
+5. Call `submit_annotations` for each agent's results
+6. The orchestrator always owns the MCP calls — agents never call MCP tools directly
+
+See the `cartographing-kitten` agent definition for the agent's input/output contract.
+
+## Seed taxonomy
+
+Use these tags when they fit, but don't force them:
+
+`authentication`, `database`, `api`, `validation`, `configuration`, `middleware`,
+`service`, `model`, `controller`, `utility`, `testing`, `error-handling`,
+`caching`, `logging`, `serialization`, `formatting`, `parsing`, `io`
+
+Create new tags for domain-specific concepts (e.g., "payment-processing", "websocket").
+
+## Quality guidance
+
+- **Be specific** — "Formats datetime to ISO 8601" beats "Formatting utility"
+- **Use neighbor context** — understanding callers helps summarize accurately
+- **Skip trivial nodes quickly** — simple getters/constants need only terse summaries
+- **Mark uncertain nodes as failed** — better to retry than to pollute the graph
+
+## Tips
+
+- Start with `batch_size=10`, adjust based on node complexity
+- Run annotation after major code changes to keep semantic search accurate
+- See `kitty/references/annotation-workflow.md` only as documentation for the
+  MCP workflow, never as permission to run helper scripts
+- See `kitty/references/tool-reference/` for MCP parameter details

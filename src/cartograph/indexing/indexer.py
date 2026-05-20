@@ -13,10 +13,12 @@ from cartograph.parsing import (
     CallSite,
     Definition,
     Import,
+    Inheritance,
     ParserRegistry,
     extract_calls,
     extract_definitions,
     extract_imports,
+    extract_inheritance,
 )
 from cartograph.storage.graph_store import GraphStore
 
@@ -162,6 +164,118 @@ def _resolve_ts_import_to_file(
     return None
 
 
+def _resolve_cpp_include_to_file(
+    import_obj: Import,
+    source_file: str,
+    all_files: set[str],
+) -> str | None:
+    """Resolve a quoted `#include "..."` to a repo-local file path.
+
+    Quoted includes resolve relative to the source file's directory, with a
+    single fallback to a sibling `include/` directory. Angle-bracket includes
+    (system or third-party) are always leaves.
+    """
+    if not import_obj.is_relative:
+        return None
+    raw = import_obj.module_path
+    if not raw:
+        return None
+
+    source_dir = Path(source_file).parent
+    candidate = str(Path(source_dir, raw))
+    if candidate in all_files:
+        return candidate
+
+    # Try one sibling-up `include/<raw>` fallback
+    sibling = source_dir.parent / "include" / raw
+    sibling_str = str(sibling)
+    if sibling_str in all_files:
+        return sibling_str
+
+    return None
+
+
+def _rust_crate_root(source_file: Path, root_path: Path) -> Path | None:
+    """Locate the directory containing Cargo.toml above source_file (or None)."""
+    current = (root_path / source_file).parent
+    root_resolved = root_path.resolve()
+    while True:
+        if (current / "Cargo.toml").exists():
+            return current
+        parent = current.parent
+        if parent == current or not str(parent.resolve()).startswith(str(root_resolved)):
+            return None
+        current = parent
+
+
+def _resolve_rust_use_to_file(
+    import_obj: Import,
+    source_file: str,
+    all_files: set[str],
+    root_path: Path,
+) -> str | None:
+    """Resolve a Rust `use` declaration to a repo-local file path.
+
+    Handles `crate::`, `self::`, and `super::` prefixes by walking the filesystem.
+    External crates (anything else, e.g. `std::`) return None as leaves.
+    """
+    module_path = import_obj.module_path
+    if not module_path:
+        return None
+
+    parts = module_path.split(".")
+    if not parts:
+        return None
+
+    first = parts[0]
+    rest = parts[1:]
+    src_path = Path(source_file)
+
+    if first == "self":
+        base_dir = src_path.parent
+    elif first == "super":
+        # Allow chained `super::super::...`
+        base_dir = src_path.parent
+        super_count = 1
+        while rest and rest[0] == "super":
+            super_count += 1
+            rest = rest[1:]
+        for _ in range(super_count):
+            base_dir = base_dir.parent
+    elif first == "crate":
+        crate_root = _rust_crate_root(src_path, root_path)
+        if crate_root is None:
+            return None
+        # Convention: crate's library/binary root lives under `src/`
+        candidate_src = crate_root / "src"
+        base_dir_abs = candidate_src if candidate_src.exists() else crate_root
+        # Convert to a relative-to-root_path Path so we can compare against all_files
+        try:
+            base_dir = base_dir_abs.relative_to(root_path)
+        except ValueError:
+            return None
+    else:
+        # Standard library / external crate — leaf
+        return None
+
+    if not rest:
+        return None
+
+    candidate = base_dir
+    for seg in rest:
+        candidate = candidate / seg
+
+    rs_file = str(candidate.with_suffix(".rs"))
+    if rs_file in all_files:
+        return rs_file
+
+    mod_file = str(candidate / "mod.rs")
+    if mod_file in all_files:
+        return mod_file
+
+    return None
+
+
 class Indexer:
     """Structural indexer: parse source files and populate the graph store."""
 
@@ -213,6 +327,7 @@ class Indexer:
         file_definitions: dict[str, list[Definition]] = {}
         file_imports: dict[str, list[Import]] = {}
         file_calls: dict[str, list[CallSite]] = {}
+        file_inheritance: dict[str, list[Inheritance]] = {}
         file_languages: dict[str, str] = {}
         file_node_ids: dict[str, int] = {}  # rel_path_str -> node id
         # qualified_name -> node id for definitions
@@ -255,13 +370,15 @@ class Indexer:
                 definitions = extract_definitions(tree, rel_str, language)
                 imports = extract_imports(tree, rel_str, language)
                 calls = extract_calls(tree, rel_str, language)
+                inheritance = extract_inheritance(tree, rel_str, language)
             except Exception as exc:
                 stats.errors.append(f"Extraction error in {rel_str}: {exc}")
-                definitions, imports, calls = [], [], []
+                definitions, imports, calls, inheritance = [], [], [], []
 
             file_definitions[rel_str] = definitions
             file_imports[rel_str] = imports
             file_calls[rel_str] = calls
+            file_inheritance[rel_str] = inheritance
 
             # Build module path (both stripped and full variants for resolution)
             module_path = _module_path_for_file(rel_path, language)
@@ -388,6 +505,12 @@ class Indexer:
                     target_file = _resolve_python_import_to_file(imp, module_to_file)
                 elif language in ("typescript", "tsx", "javascript"):
                     target_file = _resolve_ts_import_to_file(imp, rel_str, all_file_strs)
+                elif language == "rust":
+                    target_file = _resolve_rust_use_to_file(
+                        imp, rel_str, all_file_strs, self.root_path
+                    )
+                elif language == "cpp":
+                    target_file = _resolve_cpp_include_to_file(imp, rel_str, all_file_strs)
 
                 if target_file is None:
                     continue
@@ -414,6 +537,109 @@ class Indexer:
         if import_edges:
             self.graph_store.upsert_edges(import_edges)
             stats.edges_created += len(import_edges)
+
+        # -- Phase 2b: Inheritance resolution --
+        inherits_edges: list[dict[str, Any]] = []
+        for rel_str, inherits in file_inheritance.items():
+            if not inherits:
+                continue
+            language = file_languages.get(rel_str, "")
+            module_path_str = _module_path_for_file(Path(rel_str), language)
+            for inh in inherits:
+                child_qname = f"{module_path_str}::{inh.child_qname}"
+                child_id = def_node_ids.get(child_qname)
+                if child_id is None:
+                    continue
+                # Resolve parent by name lookup (prefer same file, then anywhere)
+                candidates = name_to_defs.get(inh.parent_name, [])
+                parent_qname: str | None = None
+                for qname, fpath in candidates:
+                    if fpath == rel_str:
+                        parent_qname = qname
+                        break
+                if parent_qname is None and candidates:
+                    parent_qname = candidates[0][0]
+                if parent_qname is None:
+                    continue
+                parent_id = def_node_ids.get(parent_qname)
+                if parent_id is None:
+                    continue
+                inherits_edges.append(
+                    {
+                        "source_id": child_id,
+                        "target_id": parent_id,
+                        "kind": "inherits",
+                        "properties": {"confidence": "medium"},
+                    }
+                )
+
+        if inherits_edges:
+            self.graph_store.upsert_edges(inherits_edges)
+            stats.edges_created += len(inherits_edges)
+
+        # -- Phase 2c: C++ class → method contains edges --
+        # Needed because C++ header/source separation means a class lives in
+        # one file while its out-of-line methods live in another. We link the
+        # method back to its class by name so dependents queries work
+        # regardless of which file is loaded first.
+        cpp_class_by_name: dict[str, list[int]] = {}
+        for rel_str, defns in file_definitions.items():
+            if file_languages.get(rel_str) != "cpp":
+                continue
+            module_path_str = _module_path_for_file(Path(rel_str), "cpp")
+            for defn in defns:
+                if defn.kind != "class":
+                    continue
+                qname_dotted = defn.qualified_name  # e.g. "geo.Triangle"
+                qname = f"{module_path_str}::{'::'.join(qname_dotted.split('.'))}"
+                node_id = def_node_ids.get(qname)
+                if node_id is not None:
+                    cpp_class_by_name.setdefault(defn.name, []).append(node_id)
+
+        cpp_class_method_edges: list[dict[str, Any]] = []
+        for rel_str, defns in file_definitions.items():
+            if file_languages.get(rel_str) != "cpp":
+                continue
+            module_path_str = _module_path_for_file(Path(rel_str), "cpp")
+            for defn in defns:
+                if defn.kind != "method":
+                    continue
+                # qname is the method's full qualified name in the graph
+                qname_dotted = defn.qualified_name
+                # Last `.`-segment is the method name; everything before it is the class scope
+                if "." not in qname_dotted:
+                    continue
+                class_scope, method_name = qname_dotted.rsplit(".", 1)
+                # The unqualified class name is the last segment of class_scope
+                class_local_name = (
+                    class_scope.rsplit(".", 1)[-1] if "." in class_scope else class_scope
+                )
+                method_qname = f"{module_path_str}::{'::'.join(qname_dotted.split('.'))}"
+                method_id = def_node_ids.get(method_qname)
+                if method_id is None:
+                    continue
+                # Prefer a class in the same file with the matching scoped qname
+                preferred_class_qname = f"{module_path_str}::{'::'.join(class_scope.split('.'))}"
+                class_id = def_node_ids.get(preferred_class_qname)
+                if class_id is None:
+                    # Fall back to a name-based lookup across the index
+                    candidates = cpp_class_by_name.get(class_local_name, [])
+                    if candidates:
+                        class_id = candidates[0]
+                if class_id is None or class_id == method_id:
+                    continue
+                cpp_class_method_edges.append(
+                    {
+                        "source_id": class_id,
+                        "target_id": method_id,
+                        "kind": "contains",
+                        "properties": {"confidence": "medium"},
+                    }
+                )
+
+        if cpp_class_method_edges:
+            self.graph_store.upsert_edges(cpp_class_method_edges)
+            stats.edges_created += len(cpp_class_method_edges)
 
         # -- Phase 3: Call resolution --
         call_edges: list[dict[str, Any]] = []

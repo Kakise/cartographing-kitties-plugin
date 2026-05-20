@@ -60,14 +60,26 @@ def _discover_migrations(directory: Path) -> list[tuple[int, Path]]:
     return migrations
 
 
-def run_migrations(conn: sqlite3.Connection) -> int:
+def run_migrations(
+    conn: sqlite3.Connection,
+    *,
+    skip_versions: set[int] | None = None,
+) -> int:
     """Apply pending migrations and return the new schema version.
 
     For a **fresh database** (no tables at all) all migrations run from
     scratch.  For an **existing database** that predates the migration system
     (has ``nodes`` but no ``schema_version``), the baseline migration (0001)
     is skipped and the version is stamped to 1.
+
+    *skip_versions* lists migrations whose SQL must not run on this connection
+    (e.g. they depend on an unloaded SQLite extension).  Skipped migrations
+    still bump ``schema_version`` so later migrations advance normally; the
+    caller is responsible for providing a runtime fallback for the skipped
+    schema (the hybrid-search dense channel runs in degraded mode when
+    ``nodes_vec`` is not created, for example).
     """
+    skip_versions = set(skip_versions) if skip_versions else set()
     has_existing_tables = _detect_existing_db(conn)
     current_version = _ensure_version_table(conn)
 
@@ -81,8 +93,21 @@ def run_migrations(conn: sqlite3.Connection) -> int:
     migrations = _discover_migrations(MIGRATIONS_DIR)
 
     applied = 0
+    final_version = current_version
     for version, sql_path in migrations:
         if version <= current_version:
+            continue
+        if version in skip_versions:
+            logger.warning(
+                "Skipping migration %04d (%s) — dependency unavailable; "
+                "stamping schema_version forward to keep later migrations applicable.",
+                version,
+                sql_path.name,
+            )
+            conn.execute("UPDATE schema_version SET version = ?", (version,))
+            conn.commit()
+            applied += 1
+            final_version = version
             continue
         sql = sql_path.read_text(encoding="utf-8")
         logger.info("Applying migration %04d: %s", version, sql_path.name)
@@ -91,12 +116,13 @@ def run_migrations(conn: sqlite3.Connection) -> int:
             conn.execute("UPDATE schema_version SET version = ?", (version,))
             conn.commit()
             applied += 1
+            final_version = version
         except Exception:
             logger.exception("Migration %04d failed — rolling back", version)
             conn.rollback()
             raise
 
     if applied:
-        logger.info("Applied %d migration(s), now at version %d", applied, version)
+        logger.info("Applied %d migration(s), now at version %d", applied, final_version)
 
     return conn.execute("SELECT version FROM schema_version").fetchone()[0]

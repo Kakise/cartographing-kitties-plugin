@@ -87,7 +87,7 @@ Out of scope:
 
 - `plugins/kitty/.mcp.json`
 - `plugins/kitty/.claude-plugin/plugin.json`
-- `plugins/kitty/gemini-extension.json`
+- `plugins/kitty/legacy-runtime-extension.json`
   Plugin startup currently injects only `KITTY_PROJECT_ROOT`.
 
 ### Key Relationships
@@ -315,10 +315,10 @@ These questions do not block the basic implementation. The plan below assumes:
   Files:
   - `plugins/kitty/.mcp.json`
   - `plugins/kitty/.claude-plugin/plugin.json`
-  - `plugins/kitty/gemini-extension.json`
+  - `plugins/kitty/legacy-runtime-extension.json`
   - `README.md`
   - `CLAUDE.md`
-  - `GEMINI.md`
+  - `legacy runtime docs`
   Approach:
   - Document `KITTY_STORAGE_ROOT` and the resulting path layout.
   - Keep plugin defaults unchanged for backward compatibility, but update packaged plugin manifests and/or adjacent packaging docs so users have a documented env slot to set `KITTY_STORAGE_ROOT` without modifying Python source.
@@ -416,5 +416,5 @@ The plan remains high confidence because those are product-surface decisions, no
 - `tests/test_stdio_e2e.py`
 - `plugins/kitty/.mcp.json`
 - `plugins/kitty/.claude-plugin/plugin.json`
-- `plugins/kitty/gemini-extension.json`
+- `plugins/kitty/legacy-runtime-extension.json`
 - `docs/plans/2026-03-28-005-feat-cat-rebrand-plan.md`

@@ -13,7 +13,7 @@ must update the allow-list.
 
 | Layer | Location | Purpose |
 |-------|----------|---------|
-| Parsing | `src/cartograph/parsing/` | Tree-sitter AST extraction for Python, TypeScript, JavaScript |
+| Parsing | `src/cartograph/parsing/` | Tree-sitter AST extraction for Python, TypeScript, JavaScript, Rust, C++ |
 | Indexing | `src/cartograph/indexing/` | File discovery, incremental change detection, cross-file resolution |
 | Storage | `src/cartograph/storage/` | SQLite graph database with FTS5 search and recursive CTE traversal |
 | Annotation | `src/cartograph/annotation/` | LLM-driven semantic enrichment (summaries, tags, roles) |
@@ -39,12 +39,50 @@ must update the allow-list.
   `**State:**` lines). See `docs/architecture/plan-state-conventions.md`. The
   `/kitty-plans` slash command (or `uv run python scripts/plan_status.py report`) renders the
   cross-plan dashboard; `audit` runs in pre-commit.
-- Codex executes the framework subagents declared in
-  `plugins/kitty/agents/manifest.json` inline. Where Claude Code uses
+- Codex custom agents are generated under `plugins/kitty/.codex/agents/` from
+  `plugins/kitty/_source/agents/*.yaml`. Where Claude Code uses
   `AskUserQuestion` for handoff menus, Codex skills present the same options as
   numbered text prompts and pipeline modes (`kitty:lfg`, `mode:autofix`,
   `mode:report-only`, autonomous loops) skip the prompt by selecting the
   recommended option.
+
+## Skill and Subagent Authoring
+
+Skills and subagents are generated from `plugins/kitty/_source/`. Edit the
+YAML sources, then run the generators (see Plugin Structure section). The
+following rules — drawn from Anthropic's current spec — are enforced by
+`scripts/validate_skills.py` and by the generators:
+
+- **Skill `name:`** must match `^[a-z0-9-]{1,64}$` (lowercase, numbers,
+  hyphens; no colons). The plugin namespace prefix (`kitty:`) is added
+  automatically by Claude Code from the plugin name, so the user-facing
+  command for a directory `kitty-plan/` becomes `/kitty:kitty-plan`. Do not
+  encode the colon inside the YAML.
+- **Skill `description:`** is ≤1024 chars and leads with the trigger phrase a
+  user would actually type. The combined `description` + `when_to_use` is
+  capped at 1,536 chars when Claude lists the skill.
+- **Skill `when_to_use:`** holds extra trigger keywords without crowding the
+  always-visible description. Use it on high-traffic skills.
+- **Skill body** stays under 500 lines; move details to `references/`.
+- **MCP tools** appear in `allowed-tools:` (for skills) and `tools:` (for
+  subagents) with their fully-qualified Claude Code names, e.g.
+  `mcp__plugin_kitty_kitty__query_node`. Built-in tools keep their short
+  names (`Read`, `Grep`, `Glob`, `Bash`, `Write`, `Edit`).
+- **Subagent `tools:`** is an allowlist — setting it denies every unlisted
+  tool, including all MCP tools. Omit `tools:` to inherit the full toolset
+  from the main conversation; list `mcp__plugin_kitty_kitty__<tool>`
+  explicitly only when narrowing on purpose.
+- **Subagent descriptions** use third-person, present tense, and lead with
+  the trigger phrase. Always-on agents include "Use proactively …"; on-
+  demand agents include "Spawn when …".
+- **Subagent `color:`** must be one of `red, blue, green, yellow, purple,
+  orange, pink, cyan`. The generator (`scripts/generate_agents.py`)
+  raises on any other value.
+
+Authoritative sources:
+[Skills](https://code.claude.com/docs/en/skills) ·
+[Subagents](https://code.claude.com/docs/en/sub-agents) ·
+[Skill authoring best practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices).
 
 ## Plugin Structure (Marketplace Layout)
 
@@ -52,10 +90,10 @@ must update the allow-list.
 plugins/
   kitty/                         # Plugin root (marketplace layout)
     .codex/
-      config.toml                # Codex runtime defaults (max_threads, depth, runtime cap)
-      agents/*.toml              # Codex-flavored agent manifests (regenerated from _source)
+      config.toml                # Codex runtime defaults under [agents]
+      agents/*.toml              # Codex custom agents (generated from _source/agents)
     .claude-plugin/plugin.json   # Plugin manifest (uvx-based MCP server)
-    skills/                      # Git submodule → Kakise/cartographing-kitties-skills
+    skills/                      # Generated skills (from _source/skills)
       kitty/                     # Router skill — delegates to sub-skills
         SKILL.md
         references/
@@ -71,6 +109,8 @@ plugins/
       kitty-review/              # Multi-agent review with structural analysis
       kitty-lfg/                 # Full autonomous pipeline (plan → work → review)
         agents/openai.yaml       # Codex implicit-invocation policy (orchestrator skills)
+      kitty-install-codex/       # Manual Codex asset installer helper
+    prompts/                     # Codex prompt commands generated from _source/commands
     agents/
       manifest.json             # Runtime-neutral declaration of framework subagents
       cartographing-kitten.md    # Batch annotation specialist
@@ -84,7 +124,9 @@ plugins/
       expert-kitten-structure.md   # Architecture review (conditional)
     _source/
       agents/*.yaml             # Single source of truth for generated agents
+      commands/*.yaml           # Single source of truth for command/prompt outputs
       manifests/plugin.yaml     # Single source of truth for plugin manifests
+      skills/*.yaml             # Single source of truth for generated skills
       templates/*.j2            # Generator templates for runtime artifacts
 src/cartograph/                  # Python source (MCP server + core library)
 tests/                           # Test suite
@@ -95,17 +137,16 @@ scripts/                         # Repo-level developer scripts
 
 Generated harness artifacts must be edited through `plugins/kitty/_source/`, not by
 hand. Run `uv run python scripts/generate_agents.py` after changing
-`_source/agents/*.yaml`, and run `uv run python scripts/generate_manifests.py`
-after changing `_source/manifests/plugin.yaml`. CI and pre-commit use the
+`_source/agents/*.yaml`, `uv run python scripts/generate_skills.py` after changing
+`_source/skills/*.yaml`, `uv run python scripts/generate_commands.py` after changing
+`_source/commands/*.yaml`, and `uv run python scripts/generate_manifests.py` after changing
+`_source/manifests/plugin.yaml`. CI and pre-commit use the
 matching `--check` commands plus `scripts/validate_skills.py` and
 `scripts/sync_claude_agents_md.py --check` to catch drift.
 
-`plugins/kitty/skills/` is a Git submodule that points at
-[`Kakise/cartographing-kitties-skills`](https://github.com/Kakise/cartographing-kitties-skills).
-Bootstrap it on first clone with `git submodule update --init --recursive`.
-Skill edits land via PRs against that submodule repo. Framework agents under
-`plugins/kitty/agents/` stay in this repo because they are generated from
-`plugins/kitty/_source/agents/*.yaml`.
+`plugins/kitty/skills/` is vendored in this repository and generated from
+`plugins/kitty/_source/skills/*.yaml`. Framework agents under `plugins/kitty/agents/`
+and `plugins/kitty/.codex/agents/` are generated from `plugins/kitty/_source/agents/*.yaml`.
 
 ## Workflow Pipeline
 
@@ -144,10 +185,8 @@ Or use `kitty:lfg` for full autonomous execution (plan → work → review).
 The framework subagents remain part of the repository for both Claude Code and Codex.
 
 - Codex preserves the same subagents through `plugins/kitty/agents/manifest.json` and the
-  Codex-flavored manifests under `plugins/kitty/.codex/agents/*.toml`. Execution is
-  inline-first because the local Codex manifest spec does not define an explicit `agents`
-  field.
-- Skills must therefore make sense without assuming swarm orchestration.
+  Codex custom-agent TOML files under `plugins/kitty/.codex/agents/*.toml`.
+- Skills must still make sense without assuming swarm orchestration.
 - Orchestrator skills (`kitty:work`, `kitty:lfg`) ship `agents/openai.yaml` with
   `allow_implicit_invocation: false` so Codex never auto-invokes them.
 
