@@ -260,3 +260,38 @@ uv run python -m cartograph.server.main   # Start server via stdio
 
 Tests live in `tests/`. Fixtures in `tests/fixtures/` are sample projects — not test modules.
 Run with `uv run pytest`. CI matrix tests Python 3.13-3.14.
+
+## Releasing (version bump)
+
+The package version is **derived from git tags** via
+[`uv-dynamic-versioning`](https://github.com/ninoseki/uv-dynamic-versioning/)
+(`[tool.uv-dynamic-versioning]` in `pyproject.toml`, `style = "pep440"`,
+`bump = true`). There is no hard-coded `version =` field — `pyproject.toml`
+declares `dynamic = ["version"]` and `hatchling` resolves it at build time
+from `git describe`.
+
+To cut a release:
+
+1. Land all changes on `main` (this is the only branch tags should be cut
+   from). Confirm `git describe --tags` returns the previous release tag
+   plus the new commits.
+2. Pick the next version using [SemVer](https://semver.org/):
+   - **MAJOR** (`v2.0.0`): breaking changes to the MCP tool surface, the
+     graph schema, or public Python APIs.
+   - **MINOR** (`v1.2.0`): new languages, new tools, new skills/agents, new
+     migrations that are backwards-compatible.
+   - **PATCH** (`v1.1.2`): bug fixes, doc-only changes, dependency bumps.
+3. Tag the release commit and push the tag:
+
+   ```bash
+   git tag -a v1.2.0 -m "v1.2.0 — <one-line summary>"
+   git push origin v1.2.0
+   ```
+
+4. Create a GitHub release from the tag — that triggers
+   `.github/workflows/publish.yml`, which runs the test matrix, builds the
+   wheel with the resolved version, and publishes to PyPI via OIDC trusted
+   publishing.
+
+Between tags, builds report a development version (e.g.
+`1.1.1.post9.dev0+g257883c`), which is expected.
