@@ -21,6 +21,16 @@ def test_root_codex_plugin_manifest_paths_exist() -> None:
     assert skills_path.exists()
     assert mcp_path.exists()
 
+    codex_config = REPO_ROOT / "plugins" / "kitty" / ".codex" / "config.toml"
+    assert codex_config.exists(), "missing plugins/kitty/.codex/config.toml"
+
+    for skill_name in ("kitty-lfg", "kitty-work"):
+        openai_yaml = SKILLS_ROOT / skill_name / "agents" / "openai.yaml"
+        assert openai_yaml.exists(), (
+            f"missing {openai_yaml.relative_to(REPO_ROOT)} — orchestrator skills must "
+            f"declare an implicit-invocation policy for Codex"
+        )
+
 
 def test_agent_manifest_declares_all_framework_agents() -> None:
     agents_dir = REPO_ROOT / "plugins" / "kitty" / "agents"
@@ -59,7 +69,7 @@ def test_agent_manifest_marks_dual_runtime_intent() -> None:
     for entry in manifest["agents"]:
         runtimes = entry["runtimes"]
         assert runtimes["claude_code"] == "directory-discovered"
-        assert runtimes["codex"] == "framework-declared"
+        assert runtimes["codex"] == "custom-agent-toml"
 
 
 def test_workflow_contract_docs_exist() -> None:
@@ -70,6 +80,8 @@ def test_workflow_contract_docs_exist() -> None:
 def test_generated_harness_artifacts_are_current() -> None:
     checks = [
         ["scripts/generate_agents.py", "--check"],
+        ["scripts/generate_skills.py", "--check"],
+        ["scripts/generate_commands.py", "--check"],
         ["scripts/generate_manifests.py", "--check"],
         ["scripts/generate_tool_reference.py", "--check"],
         ["scripts/validate_skills.py"],
@@ -128,13 +140,13 @@ def test_framework_agents_accept_memory_context() -> None:
         assert "Memory Context" in text or "memory_context" in text, agent_path.name
 
 
-def test_skills_submodule_initialized() -> None:
+def test_skills_are_vendored_into_plugin() -> None:
     assert SKILLS_ROOT.exists(), (
-        "plugins/kitty/skills is missing — run `git submodule update --init --recursive`"
+        "plugins/kitty/skills is missing — run `uv run python scripts/generate_skills.py`"
     )
     skill_files = list(SKILLS_ROOT.glob("*/SKILL.md"))
-    assert len(skill_files) >= 9, (
-        f"expected at least 9 SKILL.md files under {SKILLS_ROOT}, found {len(skill_files)}"
+    assert len(skill_files) >= 10, (
+        f"expected at least 10 SKILL.md files under {SKILLS_ROOT}, found {len(skill_files)}"
     )
 
 
@@ -150,9 +162,11 @@ def _parse_skill_frontmatter(path: Path) -> dict[str, object]:
 
 def test_skill_frontmatter_declares_kitty_mcp_requirement() -> None:
     skill_files = sorted(SKILLS_ROOT.glob("*/SKILL.md"))
-    assert skill_files, "no SKILL.md files found — submodule may be uninitialized"
+    assert skill_files, "no SKILL.md files found — run `uv run python scripts/generate_skills.py`"
 
     for path in skill_files:
+        if path.parent.name == "kitty-install-codex":
+            continue
         frontmatter = _parse_skill_frontmatter(path)
 
         description = frontmatter.get("description")

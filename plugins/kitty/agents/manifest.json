@@ -8,7 +8,16 @@
       "role": "annotation",
       "runtimes": {
         "claude_code": "directory-discovered",
-        "codex": "framework-declared"
+        "codex": "custom-agent-toml"
+      }
+    },
+    {
+      "name": "expert-kitten-context",
+      "path": "./expert-kitten-context.md",
+      "role": "review",
+      "runtimes": {
+        "claude_code": "directory-discovered",
+        "codex": "custom-agent-toml"
       }
     },
     {
@@ -17,7 +26,7 @@
       "role": "review",
       "runtimes": {
         "claude_code": "directory-discovered",
-        "codex": "framework-declared"
+        "codex": "custom-agent-toml"
       }
     },
     {
@@ -26,7 +35,7 @@
       "role": "review",
       "runtimes": {
         "claude_code": "directory-discovered",
-        "codex": "framework-declared"
+        "codex": "custom-agent-toml"
       }
     },
     {
@@ -35,7 +44,7 @@
       "role": "review",
       "runtimes": {
         "claude_code": "directory-discovered",
-        "codex": "framework-declared"
+        "codex": "custom-agent-toml"
       }
     },
     {
@@ -44,7 +53,7 @@
       "role": "review",
       "runtimes": {
         "claude_code": "directory-discovered",
-        "codex": "framework-declared"
+        "codex": "custom-agent-toml"
       }
     },
     {
@@ -53,7 +62,7 @@
       "role": "research",
       "runtimes": {
         "claude_code": "directory-discovered",
-        "codex": "framework-declared"
+        "codex": "custom-agent-toml"
       }
     },
     {
@@ -62,7 +71,7 @@
       "role": "research",
       "runtimes": {
         "claude_code": "directory-discovered",
-        "codex": "framework-declared"
+        "codex": "custom-agent-toml"
       }
     },
     {
@@ -71,7 +80,7 @@
       "role": "research",
       "runtimes": {
         "claude_code": "directory-discovered",
-        "codex": "framework-declared"
+        "codex": "custom-agent-toml"
       }
     },
     {
@@ -80,7 +89,7 @@
       "role": "research",
       "runtimes": {
         "claude_code": "directory-discovered",
-        "codex": "framework-declared"
+        "codex": "custom-agent-toml"
       }
     }
   ]

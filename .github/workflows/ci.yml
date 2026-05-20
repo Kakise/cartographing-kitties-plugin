@@ -15,8 +15,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-        with:
-          submodules: recursive
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
@@ -46,7 +44,6 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
-          submodules: recursive
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
@@ -64,13 +61,74 @@ jobs:
       - name: Run tests
         run: uv run pytest
 
+  # Smoke-check sqlite-vec extension loading across the OS / Python matrix.
+  # Hybrid search degrades gracefully when sqlite_vec.load fails, so this job
+  # is informational: continue-on-error keeps the pipeline green even if a
+  # platform falls back to FTS5 + centrality.  The job summary surfaces which
+  # cells run in degraded mode by default.
+  sqlite-vec-smoke:
+    name: sqlite-vec smoke (${{ matrix.os }} / py${{ matrix.python-version }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ["3.13", "3.14"]
+    runs-on: ${{ matrix.os }}
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.10.2"
+          enable-cache: true
+          python-version: ${{ matrix.python-version }}
+
+      - name: Set up Python
+        run: uv python install
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      - name: Smoke-test sqlite_vec extension load
+        shell: bash
+        run: |
+          set +e
+          uv run python -c "
+          import sqlite3, sys
+          try:
+              import sqlite_vec
+          except Exception as exc:
+              print('IMPORT_FAIL', exc)
+              sys.exit(0)
+          conn = sqlite3.connect(':memory:')
+          try:
+              conn.enable_load_extension(True)
+          except Exception as exc:
+              print('ENABLE_LOAD_EXTENSION_FAIL', exc)
+              sys.exit(0)
+          try:
+              sqlite_vec.load(conn)
+          except Exception as exc:
+              print('LOAD_FAIL', exc)
+              sys.exit(0)
+          conn.execute('CREATE VIRTUAL TABLE t USING vec0(embedding float[8])')
+          print('OK')
+          " | tee smoke.log
+          status=$(grep -E '^(OK|IMPORT_FAIL|ENABLE_LOAD_EXTENSION_FAIL|LOAD_FAIL)' smoke.log | head -1)
+          if [ "${status%% *}" = "OK" ]; then
+              echo "::notice::sqlite-vec loaded cleanly on ${{ matrix.os }} py${{ matrix.python-version }}"
+          else
+              echo "::warning::sqlite-vec degraded on ${{ matrix.os }} py${{ matrix.python-version }}: $status"
+          fi
+
   validate-plugin:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-        with:
-          submodules: recursive
 
       - name: Validate plugin.json
         run: python -c "import json, sys; d=json.load(open('plugins/kitty/.claude-plugin/plugin.json')); assert 'name' in d; assert 'mcpServers' in d; print('plugin.json valid')"
@@ -82,8 +140,8 @@ jobs:
         run: |
           count=$(find plugins/kitty/skills -mindepth 1 -maxdepth 1 -type d -exec test -f {}/SKILL.md \; -print | wc -l | tr -d ' ')
           echo "Found $count skills"
-          if [ "$count" -lt 9 ]; then
-            echo "ERROR: Expected at least 9 skills, found $count"
+          if [ "$count" -lt 10 ]; then
+            echo "ERROR: Expected at least 10 skills, found $count"
             find plugins/kitty/skills -mindepth 1 -maxdepth 1 -type d | sort
             exit 1
           fi

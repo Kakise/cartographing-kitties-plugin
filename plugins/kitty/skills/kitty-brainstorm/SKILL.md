@@ -1,0 +1,246 @@
+---
+name: kitty-brainstorm
+description: |
+  Explore requirements and approaches through Cartographing Kittens-powered codebase understanding. Use when starting a new feature, exploring what to build, gathering requirements, or when the user says "let's brainstorm", "what should we build", "help me think through". Uses inline-first research and optional delegation when the runtime supports it cleanly. Requires the Cartographing Kittens MCP server (`uvx cartographing-kittens`).
+argument-hint: '[feature or problem description]'
+paths:
+- docs/brainstorms/*.md
+- src/**
+- lib/**
+allowed-tools:
+- Read
+- Edit
+- Write
+- Grep
+- Glob
+- mcp__plugin_kitty_kitty__query_node
+- mcp__plugin_kitty_kitty__search
+- mcp__plugin_kitty_kitty__get_file_structure
+- mcp__plugin_kitty_kitty__find_dependencies
+- mcp__plugin_kitty_kitty__find_dependents
+- mcp__plugin_kitty_kitty__rank_nodes
+- mcp__plugin_kitty_kitty__annotation_status
+- mcp__plugin_kitty_kitty__query_litter_box
+- mcp__plugin_kitty_kitty__query_treat_box
+- mcp__plugin_kitty_kitty__index_codebase
+metadata:
+  short-description: Gather requirements for a feature using graph-powered codebase research.
+requires:
+  mcp_servers:
+  - kitty
+---
+
+# Cartographing Kittens: Brainstorm
+
+Explore **WHAT** to build through dialogue and Cartographing Kittens-powered codebase analysis.
+Produces a requirements document that feeds into `kitty:plan`.
+
+## Runtime Posture
+
+This workflow is **inline-first**. The orchestrator gathers graph context and can complete the
+brainstorm without delegating. If the active runtime supports delegation cleanly, the preserved
+framework subagents may be used as an optimization, not as a requirement.
+
+## Workflow
+
+### Phase 1: Index & Understand
+
+1. Call `index_codebase(full=false)` to ensure the graph is fresh
+2. If `$ARGUMENTS` is provided, use it as the feature description
+3. If no arguments, ask the user in plain text: "What problem are you trying to
+   solve or what feature are you considering?" This is the documented free-form
+   exception in `kitty/references/ask-user-protocol.md` (no enumerable options
+   exist before research). Any follow-up refinement of the description must use
+   `AskUserQuestion`.
+4. Query memory for the topic using `query_litter_box(limit=20)` and `query_treat_box(limit=20)`,
+   then filtered searches for the strongest 1-2 feature terms. Use relevant entries to frame
+   constraints, prior failures, and validated patterns.
+
+### Phase 2: Research Context
+
+Build the subgraph context before any optional delegation:
+
+1. **Annotation status** — Call `annotation_status()`. Record total nodes, annotated count, and coverage percentage.
+
+2. **Search for relevant nodes** — Call `search` with 2-4 feature-area keywords extracted from the feature description. Collect matching qualified names, file paths, summaries, tags, and roles.
+
+3. **File structures** — Call `get_file_structure` on the top 3-5 files identified by search results. Capture node listings with kinds, summaries, tags, and roles.
+
+4. **Key symbol details** — Call `query_node` on the 3-5 most important symbols from search results (classes, entry points, core functions). Capture their metadata and neighbors.
+
+5. **Dependency context** — Call `find_dependencies(name=target, max_depth=2)` for each key symbol. Understand what the feature area depends on (upstream constraints).
+
+6. **Dependent context** — Call `find_dependents(name=target, max_depth=2)` for each key symbol. Understand who depends on the feature area (scope implications — changes here ripple outward).
+
+**Format the context as structured text:**
+
+```
+## Subgraph Context
+
+### Annotation Status
+- Total nodes: N
+- Annotated: N (X%)
+- Pending: N
+
+### Memory Context
+- Litter lessons to avoid:
+  - [category] description — context
+- Treat lessons to preserve:
+  - [category] description — context
+- Memory gaps:
+  - No relevant entries found for [term]
+
+### Target Nodes (from search)
+- `qualified::name` — kind: X, role: Y, tags: [a, b], summary: "..."
+  File: path/to/file.py
+- ...
+
+### File Structures
+#### path/to/file.py
+- `module::Class` (class) — role: Y, summary: "..."
+  - `module::Class::method` (method) — role: Y, summary: "..."
+- ...
+
+### Key Symbol Details
+#### `qualified::name`
+- Kind: X, Role: Y, Tags: [a, b]
+- Summary: "..."
+- Neighbors:
+  - calls -> `other::symbol` (role: Z)
+  - imports -> `another::module` (role: W)
+
+### Edges Between Target Nodes
+| Source | Target | Edge Kind |
+|---|---|---|
+| module::func_a | module::func_b | calls |
+
+### Dependencies (what target area depends on)
+#### `qualified::name`
+- Depth 1: `dep::symbol` (kind, role)
+- Depth 2: `dep::dep::symbol` (kind, role)
+
+### Dependents (what depends on target area)
+#### `qualified::name`
+- Depth 1: `consumer::symbol` (kind, role)
+- Depth 2: `consumer::consumer::symbol` (kind, role)
+```
+
+Optional delegation path:
+
+If the runtime supports delegation cleanly, the orchestrator may dispatch these framework agents
+in parallel, passing each the feature description and the formatted subgraph context:
+
+- **`librarian-kitten-researcher`** — Pass: full subgraph context (annotation status, target nodes, file structures, symbol details, dependencies, dependents, edges). Scope: architecture, technology stack, module organization
+- **`librarian-kitten-pattern`** — Pass: search results, file structures, and dependency/dependent context from the subgraph. Scope: existing patterns relevant to the feature area
+
+Otherwise, the orchestrator synthesizes the same findings inline:
+- technology stack
+- relevant patterns
+- key files
+- existing conventions
+
+### Phase 3: Adaptive Questioning
+
+Use research findings to ask targeted questions. Each question must be issued via
+`AskUserQuestion` with 2-4 options derived from the research (not invented).
+Follow `kitty/references/ask-user-protocol.md` — recommended option first with
+the `(Recommended)` suffix, header ≤ 12 chars, single-select unless choices are
+truly non-exclusive.
+
+Cover at most these four categories, one prompt at a time so the user's answer
+to the previous question can shape the next:
+
+1. **Problem clarity** — header: `"Problem"`. Options enumerate the alternative
+   readings of the request that match research findings (e.g., "Fix the auth
+   middleware bug", "Replace the auth middleware altogether").
+2. **Scope boundaries** — header: `"Scope"`. Options enumerate the related
+   areas surfaced by `librarian-kitten-pattern` / `find_dependents` (e.g.,
+   "Just `src/auth/`", "Auth + session storage", "Auth + session + audit log").
+3. **Success criteria** — header: `"Success"`. Options enumerate observable
+   outcomes (e.g., "All callers migrate", "New callers use new API; old callers
+   stay", "Strict cutover").
+4. **Constraints** — header: `"Pattern"` / `"Constraint"`. Options enumerate the
+   choice between following an existing pattern or proposing a new one.
+
+Stop questioning when:
+- Problem is clear
+- Scope is bounded
+- Success criteria are defined
+- 3-5 prompts have fired (don't over-question)
+
+If a follow-up cannot be enumerated as 2-4 options, fall back to a free-form
+plain-text question per `ask-user-protocol.md`.
+
+**Pipeline mode:** If invoked from `kitty:lfg` or another orchestrator, skip the
+`AskUserQuestion` calls. Infer requirements from the feature description and
+research findings, picking the recommended option silently for each category.
+
+### Phase 4: Write Requirements
+
+Create the requirements document at:
+`docs/brainstorms/YYYY-MM-DD-NNN-<topic>-requirements.md`
+
+Create `docs/brainstorms/` if it doesn't exist. Check existing files for today's date to determine sequence number.
+
+Template:
+```
+# [Feature Title] — Requirements
+
+## Problem Frame
+[What problem this solves and for whom]
+
+## Codebase Context
+[Key findings from Cartographing Kittens research — relevant patterns, architecture, existing code]
+
+## Requirements
+- R1. [Specific, testable requirement]
+- R2. [Specific, testable requirement]
+
+## Success Criteria
+- [Observable outcome that proves requirements are met]
+
+## Scope Boundaries
+- In scope: [explicit inclusions]
+- Out of scope: [explicit exclusions]
+
+## Key Decisions
+- [Decision]: [Rationale]
+
+## Open Questions
+### Resolve Before Planning
+- [Blocking question]
+
+### Deferred
+- [Non-blocking question]
+```
+
+### Phase 5: Handoff
+
+**Pipeline mode:** Return the requirements file path and continue.
+
+**Interactive mode:** Issue a single `AskUserQuestion` (single-select, header
+`"Brainstorm"`) with the recommended option first. Follow
+`kitty/references/ask-user-protocol.md`:
+
+```yaml
+question: "What would you like to do next with this requirements doc?"
+header: "Brainstorm"
+multiSelect: false
+options:
+  - label: "Run kitty:plan (Recommended)"
+    description: "Turn the requirements into an actionable implementation plan now."
+  - label: "Open in editor"
+    description: "Read or refine the requirements locally before planning."
+  - label: "Keep refining requirements"
+    description: "Stay in brainstorm and ask another round of clarifying questions."
+```
+
+## Contract
+
+- Must work without subagents.
+- May use preserved framework subagents when the runtime supports it.
+- Must not assume a blocking-question tool or a plugin-backed agent registry.
+- Must query litter/treat memory and include relevant lessons in Codebase Context.
+- Must issue every interactive prompt via `AskUserQuestion` per
+  `kitty/references/ask-user-protocol.md`, except for the single free-form
+  feature-description question in Phase 1 step 3.

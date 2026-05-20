@@ -12,7 +12,23 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from cartograph.storage.graph_store import GraphStore
 
-DEFAULT_EXTENSIONS: set[str] = {".py", ".ts", ".tsx", ".js", ".jsx"}
+DEFAULT_EXTENSIONS: set[str] = {
+    ".py",
+    ".ts",
+    ".tsx",
+    ".js",
+    ".jsx",
+    ".rs",
+    ".cpp",
+    ".cc",
+    ".cxx",
+    ".c++",
+    ".hpp",
+    ".hh",
+    ".hxx",
+    ".h++",
+    ".h",
+}
 
 EXCLUDED_DIRS: set[str] = {
     "node_modules",

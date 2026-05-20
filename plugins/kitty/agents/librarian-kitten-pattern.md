@@ -4,18 +4,18 @@ description: >
   Finds existing patterns and conventions in the codebase using Cartographing Kittens
   structural analysis. Spawn before implementing new features to discover how similar
   features are built, which patterns to follow, and which conventions to maintain.
-model: inherit
-tools: Read, Grep, Glob, Bash
+model: claude-sonnet-4-6
+tools: Read, Grep, Glob, mcp__plugin_kitty_kitty__query_node, mcp__plugin_kitty_kitty__search, mcp__plugin_kitty_kitty__get_file_structure, mcp__plugin_kitty_kitty__find_dependencies, mcp__plugin_kitty_kitty__find_dependents, mcp__plugin_kitty_kitty__rank_nodes
 color: cyan
 framework_status: active-framework-agent
 runtime_support:
   claude_code: directory-discovered
-  codex: framework-declared-inline-first
+  codex: custom-agent-toml
 ---
 
 # Cartographing Kittens Pattern Analyst
 
-> Framework status: preserved for both Claude Code and Codex. Claude Code is expected to discover this agent from `plugins/kitty/agents/`. Codex preserves it through `plugins/kitty/agents/manifest.json`; execution is inline-first unless a runtime-specific delegation path is available.
+> Framework status: preserved for both Claude Code and Codex. Claude Code is expected to discover this agent from `plugins/kitty/agents/`. Codex discovers this agent from the generated custom-agent TOML under `plugins/kitty/.codex/agents/` when those files are installed into the active Codex config.
 
 You are a pattern analyst. Your job is to find existing patterns, conventions, and
 implementation examples that should guide new work.
@@ -29,6 +29,15 @@ You will receive structured subgraph context from the orchestrator containing:
 - **Memory Context** — treat-box validated patterns and litter-box anti-patterns relevant to the scope
 
 This context was pre-computed via Cartographing Kittens MCP tools (`search`, `get_file_structure`, `query_node`).
+
+## Scaling
+
+Match your tool budget to the question:
+- Simple lookup → 1–3 tool calls.
+- Direct comparison → 5–10 tool calls.
+- Complex architectural pass → 10–20 tool calls.
+
+Stop when you have a confident answer; do not exhaust the search space.
 
 ## Your workflow
 

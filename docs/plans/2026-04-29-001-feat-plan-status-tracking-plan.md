@@ -105,9 +105,9 @@ audit tool that can list every pending unit across all plans.
 - Tests in `tests/test_plan_state.py` and `tests/test_plan_status_cli.py`.
 
 **Out of scope:**
-- Modifying `plugins/kitty/skills/`. That directory is a Git submodule pointing at
-  `Kakise/cartographing-kitties-skills`; per `CLAUDE.md`, skill edits land via PRs against the
-  submodule repo, not direct edits here. Unit 7 records the follow-up so a future submodule PR
+- Modifying `plugins/kitty/skills/`. That directory is a vendored generated skill tree pointing at
+  `vendored skill sources`; per `CLAUDE.md`, skill edits land via PRs against the
+  vendored skill source repo, not direct edits here. Unit 7 records the follow-up so a future vendored skill source PR
   can teach `kitty:work` and `kitty:plan` to call `plan_status.py set-unit` mid-execution.
 - Changing any existing slash command, MCP tool, or core graph code.
 - Re-classifying any plan whose status is genuinely ambiguous beyond the categories already
@@ -152,7 +152,7 @@ plan) — Unit 5 must reproduce this exactly:
 | `2026-03-28-004-feat-nested-box-treemap-plan.md` | `complete` (commit `8e95726`) |
 | `2026-03-28-005-feat-cat-rebrand-plan.md` | `complete` (commits `231a403`, `b6e324e`) |
 | `2026-03-28-006-feat-graph-reactive-engineering-plan.md` | `complete` (PR #3, merge `4469920`) |
-| `2026-04-04-001-refactor-gemini-optimization-plan.md` | `superseded` (by Codex direction in `2026-04-21-002`) |
+| `2026-04-04-001-refactor-legacy-runtime-optimization-plan.md` | `superseded` (by Codex direction in `2026-04-21-002`) |
 | `2026-04-21-001-feat-centralized-multi-project-storage-plan.md` | `complete` (`KITTY_STORAGE_ROOT` in `compat.py`) |
 | `2026-04-21-002-refactor-codex-plugin-alignment-plan.md` | `complete` (5/5 checked) |
 | `2026-04-23-001-feat-plugin-evolution-roadmap.md` | `superseded` (by `2026-04-29-002-...`) |
@@ -165,7 +165,7 @@ plan) — Unit 5 must reproduce this exactly:
 | `2026-04-23-008-feat-watch-mode-plan.md` | `active` |
 | `2026-04-23-009-feat-shared-graph-cache-plan.md` | `active` |
 | `2026-04-23-010-feat-annotation-quality-plan.md` | `in_progress` (current branch `annotation-quality-r9`) |
-| `2026-04-27-001-feat-skills-submodule-repository-plan.md` | `complete` (commits `d7ec32f`, `b9c35c9`) |
+| `2026-04-27-001-feat-skills-vendored skill source-repository-plan.md` | `complete` (commits `d7ec32f`, `b9c35c9`) |
 | `2026-04-27-002-fix-memory-workflow-enforcement-plan.md` | `complete` (`memory-workflow.md` reference + skills) |
 | `2026-04-27-003-feat-harness-context-engineering-plan.md` | `in_progress` (partial: `b23ea69`, `c5d3e17`) |
 | `2026-04-29-001-feat-plan-status-tracking-plan.md` (this plan) | `active` |
@@ -239,7 +239,7 @@ denormalized cache that the parser keeps in sync (validating in `--check` mode a
 
 ### Unit-state lifecycle
 
-`kitty:work` (in a future submodule PR — see Unit 7) drives state transitions:
+`kitty:work` (in a future vendored skill source PR — see Unit 7) drives state transitions:
 
 ```
 pending → in_progress   (set immediately before starting the unit)
@@ -275,8 +275,8 @@ All questions material to architecture were resolved at planning time:
 - **Where the parser lives:** `scripts/plan_state.py`, separate from the `plan_status.py` CLI for
   testability.
 - **Authoritative source of truth:** body `**State:**` line; frontmatter is denormalized cache.
-- **Submodule constraint:** skill files in `plugins/kitty/skills/` are not edited by this plan;
-  Unit 7 documents what a follow-up submodule PR should do.
+- **Vendored skill source constraint:** skill files in `plugins/kitty/skills/` are not edited by this plan;
+  Unit 7 documents what a follow-up vendored skill source PR should do.
 - **Migration approach:** one PR with one commit per logical group (legacy-complete sweep,
   superseded sweep, in-progress sweep, consolidated-remaining-work plan), so a reviewer can step
   through the changes.
@@ -284,7 +284,7 @@ All questions material to architecture were resolved at planning time:
 Deferred (decide later, do not block this plan):
 
 - Whether `kitty:work` and `kitty:plan` should call `plan_status.py set-unit` automatically. That
-  edit must happen in the skills submodule.
+  edit must happen in the skills vendored skill source.
 - Whether `kitty-plans` should take a filter argument (e.g., `kitty-plans --status active`). The
   v1 command is filter-free; filtering can be a non-breaking addition.
 
@@ -460,7 +460,7 @@ Deferred (decide later, do not block this plan):
     1. **Bulk-complete sweep** — flip every plan in the `complete` row of the inventory table to
        `status: complete` with the recorded `implemented_in:` commit hash. Body unit states are
        all set to `complete` since the work shipped.
-    2. **Superseded sweep** — flip `2026-04-04-001-refactor-gemini-optimization-plan.md` to
+    2. **Superseded sweep** — flip `2026-04-04-001-refactor-legacy-runtime-optimization-plan.md` to
        `superseded` (with `superseded_by: docs/plans/2026-04-21-002-refactor-codex-plugin-alignment-plan.md`).
        The R1–R9 roadmap is set to `superseded` only after Unit 6 lands the replacement plan.
     3. **In-progress sweep** — for `2026-04-23-007-feat-centrality-surface-plan.md`,
@@ -568,7 +568,7 @@ Deferred (decide later, do not block this plan):
 **State:** complete — implemented in 7afbfb8
 
 - [ ] Goal: Document the new plan-state convention for human contributors and capture the
-  follow-up that the skills submodule must take on.
+  follow-up that the skills vendored skill source must take on.
 - [ ] Files to create / modify:
   - Create: `docs/architecture/plan-state-conventions.md`
   - Modify: `CLAUDE.md` (one new bullet under "Generated harness artifacts" pointing to the
@@ -580,11 +580,11 @@ Deferred (decide later, do not block this plan):
   - `plan-state-conventions.md` covers: status taxonomy table, per-unit state lifecycle, the
     body/frontmatter contract, the `verifies:` field, and how to use `kitty-plans` /
     `plan_status.py`. One page, no boilerplate.
-  - Add a short "Skills submodule follow-up" section that explicitly captures: a future PR
-    against `Kakise/cartographing-kitties-skills` should teach `kitty-work` and `kitty-plan` to
+  - Add a short "Skills vendored skill source follow-up" section that explicitly captures: a future PR
+    against `vendored skill sources` should teach `kitty-work` and `kitty-plan` to
     call `plan_status.py set-unit ... in_progress` before starting a unit and `... complete`
     after verification, so resume-after-failure becomes automatic. Reference this plan and the
-    plan-state-conventions doc so the submodule PR has clear context.
+    plan-state-conventions doc so the vendored skill source PR has clear context.
 - [ ] Patterns to follow:
   - Keep `docs/architecture/` flat (existing files: `codex-workflow-contract.md`,
     `repo-boundaries.md`).
@@ -596,7 +596,7 @@ Deferred (decide later, do not block this plan):
     these doc changes.
 - [ ] Verification:
   - The convention doc renders cleanly and is reachable from CLAUDE.md.
-  - The follow-up section unambiguously names the submodule repo, the skills involved
+  - The follow-up section unambiguously names the vendored skill source repo, the skills involved
     (`kitty-work`, `kitty-plan`), and the CLI command they should call.
 
 ## System-Wide Impact
@@ -612,7 +612,7 @@ Deferred (decide later, do not block this plan):
   `**State:**` lines. Bodies are otherwise unchanged for `active` plans.
 - **No code changes** in `src/cartograph/`. The MCP server, the parser, and the storage layer
   are untouched.
-- **No breaking change** to any existing skill or command. The skills submodule is unchanged
+- **No breaking change** to any existing skill or command. The skills vendored skill source is unchanged
   (Unit 7 only documents the follow-up).
 
 ## Risks & Dependencies
@@ -622,7 +622,7 @@ Deferred (decide later, do not block this plan):
 | Migration mis-classifies a plan | Inventory in this plan locks the classification; the migration is mechanical against that table; reviewer steps through one logical commit per group | 5 |
 | Pre-commit hook becomes flaky on legacy plans before migration lands | Land the hook in the same PR as the migration sweep; if split, the hook stays disabled until Unit 5 ships | 4, 5 |
 | `plan_status.py set-unit` writes corrupt YAML if the parser regex is fragile | Round-trip tests in Unit 1 cover serialize → parse → byte-equal; CLI calls go through the parser, not regex | 1 |
-| Skills cannot mutate plans without modifying the submodule | Out-of-scope; Unit 7 captures the follow-up explicitly so it is not lost | 7 |
+| Skills cannot mutate plans without modifying the vendored skill source | Out-of-scope; Unit 7 captures the follow-up explicitly so it is not lost | 7 |
 | `git log --grep` reports false positives that mislead `implemented_in:` suggestions | The CLI suggests, the migration writer commits the hash by hand only when confident; `audit` does not require `implemented_in:` to verify against git, only to be present | 2, 5 |
 | Frontmatter `units:` cache and body `**State:**` lines drift in future hand-edits | `audit --strict` fails on disagreement; pre-commit catches it before merge | 4 |
 | Consolidated remaining-work plan duplicates instead of links | Unit 6's review checks that each unit body links back to a source plan and copies the goal line only | 6 |
@@ -638,7 +638,7 @@ shape).
 
 - Existing roadmap (will be superseded): `docs/plans/2026-04-23-001-feat-plugin-evolution-roadmap.md`
 - Architecture contract referenced by the schema: `docs/architecture/codex-workflow-contract.md`
-- Submodule boundary referenced by Unit 7: `docs/architecture/repo-boundaries.md`
+- Vendored skill source boundary referenced by Unit 7: `docs/architecture/repo-boundaries.md`
 - Generator-script precedent: `scripts/generate_agents.py`, `scripts/validate_skills.py`,
   `scripts/generate_tool_reference.py`
 - Slash-command precedent: `plugins/kitty/commands/kitty-status.{toml,md}`
@@ -652,7 +652,7 @@ shape).
 This plan is ready for `kitty:work`. Recommended execution order is the unit number order
 1 → 7. Units 1–4 land the infrastructure; Unit 5 dogfoods it on the existing 22 plans; Unit 6
 produces the consolidated remaining-work plan as a by-product of having the audit tool; Unit 7
-closes the loop with documentation and a captured follow-up for the skills submodule.
+closes the loop with documentation and a captured follow-up for the skills vendored skill source.
 
 The plan itself is the first test of resume-after-failure: after each unit lands, the plan's
 frontmatter rollup advances from `active` → `in_progress` → `complete`, with each unit's

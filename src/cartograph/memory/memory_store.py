@@ -2,17 +2,27 @@
 
 Provides standalone functions for recording, querying, and exporting
 memory entries from the graph store's litter_box and treat_box tables.
+Also covers the agent-handoff store used by the orchestrator to pass
+sub-agent run results across compaction boundaries.
 """
 
 from __future__ import annotations
 
+import json
 import logging
+import time
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from cartograph.storage.graph_store import GraphStore
 
 logger = logging.getLogger(__name__)
+
+DEFAULT_HANDOFF_TTL_SECONDS = 86_400  # 24 hours
+LONG_RUNNING_HANDOFF_TTL_SECONDS = 604_800  # 7 days
+_VALID_HANDOFF_ROLES = {"annotation", "research", "review"}
 
 _VALID_BOXES = {"litter", "treat"}
 
@@ -38,6 +48,20 @@ class MemoryEntry:
     context: str
     created_at: str
     source_agent: str
+    relevance_score: float = 0.0
+
+
+@dataclass
+class HandoffRecord:
+    """A persisted unified-output payload from a framework subagent."""
+
+    run_id: str
+    session_id: str
+    agent_name: str
+    role: str
+    payload: dict[str, Any]
+    created_at: int
+    expires_at: int
 
 
 def _validate_box(box: str) -> str:
@@ -84,12 +108,36 @@ def add_entry(
     return cur.lastrowid  # type: ignore[return-value]
 
 
+def _approximate_token_count(value: str) -> int:
+    """Cheap token estimate (len/4). Matches the U2 fallback approximation."""
+
+    return max(1, len(value) // 4)
+
+
+def _score_relevance(description: str, search: str | None) -> float:
+    """Lightweight LIKE-based relevance scorer (substring count + length penalty)."""
+
+    if not search:
+        return 0.0
+    needle = search.lower()
+    haystack = description.lower()
+    if not needle:
+        return 0.0
+    occurrences = haystack.count(needle)
+    if occurrences == 0:
+        return 0.0
+    # Normalise by description length so short, on-topic entries beat long ones.
+    base = occurrences / max(1, len(haystack) // 80 + 1)
+    return round(min(1.0, base), 3)
+
+
 def query_entries(
     store: GraphStore,
     box: str,
     category: str | None = None,
     search: str | None = None,
     limit: int = 50,
+    token_budget: int | None = None,
 ) -> list[MemoryEntry]:
     """Query memory entries from a box.
 
@@ -99,6 +147,9 @@ def query_entries(
         category: Optional category filter.
         search: Optional substring to search for in the description.
         limit: Maximum number of entries to return.
+        token_budget: Optional token budget (approximate). When set, entries are
+            ranked by relevance and accumulated only while the running total
+            stays within budget.
 
     Returns:
         List of matching :class:`MemoryEntry` objects.
@@ -124,7 +175,7 @@ def query_entries(
         params,
     )
 
-    return [
+    entries = [
         MemoryEntry(
             id=row[0],
             box=box,
@@ -133,9 +184,25 @@ def query_entries(
             context=row[3],
             created_at=row[4],
             source_agent=row[5],
+            relevance_score=_score_relevance(row[2], search),
         )
         for row in cur.fetchall()
     ]
+
+    if token_budget is None:
+        return entries
+
+    # Re-rank by relevance (descending), preserving recency as the tiebreaker.
+    ranked = sorted(entries, key=lambda e: (-e.relevance_score, -entries.index(e)))
+    accumulated: list[MemoryEntry] = []
+    used_tokens = 0
+    for entry in ranked:
+        cost = _approximate_token_count(entry.description) + _approximate_token_count(entry.context)
+        if used_tokens + cost > token_budget:
+            break
+        accumulated.append(entry)
+        used_tokens += cost
+    return accumulated
 
 
 def export_markdown(store: GraphStore, box: str, output_path: Path | str) -> int:
@@ -178,3 +245,92 @@ def export_markdown(store: GraphStore, box: str, output_path: Path | str) -> int
 
     output_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return len(rows)
+
+
+# ---------------------------------------------------------------------------
+# Agent handoff store
+# ---------------------------------------------------------------------------
+
+
+def stage_handoff(
+    store: GraphStore,
+    session_id: str,
+    agent_name: str,
+    role: str,
+    payload: dict[str, Any],
+    ttl_seconds: int = DEFAULT_HANDOFF_TTL_SECONDS,
+    *,
+    now: int | None = None,
+) -> str:
+    """Persist a unified-output payload and return its ``run_id``.
+
+    The orchestrator passes the returned ``run_id`` through the conversation;
+    callers reload the payload via :func:`get_handoff` only when synthesizing.
+    """
+
+    if role not in _VALID_HANDOFF_ROLES:
+        msg = f"Invalid handoff role {role!r}; must be one of {sorted(_VALID_HANDOFF_ROLES)}"
+        raise ValueError(msg)
+    if ttl_seconds <= 0:
+        raise ValueError("ttl_seconds must be positive")
+
+    run_id = uuid.uuid4().hex
+    created_at = now if now is not None else int(time.time())
+    expires_at = created_at + ttl_seconds
+    serialized = json.dumps(payload, ensure_ascii=False, sort_keys=True)
+
+    conn = store._conn  # noqa: SLF001
+    conn.execute(
+        "INSERT INTO agent_handoffs (run_id, session_id, agent_name, role, payload, created_at, expires_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (run_id, session_id, agent_name, role, serialized, created_at, expires_at),
+    )
+    conn.commit()
+    return run_id
+
+
+def get_handoff(
+    store: GraphStore,
+    run_id: str,
+    *,
+    now: int | None = None,
+) -> HandoffRecord | None:
+    """Fetch a staged payload by ``run_id``. Expired records return ``None``."""
+
+    current = now if now is not None else int(time.time())
+    conn = store._conn  # noqa: SLF001
+    row = conn.execute(
+        "SELECT run_id, session_id, agent_name, role, payload, created_at, expires_at "
+        "FROM agent_handoffs WHERE run_id = ?",
+        (run_id,),
+    ).fetchone()
+    if row is None:
+        return None
+    if int(row[6]) <= current:
+        return None
+    return HandoffRecord(
+        run_id=row[0],
+        session_id=row[1],
+        agent_name=row[2],
+        role=row[3],
+        payload=json.loads(row[4]),
+        created_at=int(row[5]),
+        expires_at=int(row[6]),
+    )
+
+
+def expire_handoffs(store: GraphStore, *, now: int | None = None) -> int:
+    """Delete handoff records whose ``expires_at`` is in the past.
+
+    Returns the number of rows deleted. Cheap to run on every ``stage_handoff``
+    call when storage cleanliness matters; otherwise can be invoked on demand.
+    """
+
+    current = now if now is not None else int(time.time())
+    conn = store._conn  # noqa: SLF001
+    cur = conn.execute(
+        "DELETE FROM agent_handoffs WHERE expires_at <= ?",
+        (current,),
+    )
+    conn.commit()
+    return cur.rowcount or 0

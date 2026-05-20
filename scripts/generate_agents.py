@@ -28,6 +28,12 @@ CLAUDE_AGENT_DIR = PLUGIN_ROOT / "agents"
 CODEX_AGENT_DIR = PLUGIN_ROOT / ".codex" / "agents"
 MANIFEST_PATH = CLAUDE_AGENT_DIR / "manifest.json"
 SUBGRAPH_CONTEXT_POINTER = "plugins/kitty/skills/kitty/references/subgraph-context-format.md"
+# Valid color values per https://code.claude.com/docs/en/sub-agents — `color` accepts
+# red, blue, green, yellow, purple, orange, pink, or cyan. Other values fall back to the
+# default in Claude Code's UI.
+VALID_AGENT_COLORS = frozenset(
+    {"red", "blue", "green", "yellow", "purple", "orange", "pink", "cyan"}
+)
 
 
 def _literal_presenter(dumper: yaml.Dumper, value: str) -> yaml.Node:
@@ -96,7 +102,7 @@ def _load_agent_sources() -> list[dict[str, Any]]:
             "name",
             "description",
             "role",
-            "model",
+            "claude_model",
             "tools",
             "developer_instructions",
         }
@@ -104,19 +110,24 @@ def _load_agent_sources() -> list[dict[str, Any]]:
         if missing:
             raise ValueError(f"{path} missing required keys: {', '.join(missing)}")
         agent["tools"] = _normalise_tools(agent["tools"])
-        agent.setdefault("mcp_tools", [])
         agent.setdefault("color", None)
+        color = agent.get("color")
+        if color is not None and color not in VALID_AGENT_COLORS:
+            raise ValueError(
+                f"{path}: color `{color}` not in Claude Code's accepted set "
+                f"({', '.join(sorted(VALID_AGENT_COLORS))})"
+            )
         agent.setdefault("framework_status", "active-framework-agent")
         agent.setdefault(
             "runtime_support",
             {
                 "claude_code": "directory-discovered",
-                "codex": "framework-declared-inline-first",
+                "codex": "custom-agent-toml",
             },
         )
         agent.setdefault(
             "runtimes",
-            {"claude_code": "directory-discovered", "codex": "framework-declared"},
+            {"claude_code": "directory-discovered", "codex": "custom-agent-toml"},
         )
         agent.setdefault("expected_context_pointer", SUBGRAPH_CONTEXT_POINTER)
         sources.append(agent)
@@ -171,21 +182,20 @@ def bootstrap_from_current() -> None:
             "name": name,
             "description": str(frontmatter["description"]).strip(),
             "role": manifest_roles.get(name, "research"),
-            "model": str(frontmatter.get("model", "inherit")),
+            "claude_model": str(frontmatter.get("model", "claude-sonnet-4-6")),
             "tools": _normalise_tools(frontmatter.get("tools")),
-            "mcp_tools": [],
             "color": frontmatter.get("color"),
             "framework_status": frontmatter.get("framework_status", "active-framework-agent"),
             "runtime_support": frontmatter.get(
                 "runtime_support",
                 {
                     "claude_code": "directory-discovered",
-                    "codex": "framework-declared-inline-first",
+                    "codex": "custom-agent-toml",
                 },
             ),
             "runtimes": manifest_runtimes.get(
                 name,
-                {"claude_code": "directory-discovered", "codex": "framework-declared"},
+                {"claude_code": "directory-discovered", "codex": "custom-agent-toml"},
             ),
             "output_contract": None,
             "scaling_rules": [],

@@ -1,23 +1,28 @@
 ---
 title: Harness Overhaul — Skills, Agents, Codex Parity, Memory & Telemetry (Followup)
 type: feat
-status: active
+status: complete
 date: 2026-05-04
 origin: docs/brainstorms/2026-04-27-002-harness-context-engineering-requirements.md
 parent: docs/plans/2026-04-27-003-feat-harness-context-engineering-plan.md
+implemented_in: c27125f
 units:
   - id: 1
     title: Skill restructuring (progressive disclosure, frontmatter expansion, dynamic context)
-    state: pending
+    state: complete
+    implemented_in: c27125f
   - id: 2
     title: Agent specialization (tool perms, Sonnet model, scaling rules, output contract, spawn map)
-    state: pending
+    state: complete
+    implemented_in: 6fc07ff
   - id: 3
     title: Codex parity finish (AGENTS.md, sync script, parity tests)
-    state: pending
+    state: complete
+    implemented_in: 3b8562b
   - id: 4
     title: Memory + handoff + observability + smoke tests
-    state: pending
+    state: complete
+    implemented_in: 73d8f31
 ---
 
 # Harness Overhaul — Followup (U4–U7 of 2026-04-27-003)
@@ -75,7 +80,7 @@ through the existing generators landed in U1.
   remaining slice.
 
 This plan also does not extend the graph (owned by `2026-04-23-001-plugin-evolution`) or
-extract skills into a submodule (owned by `2026-04-27-001-skills-submodule-repository`).
+extract skills into a vendored skill source (owned by `2026-04-27-001-skills-vendored skill source-repository`).
 
 ## Memory Context
 
@@ -100,7 +105,7 @@ Unit 1 ↔ U4, Unit 2 ↔ U5, Unit 3 ↔ U6 *finish*, Unit 4 ↔ U7.
 
 ### Unit 1 — Skill restructuring (progressive disclosure, frontmatter expansion, dynamic context)
 
-**State:** pending
+**State:** complete — implemented in c27125f
 
 - [ ] **Goal.** Every skill is compaction-resilient (decision tree + tool matrix + contract
       in the first 5,000 tokens), uses the full Claude Code frontmatter spectrum, and
@@ -149,8 +154,8 @@ Unit 1 ↔ U4, Unit 2 ↔ U5, Unit 3 ↔ U6 *finish*, Unit 4 ↔ U7.
   - `kitty/SKILL.md` becomes a routing manifest. Tool-of-the-week tables move to the
     per-family reference files; sub-skill descriptions become a lookup table; the long
     pipeline narrative trims to the canonical workflow contract.
-- [ ] **Submodule note.** All skill files live under the
-      `Kakise/cartographing-kitties-skills` submodule. Edits land via PR against that
+- [ ] **Vendored skill source note.** All skill files live under the
+      `vendored skill sources` vendored skill source. Edits land via PR against that
       repo, then a pointer bump here. The same workflow as the centrality-docs followup
       (`docs/plans/2026-05-04-001-feat-centrality-surface-docs-plan.md`).
 - [ ] **Test scenarios.**
@@ -169,7 +174,7 @@ Unit 1 ↔ U4, Unit 2 ↔ U5, Unit 3 ↔ U6 *finish*, Unit 4 ↔ U7.
 
 ### Unit 2 — Agent specialization (tool perms, Sonnet model, scaling rules, output contract, spawn map)
 
-**State:** pending
+**State:** complete — implemented in 6fc07ff
 
 - [ ] **Goal.** Each agent has the smallest viable tool surface, runs on Sonnet by default,
       embeds a calibrated scaling rubric, returns a unified JSON contract, and links to
@@ -261,7 +266,7 @@ Unit 1 ↔ U4, Unit 2 ↔ U5, Unit 3 ↔ U6 *finish*, Unit 4 ↔ U7.
 
 ### Unit 3 — Codex parity finish (AGENTS.md, sync script, parity tests)
 
-**State:** pending
+**State:** complete — implemented in 3b8562b
 
 - [ ] **Goal.** Close the unfinished slice of the predecessor's U6. The nine
       `plugins/kitty/.codex/agents/*.toml` files already exist (cartographing-kitten +
@@ -335,7 +340,7 @@ Unit 1 ↔ U4, Unit 2 ↔ U5, Unit 3 ↔ U6 *finish*, Unit 4 ↔ U7.
 
 ### Unit 4 — Memory + handoff + observability + smoke tests
 
-**State:** pending
+**State:** complete — implemented in 73d8f31
 
 - [ ] **Goal.** Subagents write to a persistent handoff store; the orchestrator drops
       `cleanable: true` payloads on compaction; memory queries are budgeted; per-skill
@@ -449,7 +454,7 @@ Unit 1 ↔ U4, Unit 2 ↔ U5, Unit 3 ↔ U6 *finish*, Unit 4 ↔ U7.
 ## System-Wide Impact
 
 - **Skill content churn.** All skill edits flow through the
-  `Kakise/cartographing-kitties-skills` submodule. A pointer bump in this repo follows
+  `vendored skill sources` vendored skill source. A pointer bump in this repo follows
   each merge.
 - **Generator integrity** remains the must-pass CI gate. Edits to
   `_source/agents/*.yaml` in Unit 2 must regenerate cleanly to .md + .toml + manifest.
@@ -466,9 +471,9 @@ Unit 1 ↔ U4, Unit 2 ↔ U5, Unit 3 ↔ U6 *finish*, Unit 4 ↔ U7.
 
 ## Risks & Dependencies
 
-- **Risk: skill edits gated on submodule PR latency.** Mitigation: Unit 1 work proceeds
-  on a feature branch in the submodule; the pointer bump is a separate cleanup once
-  reviewers approve. Concurrent submodule PRs are batched.
+- **Risk: skill edits gated on vendored skill source PR latency.** Mitigation: Unit 1 work proceeds
+  on a feature branch in the vendored skill source; the pointer bump is a separate cleanup once
+  reviewers approve. Concurrent vendored skill source PRs are batched.
 - **Risk: token-budget approximations diverge from real Anthropic tokenization.**
   Mitigation: U2 already shipped the `tiktoken` cl100k_base path with a `len(json) / 4`
   fallback (5afcd5c). Unit 4's smoke tests rely on the same approximation.
@@ -486,8 +491,8 @@ Unit 1 ↔ U4, Unit 2 ↔ U5, Unit 3 ↔ U6 *finish*, Unit 4 ↔ U7.
   `tests/fixtures/baseline_telemetry.jsonl`. If the cherry-pick is non-trivial, fall
   back to a synthetic baseline derived from the largest pre-U2 fixture run available in
   CI logs and document the substitution.
-- **Dependency: `2026-04-27-001-skills-submodule-repository`.** Skill edits in Unit 1 land
-  via the submodule. The `_source/` and `scripts/` directories stay in this repo per the
+- **Dependency: `2026-04-27-001-skills-vendored skill source-repository`.** Skill edits in Unit 1 land
+  via the vendored skill source. The `_source/` and `scripts/` directories stay in this repo per the
   existing repo-boundaries decision.
 - **Dependency: `2026-04-23-001-plugin-evolution`.** When that roadmap adds
   hybrid-retrieval scores or LSP tooling, the new fields must fit the
@@ -504,7 +509,7 @@ Unit 1 ↔ U4, Unit 2 ↔ U5, Unit 3 ↔ U6 *finish*, Unit 4 ↔ U7.
   `docs/architecture/plan-state-conventions.md`.
 - Cross-references:
   `docs/brainstorms/2026-04-23-001-plugin-evolution-requirements.md`,
-  `docs/brainstorms/2026-04-27-001-skills-submodule-repository-requirements.md`.
+  `docs/brainstorms/2026-04-27-001-skills-vendored skill source-repository-requirements.md`.
 - Live MCP surface (post-U2):
   `src/cartograph/server/main.py`,
   `src/cartograph/server/tools/*.py`,

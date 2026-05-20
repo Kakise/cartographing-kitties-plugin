@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import sqlite3
-import textwrap
 from pathlib import Path
 
 import pytest
@@ -18,11 +17,26 @@ from cartograph.storage.migrations.runner import (
 
 @pytest.fixture()
 def db_conn(tmp_path: Path):
-    """Fresh in-memory-like SQLite connection (actually on disk for WAL)."""
+    """Fresh on-disk SQLite connection with sqlite_vec loaded when available.
+
+    We mirror the production loading order in ``create_connection`` so that
+    migrations which depend on the ``vec0`` virtual table (e.g.
+    ``0006_hybrid_search.sql``) can apply.  When sqlite_vec is unavailable
+    the test falls back to skipping just those migrations, exercising the
+    degraded-mode path in ``run_migrations``.
+    """
     db_path = tmp_path / "test.db"
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
+    try:
+        import sqlite_vec
+
+        conn.enable_load_extension(True)
+        sqlite_vec.load(conn)
+        conn.enable_load_extension(False)
+    except (ImportError, sqlite3.NotSupportedError, sqlite3.OperationalError):
+        pass
     yield conn
     conn.close()
 
@@ -106,3 +120,80 @@ class TestRunMigrations:
         ).fetchone()
         assert row is not None
         conn.close()
+
+    def test_skip_versions_stamps_without_running_sql(self, tmp_path: Path):
+        """When a migration is in skip_versions its SQL is bypassed but the
+        schema_version stamp still advances so subsequent migrations apply.
+        """
+        # A bare connection with no sqlite_vec loaded — migration 0006 would
+        # fail with "no such module: vec0" if executed.
+        db_path = tmp_path / "skip.db"
+        conn = sqlite3.connect(str(db_path))
+        conn.row_factory = sqlite3.Row
+        try:
+            version = run_migrations(conn, skip_versions={6})
+            assert version >= 6
+            # nodes_vec must NOT exist when 0006 is skipped.
+            row = conn.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='nodes_vec'"
+            ).fetchone()
+            assert row is None
+            # But the regular tables created by earlier migrations should be present.
+            row = conn.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='nodes'"
+            ).fetchone()
+            assert row is not None
+        finally:
+            conn.close()
+
+
+class TestVecExtension:
+    """Cover sqlite_vec extension loading and the nodes_vec virtual table."""
+
+    def test_create_connection_creates_nodes_vec_when_vec_loads(self, tmp_path: Path):
+        """When sqlite_vec is importable and loadable, the connection factory
+        must load it, set ``_kitty_vec_available=True``, and create the
+        ``nodes_vec`` virtual table via migration 0006.
+        """
+        sqlite_vec = pytest.importorskip("sqlite_vec")  # noqa: F841
+        from cartograph.storage.connection import create_connection, is_vec_available
+
+        conn = create_connection(tmp_path / "vec.db")
+        try:
+            assert is_vec_available(conn) is True
+            row = conn.execute(
+                "SELECT 1 FROM sqlite_master WHERE name='nodes_vec'"
+            ).fetchone()
+            assert row is not None, "nodes_vec virtual table should exist"
+        finally:
+            conn.close()
+
+    def test_create_connection_degraded_mode_when_load_fails(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        """Simulate sqlite_vec.load failing.  The connection must still be
+        usable, ``_kitty_vec_available`` must be False, and ``nodes_vec``
+        must not exist (migration 0006 was skipped).
+        """
+        import sqlite_vec
+
+        from cartograph.storage import connection as connection_module
+
+        def _fail_load(*_args, **_kwargs):
+            raise RuntimeError("simulated extension load failure")
+
+        monkeypatch.setattr(sqlite_vec, "load", _fail_load)
+        conn = connection_module.create_connection(tmp_path / "degraded.db")
+        try:
+            assert connection_module.is_vec_available(conn) is False
+            row = conn.execute(
+                "SELECT 1 FROM sqlite_master WHERE name='nodes_vec'"
+            ).fetchone()
+            assert row is None, "nodes_vec must not exist in degraded mode"
+            # Other migrations still applied — sanity-check on `nodes`.
+            row = conn.execute(
+                "SELECT 1 FROM sqlite_master WHERE name='nodes'"
+            ).fetchone()
+            assert row is not None
+        finally:
+            conn.close()

@@ -56,17 +56,17 @@ It is the canonical way to gather user input mid-task. The plugin should:
   convention so future skills inherit it.
 - **R5.** Skill validation (`scripts/validate_skills.py`) and the existing
   pre-commit / lint suite still pass after the edits.
-- **R6.** The skills submodule (`Kakise/cartographing-kitties-skills`) carries the
-  source-of-truth changes; the parent repo updates the submodule pointer in the
+- **R6.** The skills vendored skill source (`vendored skill sources`) carries the
+  source-of-truth changes; the parent repo updates the vendored skill source pointer in the
   same change set.
 
 ## Scope Boundaries
 
 **In scope**
-- Editing SKILL.md files inside `plugins/kitty/skills/` (the skills submodule).
+- Editing SKILL.md files inside `plugins/kitty/skills/` (the skills vendored skill source).
 - Adding `plugins/kitty/skills/kitty/references/ask-user-protocol.md`.
 - Documenting the convention in `CLAUDE.md`.
-- Updating the parent repo's submodule pointer.
+- Updating the parent repo's vendored skill source pointer.
 
 **Out of scope**
 - Changing MCP server / Python source code. `AskUserQuestion` is a Claude Code
@@ -112,11 +112,11 @@ It is the canonical way to gather user input mid-task. The plugin should:
 - Agents under `plugins/kitty/agents/`: worker agents return JSON or structured
   text. They do not interact with the user.
 
-### Submodule realities
+### Vendored skill source realities
 
-`plugins/kitty/skills/` is a git submodule pinned at
-`Kakise/cartographing-kitties-skills@a4ac3f9`. Edits inside the submodule must be
-committed against that submodule, then the parent repo updates the submodule
+`plugins/kitty/skills/` is a vendored generated skill tree pinned at
+`vendored skill sources@a4ac3f9`. Edits inside the vendored skill source must be
+committed against that vendored skill source, then the parent repo updates the vendored skill source
 pointer (the commit SHA in `.gitmodules`-tracked tree). The plan's working units
 spell this out.
 
@@ -157,9 +157,9 @@ spell this out.
    single `multiSelect` `AskUserQuestion` to triage P1+ (e.g., "Which findings to
    fix now?"). Keeps prompt count bounded.
 
-6. **Submodule-first edits.** All SKILL edits land in
-   `plugins/kitty/skills/` (submodule working tree) and are committed in the
-   submodule. The final unit bumps the submodule pointer in the parent repo.
+6. **Vendored skill source-first edits.** All SKILL edits land in
+   `plugins/kitty/skills/` (vendored skill source working tree) and are committed in the
+   vendored skill source. The final unit bumps the vendored skill source pointer in the parent repo.
 
 ## Open Questions
 
@@ -176,7 +176,7 @@ existing skill contracts.
 - **Requirements:** R1, R3
 - **Dependencies:** none
 - **Files:**
-  - `plugins/kitty/skills/kitty/references/ask-user-protocol.md` (new, in submodule)
+  - `plugins/kitty/skills/kitty/references/ask-user-protocol.md` (new, in vendored skill source)
 - **Approach:**
   - Document when to call `AskUserQuestion`: handoff menus, blocking
     clarifications, decision points where 2-4 enumerable options exist.
@@ -325,7 +325,7 @@ existing skill contracts.
 - **Dependencies:** Unit 1
 - **Files:**
   - `plugins/kitty/skills/kitty/SKILL.md` (add a one-paragraph "Asking the
-    user" section pointing at the protocol doc, in the submodule)
+    user" section pointing at the protocol doc, in the vendored skill source)
   - `CLAUDE.md` (add a Conventions bullet that all interactive prompts use
     `AskUserQuestion`)
 - **Approach:**
@@ -340,30 +340,30 @@ existing skill contracts.
   - Edge case: contributors searching for "ask" in CLAUDE.md find the rule.
 - **Verification:** `uv run pre-commit run --all-files` succeeds.
 
-### Unit 7 — Submodule + parent repo wiring
+### Unit 7 — Vendored skill source + parent repo wiring
 
-**State:** complete — implemented in 4728969 (parent) bumping submodule to `Kakise/cartographing-kitties-skills@2dfaed3`
-- **Goal:** Land the skill edits in the submodule and update the parent pointer
+**State:** complete — implemented in 4728969 (parent) bumping vendored skill source to `vendored skill sources@2dfaed3`
+- **Goal:** Land the skill edits in the vendored skill source and update the parent pointer
   consistently.
 - **Requirements:** R5, R6
 - **Dependencies:** Units 1-6
 - **Files:**
-  - `plugins/kitty/skills/` (submodule pointer in parent repo)
-  - Submodule branch: `feat/ask-user-protocol` in
-    `Kakise/cartographing-kitties-skills`.
+  - `plugins/kitty/skills/` (vendored skill source pointer in parent repo)
+  - Vendored skill source branch: `feat/ask-user-protocol` in
+    `vendored skill sources`.
 - **Approach:**
   - Inside `plugins/kitty/skills`, create a feature branch, commit Units 1-6's
     skill edits, push to fork, open PR (only when explicitly requested or when
     the surrounding workflow guarantees it; otherwise leave the branch local).
-  - In the parent repo, update the submodule reference to the new commit, run
+  - In the parent repo, update the vendored skill source reference to the new commit, run
     `uv run pre-commit run --all-files`, and commit the bump.
-  - Verify `git submodule status` shows clean checkout pointing at the new SHA.
+  - Verify `vendored generated skill tree status` shows clean checkout pointing at the new SHA.
 - **Test scenarios:**
-  - Happy path: submodule + parent commits align; pre-commit passes.
+  - Happy path: vendored skill source + parent commits align; pre-commit passes.
   - Edge case: if pre-commit reformat changes any file, re-stage and amend the
-    submodule commit before bumping the parent (do not amend after the parent
+    vendored skill source commit before bumping the parent (do not amend after the parent
     pointer has been pushed).
-- **Verification:** `git submodule status` clean; `uv run pre-commit run
+- **Verification:** `vendored generated skill tree status` clean; `uv run pre-commit run
   --all-files` succeeds in the parent.
 
 ## System-Wide Impact
@@ -382,7 +382,7 @@ existing skill contracts.
   unavailable, fall back to a numbered free-form question and continue". Codex
   inline-first contract is preserved (no behaviour change since Codex skills are
   inline-first today).
-- **Submodule drift.** The submodule must land first; otherwise the parent
+- **Vendored skill source drift.** The vendored skill source must land first; otherwise the parent
   pointer bump references a non-existent commit. Mitigation: Unit 7 enforces the
   ordering.
 - **Pipeline mode regressions.** If we forget a "Pipeline mode" gate on a new
@@ -401,4 +401,4 @@ existing skill contracts.
 - `plugins/kitty/skills/kitty-review/SKILL.md` — Stage 6
 - `plugins/kitty/skills/kitty-work/SKILL.md` — Phase 1, Phase 4
 - `docs/architecture/codex-workflow-contract.md` — inline-first guarantees
-- `docs/architecture/repo-boundaries.md` — submodule edit policy
+- `docs/architecture/repo-boundaries.md` — vendored skill source edit policy

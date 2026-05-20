@@ -62,17 +62,17 @@ Three pressures the current harness does not address:
    on mutating skills. All 9 agents pass `model: inherit` (Opus) and the default
    `Read, Grep, Glob, Bash` toolset.
 3. **Codex is treated as second-class.** `plugins/kitty/agents/manifest.json`
-   declares the agents, but Codex execution is inline-only because no
+   declares the agents, but Codex execution is delegation-capable because no
    `.codex/agents/*.toml` files ship. Three plugin manifests
    (`plugins/kitty/.claude-plugin/plugin.json`,
    `plugins/kitty/.codex-plugin/plugin.json`,
-   `plugins/kitty/gemini-extension.json`) plus
+   `plugins/kitty/legacy-runtime-extension.json`) plus
    `plugins/kitty/agents/manifest.json` plus `plugins/kitty/.mcp.json` are
    maintained by hand with drift risk.
 
 This plan does not extend the graph (owned by `2026-04-23-001-plugin-evolution`)
-and does not extract skills into a submodule (owned by
-`2026-04-27-001-skills-submodule-repository`); it reshapes the harness layer that
+and does not extract skills into a vendored skill source (owned by
+`2026-04-27-001-skills-vendored skill source-repository`); it reshapes the harness layer that
 will then move with the skills if/when they extract.
 
 # Requirements Trace
@@ -122,8 +122,8 @@ artefacts, and `AGENTS.md`.
 
 **Out of scope:** new graph capabilities (hybrid retrieval, LSP, multi-language,
 embeddings) — owned by `2026-04-23-001-plugin-evolution`. Extracting skills into
-a separate repo — owned by `2026-04-27-001-skills-submodule-repository`. Upstream
-MCP-spec changes. Gemini and OpenCode runtime feature parity beyond keeping their
+a separate repo — owned by `2026-04-27-001-skills-vendored skill source-repository`. Upstream
+MCP-spec changes. legacy runtime and legacy runtime runtime feature parity beyond keeping their
 existing manifests building.
 
 # Context & Research
@@ -153,9 +153,9 @@ existing manifests building.
   unified contract. No scaling-rule prompts. The five experts also embed the
   same `needs_more_context` protocol in slightly different prose.
 - **Manifests:** four hand-maintained — `.claude-plugin/plugin.json`,
-  `.codex-plugin/plugin.json`, `gemini-extension.json`, `agents/manifest.json` —
+  `.codex-plugin/plugin.json`, `legacy-runtime-extension.json`, `agents/manifest.json` —
   plus `.mcp.json`. No `_source/` directory; no generators in `scripts/` (only
-  `install-opencode-global.sh`).
+  `install-legacy-runtime-global.sh`).
 - **Tests:** `tests/test_plugin_packaging.py` already enforces 8 invariants
   (codex paths exist, agent manifest matches directory, dual-runtime intent,
   workflow contract docs exist, memory workflow doc exists, workflow skills
@@ -285,7 +285,7 @@ scenarios, verification.
       `plugins/kitty/_source/templates/agent.codex.toml.j2`,
       `plugins/kitty/_source/templates/manifest.claude.json.j2`,
       `plugins/kitty/_source/templates/manifest.codex.json.j2`,
-      `plugins/kitty/_source/templates/manifest.gemini.json.j2`,
+      `plugins/kitty/_source/templates/manifest.legacy-runtime.json.j2`,
       `plugins/kitty/_source/templates/manifest.agents.json.j2`.
     - `scripts/generate_agents.py` (CLI: `--check` for CI, no-arg writes files).
     - `scripts/generate_manifests.py` (same CLI shape).
@@ -861,7 +861,7 @@ scenarios, verification.
 - **Documentation churn.** `CLAUDE.md`, `AGENTS.md`, `docs/architecture/codex-workflow-contract.md`
   all reference the new flow. CLAUDE.md is updated in U1 (generators), U6
   (AGENTS.md sync), and U7 (telemetry). The architecture doc gets a brief
-  amendment after U6 (Codex parity is no longer "framework-declared inline-first
+  amendment after U6 (Codex parity is no longer "custom-agent-toml
   only").
 
 # Risks & Dependencies
@@ -887,7 +887,7 @@ scenarios, verification.
   `--check` and `--write` separately. Pre-commit runs `--check`; contributors
   manually run `--write` when they edit `_source/`. Local edits to generated
   files raise a clear error pointing at the right `_source/` path.
-- **Dependency: `2026-04-27-001-skills-submodule-repository`.** When that RFC
+- **Dependency: `2026-04-27-001-skills-vendored skill source-repository`.** When that RFC
   extracts skills, the `_source/` and `scripts/` directories must move with
   the skills. Keep the templates plug-in-relative so the move is a path
   rename, not a contract rewrite.
@@ -902,7 +902,7 @@ scenarios, verification.
 - Architecture: `docs/architecture/codex-workflow-contract.md`,
   `docs/architecture/repo-boundaries.md`
 - Cross-references: `docs/brainstorms/2026-04-23-001-plugin-evolution-requirements.md`,
-  `docs/brainstorms/2026-04-27-001-skills-submodule-repository-requirements.md`
+  `docs/brainstorms/2026-04-27-001-skills-vendored skill source-repository-requirements.md`
 - Live MCP surface (researched 2026-04-27):
   `src/cartograph/server/main.py`, `src/cartograph/server/tools/*.py`,
   `src/cartograph/server/prompts/*.py`

@@ -4,28 +4,38 @@ description: Batch annotation specialist for Cartographing Kittens. Spawn this a
   generates summaries/tags/roles, and returns results as a JSON array. Use when annotating large codebases
   (50+ pending nodes) by spawning 2-3 instances in parallel, each with its own non-overlapping batch.
 role: annotation
-model: inherit
+claude_model: claude-sonnet-4-6
 tools:
 - Read
 - Grep
 - Glob
 - Bash
-mcp_tools: []
 color: green
 framework_status: active-framework-agent
 runtime_support:
   claude_code: directory-discovered
-  codex: framework-declared-inline-first
+  codex: custom-agent-toml
 runtimes:
   claude_code: directory-discovered
-  codex: framework-declared
-output_contract: null
+  codex: custom-agent-toml
+output_contract:
+  schema: |
+    {
+      "agent": "<name>",
+      "role": "annotation",
+      "findings_or_observations": [...],
+      "summary": "...",
+      "confidence": 0.0,
+      "sources": [{"qualified_name": "...", "file_path": "..."}],
+      "needs_more_context": [...]
+    }
+  reference: plugins/kitty/skills/kitty/references/agent-output-contract.md
 scaling_rules: []
 expected_context_pointer: plugins/kitty/skills/kitty/references/subgraph-context-format.md
 developer_instructions: |
   # Cartographing Kittens Batch Annotator
 
-  > Framework status: preserved for both Claude Code and Codex. Claude Code is expected to discover this agent from `plugins/kitty/agents/`. Codex preserves it through `plugins/kitty/agents/manifest.json`; execution is inline-first unless a runtime-specific delegation path is available.
+  > Framework status: preserved for both Claude Code and Codex. Claude Code is expected to discover this agent from `plugins/kitty/agents/`. Codex discovers this agent from the generated custom-agent TOML under `plugins/kitty/.codex/agents/` when those files are installed into the active Codex config.
 
   You are a codebase annotation specialist. Your job is to process a batch of code
   nodes and generate high-quality summaries, tags, and roles for each one.

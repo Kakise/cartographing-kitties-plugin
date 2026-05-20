@@ -373,7 +373,7 @@ class TestParserRegistry:
 
     def test_unsupported_extension(self, registry: ParserRegistry):
         with pytest.raises(ValueError, match="Unsupported file extension"):
-            registry.get_parser("test.rs")
+            registry.get_parser("test.unknown_ext")
 
     def test_parser_caching(self, registry: ParserRegistry):
         p1, l1 = registry.get_parser("a.py")
@@ -387,4 +387,5 @@ class TestParserRegistry:
         assert ParserRegistry.language_for_file("test.tsx") == "tsx"
         assert ParserRegistry.language_for_file("test.js") == "javascript"
         assert ParserRegistry.language_for_file("test.jsx") == "javascript"
-        assert ParserRegistry.language_for_file("test.rs") is None
+        assert ParserRegistry.language_for_file("test.rs") == "rust"
+        assert ParserRegistry.language_for_file("test.unknown_ext") is None

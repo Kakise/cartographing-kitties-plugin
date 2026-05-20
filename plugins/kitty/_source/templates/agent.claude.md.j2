@@ -4,7 +4,7 @@ description: >
 {% for line in description|description_lines %}
   {{ line }}
 {% endfor %}
-model: {{ model }}
+model: {{ claude_model }}
 tools: {{ tools|join(", ") }}
 {% if color %}
 color: {{ color }}
