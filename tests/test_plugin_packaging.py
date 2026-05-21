@@ -160,12 +160,22 @@ def _parse_skill_frontmatter(path: Path) -> dict[str, object]:
     return data
 
 
+_UTILITY_SKILLS_WITHOUT_MCP_REQUIREMENT = frozenset(
+    {
+        "kitty-bump-version",
+        "kitty-install-codex",
+        "kitty-sync-agent-md",
+        "kitty-validate-skills",
+    }
+)
+
+
 def test_skill_frontmatter_declares_kitty_mcp_requirement() -> None:
     skill_files = sorted(SKILLS_ROOT.glob("*/SKILL.md"))
     assert skill_files, "no SKILL.md files found — run `uv run python scripts/generate_skills.py`"
 
     for path in skill_files:
-        if path.parent.name == "kitty-install-codex":
+        if path.parent.name in _UTILITY_SKILLS_WITHOUT_MCP_REQUIREMENT:
             continue
         frontmatter = _parse_skill_frontmatter(path)
 

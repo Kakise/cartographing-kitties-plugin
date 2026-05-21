@@ -203,7 +203,11 @@ def _rust_crate_root(source_file: Path, root_path: Path) -> Path | None:
         if (current / "Cargo.toml").exists():
             return current
         parent = current.parent
-        if parent == current or not str(parent.resolve()).startswith(str(root_resolved)):
+        if parent == current:
+            return None
+        try:
+            parent.resolve().relative_to(root_resolved)
+        except ValueError:
             return None
         current = parent
 
