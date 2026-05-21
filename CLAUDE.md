@@ -156,6 +156,18 @@ Or use `kitty:lfg` for full autonomous execution (plan → work → review).
 | Reviewing code changes | `kitty:review` |
 | Full autonomous pipeline | `kitty:lfg` |
 
+### Utility skills (reusable across projects)
+
+These wrap reusable patterns the framework has accumulated; they work on any
+project that follows the same conventions, not just on this repo.
+
+| Situation | Skill | Backing entry point |
+|-----------|-------|---------------------|
+| Cut a SemVer release for a VCS-versioned project | `kitty:bump-version` | (procedure only — no script needed) |
+| Validate SKILL.md frontmatter against the Claude Code spec | `kitty:validate-skills` | `kitty-validate-skills` |
+| Audit CLAUDE.md ↔ AGENTS.md section parity | `kitty:sync-agent-md` | `kitty-sync-agent-md` |
+| Install kitty assets into a Codex configuration | `kitty:install-codex` | `kitty-install-codex-assets` |
+
 ## MCP Tool Surface
 
 ### Annotation
