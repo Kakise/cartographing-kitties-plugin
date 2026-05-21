@@ -1,9 +1,9 @@
 ---
 name: kitty-bump-version
 description: |
-  Cut a SemVer release for any project that derives its version from git tags (uv-dynamic-versioning, setuptools-scm, hatch-vcs, etc.). Use when the user says "cut a release", "bump the version", "publish to PyPI", "tag a release", or "/kitty:bump-version". Picks the next version, creates an annotated tag, pushes it, and optionally drives a `release: published` GitHub Actions publish workflow.
+  Cut a SemVer release for a project that derives its version from git tags (uv-dynamic-versioning, hatch-vcs, setuptools-scm). Picks the next version from commits since the previous tag, creates the annotated tag, pushes it, and optionally drives a `release: published` GitHub Actions publish workflow via `gh release create`. Use when the user says "cut a release", "bump the version", "tag vX.Y.Z", "publish to PyPI", or "/kitty:bump-version".
 when_to_use: |
-  Triggers: "release", "bump version", "tag vX.Y.Z", "publish to PyPI", "cut a new version", "/kitty:bump-version".
+  Triggers: "release", "bump version", "cut a release", "tag vX.Y.Z", "publish to PyPI", "/kitty:bump-version". Only applies to projects with dynamic VCS-derived versioning — refuses to edit a hardcoded `version =` field. Skip when the user just wants to add a tag manually with no version-bump heuristic.
 argument-hint: '[major|minor|patch|vX.Y.Z] [--no-push] [--no-release]'
 allowed-tools:
 - Bash

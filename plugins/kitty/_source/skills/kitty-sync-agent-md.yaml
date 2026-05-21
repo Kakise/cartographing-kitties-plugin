@@ -2,9 +2,9 @@ directory: kitty-sync-agent-md
 frontmatter:
   name: kitty-sync-agent-md
   description: |
-    Audit CLAUDE.md and AGENTS.md (dual-runtime project memory files) for section-structure drift. Use when the user says "sync AGENTS.md", "check CLAUDE/AGENTS drift", "are CLAUDE.md and AGENTS.md aligned", "/kitty:sync-agent-md". Works on any project that uses both files for parallel Claude Code and Codex/OpenAI-flavored runtimes.
+    Audit paired CLAUDE.md / AGENTS.md memory files for section-structure drift — same H2 titles in both, identical bodies outside the project's allow-list, divergent runtime-specific bodies allowed where the title is allow-listed. Use when the user says "sync AGENTS.md", "are CLAUDE.md and AGENTS.md aligned", "check agent-md drift", "fix CLAUDE/AGENTS divergence", or "/kitty:sync-agent-md". Works on any project that ships both files for parallel Claude Code and Codex/OpenAI-flavored runtimes.
   when_to_use: |
-    Triggers: "sync agent md", "CLAUDE.md AGENTS.md drift", "agents md is out of date", "check both memory files", "/kitty:sync-agent-md".
+    Triggers: "sync agent md", "CLAUDE.md AGENTS.md drift", "check both memory files", "are CLAUDE/AGENTS aligned", "fix CLAUDE.md and AGENTS.md", "/kitty:sync-agent-md". Run after editing either file, and after any other skill (e.g. `kitty:bump-version`) writes new sections that need to be mirrored.
   argument-hint: '[--fix]'
   allowed-tools:
   - Bash

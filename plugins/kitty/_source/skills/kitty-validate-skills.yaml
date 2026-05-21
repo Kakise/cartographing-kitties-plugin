@@ -2,9 +2,9 @@ directory: kitty-validate-skills
 frontmatter:
   name: kitty-validate-skills
   description: |
-    Validate Claude Code SKILL.md files against the official spec (name format, description length, allowed-tools naming, body line limit, referenced files). Use when the user says "validate my skills", "check skill compliance", "audit SKILL.md", "lint skills", or "/kitty:validate-skills". Works on any project's `.claude/skills/` or `plugins/*/skills/` tree, not just kitty's.
+    Validate Claude Code SKILL.md files against the official spec — name regex, description and when_to_use length caps, allowed-tools naming (`mcp__plugin_<plugin>_<server>__<tool>` for MCP), ≤500-line body, and existence of referenced markdown files. Use when the user says "validate my skills", "lint SKILL.md", "audit skill compliance", "are my skills well-formed", or "/kitty:validate-skills". Works on any `plugins/*/skills/` or `.claude/skills/` tree, not just kitty's.
   when_to_use: |
-    Triggers: "validate skills", "lint SKILL.md", "check Claude Code skill spec", "audit my skills directory", "/kitty:validate-skills".
+    Triggers: "validate skills", "lint SKILL.md", "audit skill compliance", "check Claude Code skill spec", "are my skills well-formed", "/kitty:validate-skills". Run before merging a PR that touches SKILL.md files, before cutting a release that ships skills, or whenever a skill stops loading and the cause is unclear.
   argument-hint: '[skills-dir] [--strict]'
   allowed-tools:
   - Bash

@@ -240,13 +240,35 @@ type: feat|fix|refactor
 status: active
 date: YYYY-MM-DD
 origin: docs/brainstorms/...-requirements.md  # if applicable
+units:
+  - id: 1
+    title: <Unit 1 title>
+    state: pending
+  - id: 2
+    title: <Unit 2 title>
+    state: pending
 ---
 ```
+
+Each implementation unit body must also carry a `**State:** pending` line so
+the plan parser can read per-unit progress (see
+`docs/architecture/plan-state-conventions.md`).
 
 Sections: Overview, Problem Frame, Requirements Trace, Scope Boundaries,
 Context & Research, Key Technical Decisions, Open Questions,
 Memory Context, Implementation Units (with checkbox syntax), System-Wide Impact,
 Risks & Dependencies, Sources & References.
+
+After writing the plan file, validate it against the plan-state
+conventions so the dashboard and downstream skills can read it. Prefer the
+installed console script when available; fall back to the in-repo path:
+
+```bash
+kitty-plan-status audit <plan-path>          # if `uv tool install cartographing-kittens` is on PATH
+uv run python scripts/plan_status.py audit   # in-repo fallback (runs against docs/plans/)
+```
+
+Fix any reported issues before handing off to `kitty:work`.
 
 ### Phase 5: Confidence Check
 
@@ -285,6 +307,10 @@ options:
 - May use preserved framework subagents when the runtime supports it.
 - Must not depend on a blocking-question tool or a plugin-backed agent registry.
 - Must query litter/treat memory and include a Memory Context section in every non-trivial plan.
+- Must write per-unit `**State:**` lines and a frontmatter `units:` list so
+  `kitty-plan-status` (and downstream `kitty:work` runs) can track progress.
+  Audit the plan file with `kitty-plan-status audit` (or
+  `scripts/plan_status.py audit` in-repo) before handing off.
 - Must issue every interactive prompt (resume offer, material decisions in
   Phase 2, handoff menu) via `AskUserQuestion` per
   `kitty/references/ask-user-protocol.md`. Pipeline mode skips prompts.
