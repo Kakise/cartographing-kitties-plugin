@@ -111,7 +111,7 @@ uv run python scripts/generate_commands.py
 uv run python scripts/generate_manifests.py
 ```
 
-## Manual installation (MCP server only)
+## Install from PyPI (MCP server + utility CLIs)
 
 If you only want the MCP server without the plugin framework:
 
@@ -120,6 +120,35 @@ pip install cartographing-kittens
 # or
 uvx cartographing-kittens
 ```
+
+To also get the bundled utility CLIs (the same scripts the kitty utility
+skills call into) on your `PATH`, install as a uv tool:
+
+```bash
+uv tool install cartographing-kittens
+```
+
+Once installed this way, the following entry points are available globally
+and the `kitty:bump-version`, `kitty:validate-skills`, and
+`kitty:sync-agent-md` utility skills will prefer them over the in-repo
+fallbacks:
+
+| Command | Purpose |
+|---|---|
+| `cartographing-kittens` / `kitty-graph` | Run the MCP server over stdio |
+| `kitty-validate-skills` | Lint SKILL.md frontmatter against the Claude Code spec |
+| `kitty-sync-agent-md` | Drift-check paired CLAUDE.md / AGENTS.md memory files |
+| `kitty-plan-status` | Inspect / mutate plan documents under `docs/plans/` |
+| `kitty-install-codex-assets` | Copy generated kitty assets into a Codex config |
+| `kitty-generate-agents` | Regenerate `agents/` from `_source/agents/*.yaml` |
+| `kitty-generate-skills` | Regenerate `skills/*/SKILL.md` from `_source/skills/*.yaml` |
+| `kitty-generate-commands` | Regenerate Claude commands and Codex prompts from `_source/commands/*.yaml` |
+| `kitty-generate-manifests` | Regenerate plugin and MCP manifests |
+| `kitty-generate-tool-reference` | Regenerate the MCP tool reference docs |
+
+The generators are project-internal (they assume the kitty `_source/`
+layout); the validation, sync, and plan-status commands work on any
+project that follows the same conventions.
 
 Then add to your MCP client config (`.mcp.json`):
 
@@ -203,11 +232,24 @@ The product vs integration boundary is documented in [`docs/architecture/repo-bo
 | Skill | Trigger | What it does |
 |-------|---------|--------------|
 | `kitty:brainstorm` | "Let's brainstorm", "What should we build?" | Requirements gathering from graph-backed research, inline first with optional delegation |
-| `kitty:plan` | "Plan this", "How should we build this?" | Technical planning from graph-backed research, inline first with optional delegation |
-| `kitty:work` | "Build this", "Implement the plan" | Execute plans with Cartographing Kittens-first workflow steps and optional delegation |
+| `kitty:plan` | "Plan this", "How should we build this?" | Technical planning from graph-backed research, inline first with optional delegation. Audits the plan against `plan_status.py` after writing it. |
+| `kitty:work` | "Build this", "Implement the plan" | Execute plans with Cartographing Kittens-first workflow steps and optional delegation. Updates per-unit `**State:**` and plan-level `status:` via `kitty-plan-status set-unit`/`set-status` on every transition. |
 | `kitty:review` | "Review this", "Check my code" | Structural code review, inline first with optional reviewer delegation |
 | `kitty:lfg` | Full autonomous mode | Chains plan, work, and review without interaction |
 | `kitty:install-codex` | "Install into this Codex path" | Copies generated agents, skills, and prompt commands into a Codex config directory |
+
+### Utility Skills — Reusable Across Projects
+
+These wrap reusable patterns the framework accumulated as utility scripts.
+They work on any project that follows the same conventions, not just kitty's.
+Each prefers a globally-installed console script (see "Install from PyPI"
+above) and falls back to inline agent work when the binary isn't on `PATH`.
+
+| Skill | Trigger | What it does |
+|-------|---------|--------------|
+| `kitty:bump-version` | "Cut a release", "bump version", "tag vX.Y.Z" | Pick the next SemVer level from commit history, create the annotated tag, push it, and optionally drive a `release: published` GitHub Actions workflow. Procedure-only — no script dependency. |
+| `kitty:validate-skills` | "Validate skills", "lint SKILL.md" | Validate Claude Code SKILL.md frontmatter against the official spec (name regex, length caps, allowed-tools naming, body line limit, referenced-file existence) |
+| `kitty:sync-agent-md` | "Sync AGENTS.md", "CLAUDE/AGENTS drift" | Audit paired CLAUDE.md/AGENTS.md for H2 section structure and body parity outside the project's allow-list |
 
 ## How to Use the Framework
 
