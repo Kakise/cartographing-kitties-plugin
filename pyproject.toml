@@ -73,8 +73,13 @@ dev = [
 cartographing-kittens = "cartograph:main"
 kitty-graph = "cartograph:serve"
 kitty-generate-agents = "scripts.generate_agents:main"
+kitty-generate-commands = "scripts.generate_commands:main"
 kitty-generate-manifests = "scripts.generate_manifests:main"
+kitty-generate-skills = "scripts.generate_skills:main"
 kitty-generate-tool-reference = "scripts.generate_tool_reference:main"
+kitty-install-codex-assets = "scripts.install_codex_assets:main"
+kitty-plan-status = "scripts.plan_status:main"
+kitty-sync-agent-md = "scripts.sync_claude_agents_md:main"
 kitty-validate-skills = "scripts.validate_skills:main"
 
 
