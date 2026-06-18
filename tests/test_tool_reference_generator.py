@@ -32,6 +32,7 @@ def test_tool_reference_is_split_by_family() -> None:
         "annotate.md",
         "index.md",
         "memory.md",
+        "plan.md",
         "query.md",
         "reactive.md",
     }

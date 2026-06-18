@@ -120,6 +120,7 @@ _REGISTRATION_MODULES = (
     "cartograph.server.tools.annotate",
     "cartograph.server.tools.index",
     "cartograph.server.tools.memory",
+    "cartograph.server.tools.plan",
     "cartograph.server.tools.query",
     "cartograph.server.tools.reactive",
 )

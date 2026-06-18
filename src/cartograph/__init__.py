@@ -9,7 +9,21 @@ except PackageNotFoundError:
 
 
 def main() -> None:
-    """CLI entry point — starts the MCP server."""
+    """CLI entry point.
+
+    With no arguments, starts the MCP server over stdio (the default the plugin
+    invokes via ``uvx cartographing-kittens``). The ``plan`` subcommand
+    (``cartographing-kittens plan <report|audit|set-unit|set-status> ...``)
+    delegates to the shipped plan-state CLI so end users get plan tooling
+    without a separate script.
+    """
+    import sys
+
+    if len(sys.argv) > 1 and sys.argv[1] == "plan":
+        from cartograph.planning.cli import main as plan_main
+
+        raise SystemExit(plan_main(sys.argv[2:]))
+
     from cartograph.server.main import mcp
 
     mcp.run(transport="stdio")

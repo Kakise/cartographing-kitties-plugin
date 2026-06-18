@@ -1,14 +1,12 @@
-"""Thin shim — the plan-state library now ships in the package.
+"""Plan-state library: parse, serialize, validate, and safely mutate plan docs.
 
-The implementation moved into the distributable package at
-:mod:`cartograph.planning.state`. This shim re-exports the public names so
-repo-local importers (and existing tests) continue to resolve
-``from scripts.plan_state import ...``.
+Public surface re-exported from :mod:`cartograph.planning.state` so callers can
+``from cartograph.planning import parse_plan`` without reaching into submodules.
 """
 
 from __future__ import annotations
 
-from cartograph.planning.state import (  # noqa: F401
+from cartograph.planning.state import (
     PLAN_STATUSES,
     UNIT_STATES,
     Plan,
