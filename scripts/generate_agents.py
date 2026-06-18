@@ -117,6 +117,21 @@ def _load_agent_sources() -> list[dict[str, Any]]:
                 f"{path}: color `{color}` not in Claude Code's accepted set "
                 f"({', '.join(sorted(VALID_AGENT_COLORS))})"
             )
+        # Optional orchestration-model keys (additive; absent on current sources so output
+        # is unchanged). `lens` is a list of librarian lenses; `default_model`/`default_effort`
+        # are the orchestrator's per-agent dispatch hints. Normalise to None/[] so the
+        # template variables are always defined.
+        lens = agent.get("lens")
+        if lens is None:
+            agent["lens"] = []
+        elif isinstance(lens, str):
+            agent["lens"] = [item.strip() for item in lens.split(",") if item.strip()]
+        elif isinstance(lens, list):
+            agent["lens"] = [str(item) for item in lens]
+        else:
+            raise ValueError(f"{path}: lens must be a string or list, got {type(lens).__name__}")
+        agent.setdefault("default_model", None)
+        agent.setdefault("default_effort", None)
         agent.setdefault("framework_status", "active-framework-agent")
         agent.setdefault(
             "runtime_support",

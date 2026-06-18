@@ -59,6 +59,113 @@ KNOWN_TOOLS: frozenset[str] = frozenset(
     KITTY_MCP_TOOLS | {f"{MCP_PREFIX}{tool}" for tool in KITTY_MCP_TOOLS} | BUILTIN_TOOLS
 )
 
+# Orchestration-script rules (spec §11). The args prologue every `*.orch.js` must carry, the
+# LOC cap, and the entry self-check sentinel phase skills embed. The 7-agent roster is the
+# exact set the regenerated manifest will declare once Unit 4 lands.
+ORCH_ARGS_PROLOGUE = "typeof args === 'string' ? JSON.parse(args)"
+MAX_ORCH_LINES = 200
+ENTRY_SELF_CHECK_SENTINEL = "<!-- entry-self-check -->"
+EXPECTED_AGENT_ROSTER: frozenset[str] = frozenset(
+    {
+        "librarian-kitten",
+        "expert-kitten-correctness",
+        "expert-kitten-testing",
+        "expert-kitten-impact",
+        "expert-kitten-structure",
+        "expert-kitten-context",
+        "cartographing-kitten",
+    }
+)
+# Matches a `scriptPath:` or `name:` key used as a Workflow({...}) argument — i.e. appearing
+# on its own object line as a key. A `name:` inside a `meta = {...}` object is FINE; this only
+# fires on a `Workflow(` call argument or a top-level object key, so we scope the search to the
+# region opened by `Workflow(`.
+_WORKFLOW_CALL_RE = re.compile(r"Workflow\s*\(", re.MULTILINE)
+_FORBIDDEN_WORKFLOW_KEY_RE = re.compile(r"(?m)^\s*(scriptPath|name)\s*:")
+
+
+def check_orch_prologue(path: Path) -> list[str]:
+    """Error unless the orchestration script carries the args-prologue substring."""
+
+    text = path.read_text(encoding="utf-8")
+    if ORCH_ARGS_PROLOGUE not in text:
+        return [
+            f"{_display_path(path)}: orchestration script missing args prologue "
+            f"`{ORCH_ARGS_PROLOGUE}`"
+        ]
+    return []
+
+
+def check_no_scriptpath(path: Path) -> list[str]:
+    """Error if the script passes `scriptPath:`/`name:` as a Workflow({...}) input.
+
+    A `name:` key inside a `meta = {...}` object (the script's own metadata) is allowed —
+    only `scriptPath:`/`name:` used as a `Workflow(` call argument is rejected. We scope the
+    forbidden-key scan to the brace region opened by each `Workflow(` call.
+    """
+
+    text = path.read_text(encoding="utf-8")
+    errors: list[str] = []
+    for call in _WORKFLOW_CALL_RE.finditer(text):
+        region = _balanced_paren_region(text, call.end() - 1)
+        for forbidden in _FORBIDDEN_WORKFLOW_KEY_RE.finditer(region):
+            errors.append(
+                f"{_display_path(path)}: `{forbidden.group(1)}:` used as a Workflow() input "
+                f"is forbidden (orchestration scripts run inline via `script`)"
+            )
+    return errors
+
+
+def _balanced_paren_region(text: str, open_paren_index: int) -> str:
+    """Return the substring inside the parentheses opened at `open_paren_index`.
+
+    Falls back to the rest of the text if the parentheses never balance.
+    """
+
+    depth = 0
+    for i in range(open_paren_index, len(text)):
+        char = text[i]
+        if char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+            if depth == 0:
+                return text[open_paren_index + 1 : i]
+    return text[open_paren_index + 1 :]
+
+
+def check_orch_loc(path: Path, limit: int = MAX_ORCH_LINES) -> list[str]:
+    """Error if the orchestration script exceeds `limit` lines."""
+
+    line_count = len(path.read_text(encoding="utf-8").splitlines())
+    if line_count > limit:
+        return [f"{_display_path(path)}: {line_count} lines exceeds orchestration cap {limit}"]
+    return []
+
+
+def check_entry_self_check(skill_body: str, required: bool) -> list[str]:
+    """Error if a self-check is required but the body lacks the sentinel marker."""
+
+    if required and ENTRY_SELF_CHECK_SENTINEL not in skill_body:
+        return [f"missing entry self-check sentinel `{ENTRY_SELF_CHECK_SENTINEL}`"]
+    return []
+
+
+def check_exact_roster(manifest_agent_names: list[str], expected: set[str]) -> list[str]:
+    """Error unless the manifest's agent-name set exactly equals `expected`."""
+
+    actual = set(manifest_agent_names)
+    if actual == expected:
+        return []
+    missing = sorted(expected - actual)
+    unexpected = sorted(actual - expected)
+    parts: list[str] = []
+    if missing:
+        parts.append(f"missing {', '.join(missing)}")
+    if unexpected:
+        parts.append(f"unexpected {', '.join(unexpected)}")
+    return [f"agent roster mismatch: {'; '.join(parts)}"]
+
 
 def _parse_frontmatter(path: Path) -> tuple[dict[str, Any], str, list[str]]:
     text = path.read_text(encoding="utf-8")
@@ -190,11 +297,33 @@ def _validate_kitty_router_spawn_map() -> list[str]:
     return []
 
 
+def _validate_orchestration_scripts() -> list[str]:
+    """Run the safe-now orchestration-script checks against every shipped `*.orch.js`.
+
+    Skips scripts whose basename starts with `_` (e.g. `_probe.orch.js`) — those are
+    one-off probes, not production orchestration scripts.
+    """
+
+    errors: list[str] = []
+    for orch_path in sorted(SKILLS_ROOT.glob("*/references/workflows/*.orch.js")):
+        if orch_path.name.startswith("_"):
+            continue
+        errors.extend(check_orch_prologue(orch_path))
+        errors.extend(check_no_scriptpath(orch_path))
+        errors.extend(check_orch_loc(orch_path))
+    return errors
+
+
 def validate_all() -> list[str]:
     errors: list[str] = []
     for skill_path in sorted(SKILLS_ROOT.glob("*/SKILL.md")):
         errors.extend(validate_skill(skill_path))
     errors.extend(_validate_kitty_router_spawn_map())
+    errors.extend(_validate_orchestration_scripts())
+    # check_exact_roster: wired live in Unit 4 (roster) — the current manifest still
+    # declares 10 agents, so enforcing the exact 7-agent set now would fail CI.
+    # check_entry_self_check: wired live in Unit 6 (entry self-check) — phase skills do
+    # not yet carry the sentinel, so enforcing it now would fail CI.
     return errors
 
 
