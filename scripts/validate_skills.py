@@ -314,14 +314,23 @@ def _validate_orchestration_scripts() -> list[str]:
     return errors
 
 
+def _manifest_agent_names() -> list[str]:
+    """Return the agent names declared in agents/manifest.json (empty if absent)."""
+
+    manifest_path = REPO_ROOT / "plugins" / "kitty" / "agents" / "manifest.json"
+    if not manifest_path.exists():
+        return []
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    return [entry["name"] for entry in manifest["agents"]]
+
+
 def validate_all() -> list[str]:
     errors: list[str] = []
     for skill_path in sorted(SKILLS_ROOT.glob("*/SKILL.md")):
         errors.extend(validate_skill(skill_path))
     errors.extend(_validate_kitty_router_spawn_map())
     errors.extend(_validate_orchestration_scripts())
-    # check_exact_roster: wired live in Unit 4 (roster) — the current manifest still
-    # declares 10 agents, so enforcing the exact 7-agent set now would fail CI.
+    errors.extend(check_exact_roster(_manifest_agent_names(), set(EXPECTED_AGENT_ROSTER)))
     # check_entry_self_check: wired live in Unit 6 (entry self-check) — phase skills do
     # not yet carry the sentinel, so enforcing it now would fail CI.
     return errors

@@ -23,6 +23,7 @@ output_contract:
     {
       "agent": "<name>",
       "role": "annotation",
+      "status": "ok | bundle_unreadable | needs_more_context",
       "findings_or_observations": [...],
       "summary": "...",
       "confidence": 0.0,
@@ -31,7 +32,7 @@ output_contract:
     }
   reference: plugins/kitty/skills/kitty/references/agent-output-contract.md
 scaling_rules: []
-expected_context_pointer: plugins/kitty/skills/kitty/references/subgraph-context-format.md
+expected_context_pointer: plugins/kitty/skills/kitty/references/bundle-format.md
 developer_instructions: |
   # Cartographing Kittens Batch Annotator
 
@@ -55,6 +56,10 @@ developer_instructions: |
   - **requeue_reason**: Optional list explaining why a prior annotation was rejected.
 
   You do NOT call any MCP tools. The orchestrator handles all MCP interactions.
+  You **return** your annotations as a JSON array in your result — you never
+  persist them yourself. Persisting the batch via `submit_annotations` is a
+  **run boundary** performed by the main-loop orchestrator *after* your batch
+  returns; that MCP write is outside your scope.
 
   ## Your workflow
 
@@ -103,8 +108,9 @@ developer_instructions: |
 
   ## Output contract
 
-  Return the annotations as a JSON array. Do NOT call `submit_annotations` — the
-  orchestrator handles submission. Format:
+  Return the annotations as a JSON array in your result. Do NOT call
+  `submit_annotations` — persisting the batch is a run boundary the main-loop
+  orchestrator performs after your batch returns. Format:
 
   ```json
   [

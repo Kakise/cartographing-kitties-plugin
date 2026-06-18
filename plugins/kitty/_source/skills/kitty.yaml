@@ -108,19 +108,27 @@ body: |
   ## Agent Spawn Map
 
   Each workflow skill spawns a fixed roster of framework subagents declared in
-  `plugins/kitty/agents/manifest.json`. Every agent must appear in at least one
-  column below — `scripts/validate_skills.py` enforces it.
+  `plugins/kitty/agents/manifest.json`. The roster is exactly seven agents — one
+  consolidated researcher (`librarian-kitten`, run under a per-dispatch lens), the
+  five reviewers (`expert-kitten-correctness`, `expert-kitten-testing`,
+  `expert-kitten-impact`, `expert-kitten-structure`, `expert-kitten-context`), and
+  the batch annotator (`cartographing-kitten`). Every agent must appear in at
+  least one column below — `scripts/validate_skills.py` enforces it.
 
   | Skill | Always-on | Conditional |
   |---|---|---|
-  | `kitty:plan` | `librarian-kitten-researcher`, `librarian-kitten-pattern` | `librarian-kitten-flow`, `librarian-kitten-impact` |
-  | `kitty:work` | (none — inline orchestrator) | `librarian-kitten-researcher`, `librarian-kitten-pattern` (per unit, when graph context is dense) |
-  | `kitty:review` | `expert-kitten-correctness`, `expert-kitten-testing` | `expert-kitten-impact` (≥3 files changed), `expert-kitten-structure` (new files / module boundary changes), `expert-kitten-context` (subgraph context ≥10k tokens) |
+  | `kitty:plan` | `librarian-kitten` — lenses: architecture + pattern + flow + impact | — |
+  | `kitty:work` | (none — inline orchestrator) | `librarian-kitten` (per unit, when graph context is dense) — lenses: architecture, pattern |
+  | `kitty:review` | `expert-kitten-correctness`, `expert-kitten-testing` | `expert-kitten-impact` (≥3 files changed), `expert-kitten-structure` (new files / module boundary changes), `expert-kitten-context` (Context Bundle ≥10k tokens) |
   | `kitty:annotate` | `cartographing-kitten` | — |
-  | `kitty:brainstorm` | `librarian-kitten-researcher` | `librarian-kitten-pattern` |
+  | `kitty:brainstorm` | `librarian-kitten` — lenses: architecture + pattern | — |
+  | `kitty:impact` | (none — inline orchestrator) | `librarian-kitten` — lens: impact |
   | `kitty:lfg` | (delegates to `kitty:plan` → `kitty:work` → `kitty:review`) | — |
   | `kitty:explore` | (none — inline orchestrator only) | — |
-  | `kitty:impact` | (none — inline orchestrator only) | — |
+
+  `librarian-kitten` is a single agent applied under one lens per dispatch
+  (`architecture`, `pattern`, `flow`, or `impact`); the orchestrator names the
+  lens and injects the matching guidance from `references/lenses/`.
 
   Output contract: every agent returns the unified shape documented in
   [`references/agent-output-contract.md`](references/agent-output-contract.md).

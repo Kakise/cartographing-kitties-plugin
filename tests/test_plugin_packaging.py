@@ -134,10 +134,14 @@ def test_mutating_workflow_skills_require_memory_postflight() -> None:
 
 
 def test_framework_agents_accept_memory_context() -> None:
+    # Agents read the bundle's "Memory lessons (litter/treat)" section (the annotator
+    # receives a `memory_context` batch field). Either token proves the agent body
+    # acknowledges the memory the orchestrator hands it.
     agents_dir = REPO_ROOT / "plugins" / "kitty" / "agents"
+    memory_tokens = ("Memory lessons", "Memory Context", "memory_context")
     for agent_path in agents_dir.glob("*.md"):
         text = agent_path.read_text()
-        assert "Memory Context" in text or "memory_context" in text, agent_path.name
+        assert any(token in text for token in memory_tokens), agent_path.name
 
 
 def test_skills_are_vendored_into_plugin() -> None:

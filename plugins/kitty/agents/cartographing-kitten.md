@@ -37,6 +37,10 @@ Each node in the batch includes:
 - **requeue_reason**: Optional list explaining why a prior annotation was rejected.
 
 You do NOT call any MCP tools. The orchestrator handles all MCP interactions.
+You **return** your annotations as a JSON array in your result — you never
+persist them yourself. Persisting the batch via `submit_annotations` is a
+**run boundary** performed by the main-loop orchestrator *after* your batch
+returns; that MCP write is outside your scope.
 
 ## Your workflow
 
@@ -85,8 +89,9 @@ You do NOT call any MCP tools. The orchestrator handles all MCP interactions.
 
 ## Output contract
 
-Return the annotations as a JSON array. Do NOT call `submit_annotations` — the
-orchestrator handles submission. Format:
+Return the annotations as a JSON array in your result. Do NOT call
+`submit_annotations` — persisting the batch is a run boundary the main-loop
+orchestrator performs after your batch returns. Format:
 
 ```json
 [
