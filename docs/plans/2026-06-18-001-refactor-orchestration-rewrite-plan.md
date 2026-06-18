@@ -23,7 +23,8 @@ units:
     implemented_in: af6a316
   - id: 4
     title: Agent roster — hybrid 7, MCP-free
-    state: pending
+    state: complete
+    implemented_in: 70b18c4
   - id: 5
     title: Orchestration scripts + test harness
     state: pending
@@ -376,7 +377,7 @@ and signals verbatim. `uv run python scripts/validate_skills.py` passes.
 
 ### Unit 4 — Agent roster — hybrid 7, MCP-free
 
-**State:** pending
+**State:** complete — implemented in 70b18c4
 
 Consolidate the librarians, strip MCP from all agents, slim the experts, and make the
 annotator's write-back a documented run-boundary. (Spec §8.)
