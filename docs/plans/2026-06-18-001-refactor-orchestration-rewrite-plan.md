@@ -15,10 +15,12 @@ units:
     implemented_in: dd9fb7c
   - id: 2
     title: Source schema + generators + validators
-    state: pending
+    state: complete
+    implemented_in: e043a2d
   - id: 3
     title: Policy & format references (dispatch-policy, bundle-format, lenses)
-    state: pending
+    state: complete
+    implemented_in: af6a316
   - id: 4
     title: Agent roster — hybrid 7, MCP-free
     state: pending
@@ -295,7 +297,7 @@ def write_plan_atomic(path, plan, expected_hash: str | None = None) -> None:
 
 ### Unit 2 — Source schema + generators + validators
 
-**State:** pending
+**State:** complete — implemented in e043a2d
 
 Extend the `_source` YAML schema and generators for the new model; tighten the validator
 with the spec's new rules. (Spec §11.)
@@ -335,7 +337,7 @@ with the spec's new rules. (Spec §11.)
 
 ### Unit 3 — Policy & format references (dispatch-policy, bundle-format, lenses)
 
-**State:** pending
+**State:** complete — implemented in af6a316
 
 Author the shared reference docs every script and skill points at. (Spec §3, §4, §8, §15.)
 
