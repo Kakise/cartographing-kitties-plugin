@@ -11,7 +11,8 @@ units:
     implemented_in: 033f81b
   - id: 1
     title: Planning package + MCP tools + write-safety + shims
-    state: pending
+    state: complete
+    implemented_in: dd9fb7c
   - id: 2
     title: Source schema + generators + validators
     state: pending
@@ -179,7 +180,7 @@ uv run python scripts/plan_status.py set-unit docs/plans/2026-06-18-001-refactor
 
 ### Unit 1 — Planning package + MCP tools + write-safety + shims
 
-**State:** pending
+**State:** complete — implemented in dd9fb7c
 
 Move plan-state into the shipped package, add atomic-write + optimistic-concurrency
 safety, expose it as MCP tools, and keep the repo's CLI + pre-commit working via thin
