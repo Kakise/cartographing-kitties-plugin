@@ -1,13 +1,14 @@
 ---
 title: Kitty Orchestration Rewrite
 type: refactor
-status: active
+status: in_progress
 date: 2026-06-18
 origin: docs/superpowers/specs/2026-06-18-kitty-orchestration-rewrite-design.md
 units:
   - id: 0
     title: Mechanism gate — model-routing probe (go/no-go)
-    state: pending
+    state: complete
+    implemented_in: 033f81b
   - id: 1
     title: Planning package + MCP tools + write-safety + shims
     state: pending
@@ -115,7 +116,7 @@ exactly what to build and how to prove it.
 
 ### Unit 0 — Mechanism gate — model-routing probe (go/no-go)
 
-**State:** pending
+**State:** complete — implemented in 033f81b
 
 The whole "smart dispatch" value rests on the unverified assumption that the Workflow
 runtime's `agent({model})` is exempt from #43869. This run already proved inline
