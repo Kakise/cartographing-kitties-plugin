@@ -48,7 +48,7 @@ both have since been partially validated empirically (§13).**
 
 | # | Finding | Source | Consequence |
 |---|---------|--------|-------------|
-| F1 | Per-subagent model selection via `model:` frontmatter / env / Task param is **broken** — everything resolves to the parent model. | [#43869](https://github.com/anthropics/claude-code/issues/43869), #67942, #67794, #68147 | "Smart dispatch" cannot ride agent definitions. The **assumed** working path is the Workflow tool's `agent(prompt, {model, effort})`. **ASSUMPTION UNDER TEST:** #43869 reads like a *shared* resolver defect; the spec assumes the Workflow `agent()` resolver is exempt. Confirm in Unit 0 (§13). |
+| F1 | Per-subagent model selection via `model:` frontmatter / env / Task param is **broken** — everything resolves to the parent model. | [#43869](https://github.com/anthropics/claude-code/issues/43869), #67942, #67794, #68147 | "Smart dispatch" cannot ride agent definitions. The working path is the Workflow tool's `agent(prompt, {model, effort})`. **VERIFIED (Unit 0, §13):** a probe spawned haiku/sonnet/opus agents that each reported their distinct, tier-matching model id — the Workflow `agent()` resolver is exempt from #43869. (The Task/fallback path remains broken.) |
 | F2 | A plugin **cannot ship or expose a workflow** — no `workflows/` slot; named-resolution is buggy; `scriptPath` drops `args`. | [#66032](https://github.com/anthropics/claude-code/issues/66032), [#63876](https://github.com/anthropics/claude-code/issues/63876) | Ship the script as a skill **`references/` file** and pass it **inline** via `Workflow({ script: <contents>, args })`. **VALIDATED (§13):** the inline `script:` param exists and works in this runtime; `args` as an object + JSON.parse prologue works. |
 | F3 | The Workflow tool is **paid-plan + flag + version (≥2.1.154) gated**, user/org-disableable, with **no runtime availability API**. | docs/workflows, #65206 | The Task-tool **fallback is the common path**. Both paths must be first-class but they are **not symmetric** — see §5. Path selection needs an explicit mechanism (§5), since there is no API to query. |
 | F4 | MCP tools are **unavailable inside subagents** (empty registry); nested subagents impossible; parallel Task dispatch can **silently duplicate** and storms on 429/529 with **no backoff**. | [#64909](https://github.com/anthropics/claude-code/issues/64909), #19077, #64080, #64177, #68502 | **Only the main-loop orchestrator calls MCP.** Agents are MCP-free. The Workflow runtime supplies concurrency caps + retries the raw Task path lacks → the fallback must hand-roll bounded coordination (§5). Topology is flat. |
@@ -175,11 +175,10 @@ in `args.tiers`. The script just applies them. (The rubric lives once in
 | **hard** | `files ≥ 3` ∨ `blast_radius ≥ 15` ∨ `max_centrality ≥ 0.5` ∨ architectural/new-file ∨ verify of `P0`/`P1` | `opus` · high (`xhigh` for hardest verify) |
 | **standard** | otherwise | `sonnet` · medium |
 
-> **Tiering has real effect only on the workflow path, and only if F1's assumption holds
-> (Unit 0 gate, §13). If the smoke test shows `agent({model})` is a no-op, §4 is demoted
-> to advisory-on-both-paths and model-tier routing is struck from Goal 3.** On the
-> fallback path tiers are **recorded for forward-compat only — no runtime effect today
-> (F1/#43869)**; effort is conveyed as a prompt hint (best-effort proxy).
+> **Tiering has real effect on the workflow path — VERIFIED in Unit 0 (§13): probe agents
+> at haiku/sonnet/opus each reported distinct, tier-matching model ids.** On the fallback
+> path tiers are **recorded for forward-compat only — no runtime effect today (F1/#43869
+> on the Task path)**; effort is conveyed as a prompt hint (best-effort proxy).
 
 ---
 
@@ -449,12 +448,13 @@ as a `Workflow({script, args})` dispatch of 25 agents). That run **proved:** the
 `agent({model, effort})` calls are accepted; and `agent()` inside a script genuinely
 spawns and returns (not a nested-subagent no-op, #19077).
 
-**Still unverified → the Unit 0 go/no-go gate:** whether `agent({model})` *actually
-routes* the child to a different model or silently no-ops under #43869 (F1). Unit 0 runs
-a minimal validator-exempt `_probe.orch.js` that has children self-report their effective
-model. **Exit criterion:** if children run at the session model regardless of `{model}`,
-demote §4 to advisory-on-both-paths and strike model-tier routing from Goal 3 **before**
-building units 3–6. This converts the silent-no-op risk into an explicit go/no-go.
+**Model routing → RESOLVED (Unit 0, 2026-06-18):** the `_probe.orch.js` probe spawned
+haiku/sonnet/opus agents that reported `claude-haiku-4-5-20251001`, `claude-sonnet-4-6`,
+and `claude-opus-4-8[1m]` respectively — distinct, tier-matching ids. **`agent({model})`
+genuinely routes; #43869 does not extend to the Workflow resolver.** §4 stands; Goal 3
+is intact; no demotion. (Had the children all reported the session model, the gate would
+have demoted §4 to advisory and struck model-tier routing before building units 5–8.)
+See `docs/plans/notes/2026-06-18-unit0-mechanism-gate.md`.
 
 ---
 
@@ -520,7 +520,7 @@ listed as an explicit risk.
 
 | Risk | Status / mitigation |
 |------|---------------------|
-| **F1 — `agent({model})` may no-op under #43869** | UNVERIFIED. Unit 0 gate (§13) with a written demote-to-advisory pivot. The one assumption with material consequence (decorative tiers, lost Goal 3). |
+| **F1 — `agent({model})` routing in the Workflow runtime** | **RESOLVED (Unit 0, §13): VERIFIED real** — probe agents reported distinct tier-matching model ids. §4 stands; no demotion. (Task/fallback path routing remains broken, as designed-around.) |
 | Workflow availability unknowable at author time (F3) | Shared fallback + `auto` probe selection (§5.3). Value is materially better for paid+enabled users; documented honestly. |
 | Inline `script:` param existence | **VALIDATED** in this runtime (§13). Still gated behind the Unit 0 probe for the target environment. |
 | Fallback coordination is prose, not a scheduler | Bounded by design (§5.2); storm protection is explicitly Workflow-path-only and NOT claimed for the fallback; manual-verification checklist + tests (§16). |
