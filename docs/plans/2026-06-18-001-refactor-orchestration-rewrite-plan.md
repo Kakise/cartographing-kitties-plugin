@@ -35,7 +35,8 @@ units:
     implemented_in: 0721299
   - id: 7
     title: Rewrite plan / work / review / lfg
-    state: pending
+    state: complete
+    implemented_in: 103986e
   - id: 8
     title: Rewrite explore / impact / annotate / brainstorm
     state: pending
@@ -487,7 +488,7 @@ generated SKILL.md files match (`generate_skills.py --check`).
 
 ### Unit 7 — Rewrite plan / work / review / lfg
 
-**State:** pending
+**State:** complete — implemented in 103986e
 
 Rewrite the four heavy orchestrators to the bundle-handoff + run-boundary model with
 superpowers hardening. (Spec §9.)
