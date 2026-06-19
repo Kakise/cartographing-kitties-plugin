@@ -27,7 +27,8 @@ units:
     implemented_in: 70b18c4
   - id: 5
     title: Orchestration scripts + test harness
-    state: pending
+    state: complete
+    implemented_in: 811f92a
   - id: 6
     title: kitty conductor + redundant phase gates
     state: pending
@@ -411,7 +412,7 @@ lines; `validate_skills.py` passes (spawn-map exact-match).
 
 ### Unit 5 — Orchestration scripts + test harness
 
-**State:** pending
+**State:** complete — implemented in 811f92a
 
 Build the shipped `*.orch.js` scripts and the CI harness that executes them with stubbed
 globals. (Spec §3, §5, §6, §11.)
