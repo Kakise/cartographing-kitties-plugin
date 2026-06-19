@@ -1,9 +1,10 @@
 ---
 title: Kitty Orchestration Rewrite
 type: refactor
-status: in_progress
+status: complete
 date: 2026-06-18
 origin: docs/superpowers/specs/2026-06-18-kitty-orchestration-rewrite-design.md
+implemented_in: b973daf
 units:
   - id: 0
     title: Mechanism gate — model-routing probe (go/no-go)
@@ -43,7 +44,8 @@ units:
     implemented_in: 93ed3c4
   - id: 9
     title: Codex removal, docs, full regen, green CI
-    state: pending
+    state: complete
+    implemented_in: b973daf
 ---
 
 # Kitty Orchestration Rewrite — Implementation Plan
@@ -547,7 +549,7 @@ documents the submit run-boundary and tiers batches by `recommended_model_tier`;
 
 ### Unit 9 — Codex removal, docs, full regen, green CI
 
-**State:** pending
+**State:** complete — implemented in b973daf
 
 Remove Codex, update docs, migrate in-flight plans, and prove the whole tree green.
 (Spec §12, §14, §17.)
