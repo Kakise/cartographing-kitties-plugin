@@ -8,8 +8,7 @@
       "path": "./{{ agent.name }}.md",
       "role": "{{ agent.role }}",
       "runtimes": {
-        "claude_code": "{{ agent.runtimes.claude_code }}",
-        "codex": "{{ agent.runtimes.codex }}"
+        "claude_code": "{{ agent.runtimes.claude_code }}"
       }
     }{% if not loop.last %},{% endif %}
 {% endfor %}

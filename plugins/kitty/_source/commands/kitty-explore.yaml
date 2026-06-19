@@ -1,19 +1,13 @@
 name: kitty-explore
 description: Explore codebase structure using the code graph
 claude:
-  argument_hint: "[file or module path]"
+  argument_hint: '[file or module path]'
   allowed_tools:
-    - mcp__plugin_kitty_kitty__get_file_structure
-    - mcp__plugin_kitty_kitty__query_node
-    - mcp__plugin_kitty_kitty__search
+  - mcp__plugin_kitty_kitty__get_file_structure
+  - mcp__plugin_kitty_kitty__query_node
+  - mcp__plugin_kitty_kitty__search
   body: |
     Use the Cartographing Kittens code graph to explore the structure of this codebase. $ARGUMENTS
 
     Call `get_file_structure` on the specified path (or project root if none given). Then use
     `query_node` to drill into interesting symbols. Present findings as a structured overview.
-codex_prompt: |
-  Use the Cartographing Kittens code graph to explore the structure of this codebase.
-
-  If the user supplied a path, module, or symbol in the surrounding request, start there.
-  Otherwise inspect the project root. Call `get_file_structure` first, then use `query_node`
-  or `search` to drill into important symbols. Present findings as a structured overview.

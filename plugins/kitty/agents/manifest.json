@@ -7,8 +7,7 @@
       "path": "./cartographing-kitten.md",
       "role": "annotation",
       "runtimes": {
-        "claude_code": "directory-discovered",
-        "codex": "custom-agent-toml"
+        "claude_code": "directory-discovered"
       }
     },
     {
@@ -16,8 +15,7 @@
       "path": "./expert-kitten-context.md",
       "role": "review",
       "runtimes": {
-        "claude_code": "directory-discovered",
-        "codex": "custom-agent-toml"
+        "claude_code": "directory-discovered"
       }
     },
     {
@@ -25,8 +23,7 @@
       "path": "./expert-kitten-correctness.md",
       "role": "review",
       "runtimes": {
-        "claude_code": "directory-discovered",
-        "codex": "custom-agent-toml"
+        "claude_code": "directory-discovered"
       }
     },
     {
@@ -34,8 +31,7 @@
       "path": "./expert-kitten-impact.md",
       "role": "review",
       "runtimes": {
-        "claude_code": "directory-discovered",
-        "codex": "custom-agent-toml"
+        "claude_code": "directory-discovered"
       }
     },
     {
@@ -43,8 +39,7 @@
       "path": "./expert-kitten-structure.md",
       "role": "review",
       "runtimes": {
-        "claude_code": "directory-discovered",
-        "codex": "custom-agent-toml"
+        "claude_code": "directory-discovered"
       }
     },
     {
@@ -52,8 +47,7 @@
       "path": "./expert-kitten-testing.md",
       "role": "review",
       "runtimes": {
-        "claude_code": "directory-discovered",
-        "codex": "custom-agent-toml"
+        "claude_code": "directory-discovered"
       }
     },
     {
@@ -61,8 +55,7 @@
       "path": "./librarian-kitten.md",
       "role": "research",
       "runtimes": {
-        "claude_code": "directory-discovered",
-        "codex": "custom-agent-toml"
+        "claude_code": "directory-discovered"
       }
     }
   ]

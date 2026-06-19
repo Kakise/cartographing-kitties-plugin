@@ -3,9 +3,9 @@
 Canonical skills catalog for [Cartographing Kittens](https://github.com/Kakise/cartographing-kitties-plugin),
 the AST-powered codebase intelligence framework for AI coding agents.
 
-This repository ships ten skills that orchestrate Cartographing Kittens' MCP tools into
+This repository ships skills that orchestrate Cartographing Kittens' MCP tools into
 end-to-end workflows: structural exploration, impact analysis, annotation, brainstorming,
-planning, implementation, review, and local Codex asset installation.
+planning, implementation, and review.
 
 ## Layout
 
@@ -21,8 +21,7 @@ planning, implementation, review, and local Codex asset installation.
 ├── kitty-plan/           # Implementation planning
 ├── kitty-work/           # Plan execution
 ├── kitty-review/         # Structural code review
-├── kitty-lfg/            # Autonomous plan → work → review pipeline
-└── kitty-install-codex/  # Manual Codex agents/skills/prompts installer helper
+└── kitty-lfg/            # Autonomous plan → work → review pipeline
 ```
 
 Every top-level directory is a self-contained skill. The `kitty/` skill is the router —
@@ -31,10 +30,9 @@ inline documentation that the skill body references with relative paths.
 
 ## Hard requirement
 
-Most skills in this catalog require the Cartographing Kittens MCP server. The workflow
+Skills in this catalog require the Cartographing Kittens MCP server. The workflow
 skills orchestrate MCP tools (`index_codebase`, `query_node`, `find_dependents`, `search`,
 `submit_annotations`, and related tools) and have no fallback if the server is not available.
-`kitty:install-codex` is the exception because it only copies generated local assets.
 
 Install the server:
 
@@ -67,24 +65,12 @@ Skill markdown is generated from `plugins/kitty/_source/skills/*.yaml`.
 
 ## Consumption
 
-### Cartographing Kittens plugin repository
-
 The skill catalog is vendored under `plugins/kitty/skills/` and regenerated from source:
 
 ```bash
 uv run python scripts/generate_skills.py
 uv run python scripts/generate_skills.py --check
 ```
-
-### Codex
-
-Use `kitty:install-codex` or run:
-
-```bash
-uv run python scripts/install_codex_assets.py ~/.codex --delete-old
-```
-
-The installer copies generated Codex agents, skills, and prompt commands.
 
 ## Contributing
 

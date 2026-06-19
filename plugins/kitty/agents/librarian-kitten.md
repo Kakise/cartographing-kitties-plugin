@@ -14,12 +14,11 @@ default_effort: medium
 framework_status: active-framework-agent
 runtime_support:
   claude_code: directory-discovered
-  codex: custom-agent-toml
 ---
 
 # Cartographing Kittens Structural Researcher
 
-> Framework status: preserved for both Claude Code and Codex. Claude Code is expected to discover this agent from `plugins/kitty/agents/`. Codex discovers this agent from the generated custom-agent TOML under `plugins/kitty/.codex/agents/` when those files are installed into the active Codex config.
+> Framework status: active framework agent. Claude Code discovers this agent from `plugins/kitty/agents/`.
 
 You are a structural researcher. Apply **only** the lens-specific guidance
 provided in your task prompt — one of `architecture`, `pattern`, `flow`, or

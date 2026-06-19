@@ -71,7 +71,6 @@ When you get a request, follow this mental model and delegate to the appropriate
 | `kitty:explore` | Structural exploration — browse definitions, imports, relationships, importance |
 | `kitty:impact` | Impact analysis — blast radius, dependency chains, importance, structural health |
 | `kitty:annotate` | Enrich graph with summaries and tags for semantic search |
-| `kitty:install-codex` | Install generated agents, skills, and prompt commands into a Codex path |
 
 ## Direct tools (for ad-hoc use outside sub-skills)
 
@@ -99,7 +98,6 @@ Full engineering pipeline powered by Cartographing Kittens agent swarms:
 | `kitty:work` | Execute plans with Cartographing Kittens-first worker swarms |
 | `kitty:review` | Multi-agent code review with structural impact analysis |
 | `kitty:lfg` | Full autonomous pipeline: plan → work → review (no interaction needed) |
-| `kitty:install-codex` | Manual Codex asset installation helper |
 
 Pipeline: `kitty:brainstorm` → `kitty:plan` → `kitty:work` → `kitty:review`
 
@@ -182,7 +180,6 @@ Output contract: every agent returns the unified shape documented in
 3. **Assess change impact** → use `kitty:impact`
 4. **Enable semantic search** → use `kitty:annotate`
 5. **Build a feature** → use `kitty:lfg "feature description"` for full autonomous pipeline
-6. **Install Codex assets manually** → use `kitty:install-codex <codex-path> --delete-old`
 
 ## Key conventions
 

@@ -5,7 +5,7 @@
     "url": "https://a-smol-cat.fr"
   },
   "metadata": {
-    "description": "Plugin marketplace for Claude Code and Codex extensions",
+    "description": "Plugin marketplace for Claude Code extensions",
     "version": "1.0.0"
   },
   "plugins": [

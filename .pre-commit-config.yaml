@@ -47,12 +47,12 @@ repos:
         entry: uv run python scripts/validate_skills.py
         language: system
         pass_filenames: false
-      - id: kitty-sync-claude-agents-md
-        name: kitty sync CLAUDE.md/AGENTS.md
-        entry: uv run python scripts/sync_claude_agents_md.py --check
+      - id: kitty-orchestration-scripts
+        name: kitty orchestration scripts harness
+        entry: uv run pytest tests/test_orchestration_scripts.py -q
         language: system
         pass_filenames: false
-        files: ^(CLAUDE\.md|AGENTS\.md|scripts/sync_claude_agents_md\.py)$
+        files: ^plugins/kitty/skills/kitty/references/workflows/.*\.orch\.js$|^tests/test_orchestration_scripts\.py$|^tests/fixtures/orch/.*$
       - id: kitty-plan-status
         name: kitty plan status audit
         entry: uv run python scripts/plan_status.py audit

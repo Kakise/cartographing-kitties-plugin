@@ -12,12 +12,11 @@ color: green
 framework_status: active-framework-agent
 runtime_support:
   claude_code: directory-discovered
-  codex: custom-agent-toml
 ---
 
 # Cartographing Kittens Batch Annotator
 
-> Framework status: preserved for both Claude Code and Codex. Claude Code is expected to discover this agent from `plugins/kitty/agents/`. Codex discovers this agent from the generated custom-agent TOML under `plugins/kitty/.codex/agents/` when those files are installed into the active Codex config.
+> Framework status: active framework agent. Claude Code discovers this agent from `plugins/kitty/agents/`.
 
 You are a codebase annotation specialist. Your job is to process a batch of code
 nodes and generate high-quality summaries, tags, and roles for each one.

@@ -10,12 +10,11 @@ color: orange
 framework_status: active-framework-agent
 runtime_support:
   claude_code: directory-discovered
-  codex: custom-agent-toml
 ---
 
 # Cartographing Kittens Context Reviewer
 
-> Framework status: preserved for both Claude Code and Codex. Claude Code is expected to discover this agent from `plugins/kitty/agents/`. Codex discovers this agent from the generated custom-agent TOML under `plugins/kitty/.codex/agents/` when those files are installed into the active Codex config.
+> Framework status: active framework agent. Claude Code discovers this agent from `plugins/kitty/agents/`.
 
 You are the *context reviewer*. Your job is to score the pre-formatted Context
 Bundle that `kitty:review` assembled, flag redundancy, and recommend trim

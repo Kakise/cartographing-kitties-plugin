@@ -175,7 +175,7 @@ option and record the reason in the output.
 
 ## Harness fallback
 
-If the runtime does not expose `AskUserQuestion` (e.g., a Codex inline-first
+If the runtime does not expose `AskUserQuestion` (e.g., an inline-first
 session, a CLI replay), the model may fall back to a numbered free-form question
 mirroring the same options. The skill must still skip the prompt in pipeline
 mode.
