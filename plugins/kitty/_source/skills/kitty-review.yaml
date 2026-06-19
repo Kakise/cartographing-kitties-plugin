@@ -33,6 +33,8 @@ frontmatter:
     mcp_servers:
     - kitty
 entry_self_check: "required — refuses unless a since-baseline diff or uncommitted changes exist"
+orchestration_script: kitty/references/workflows/review.orch.js
+dispatch_policy: kitty/references/dispatch-policy.md
 body: |
   # Cartographing Kittens: Review
 
@@ -233,22 +235,40 @@ body: |
   Identify semantically related code that might be affected but is NOT in the dependency graph.
   Include any discovered nodes in a `### Semantically Related (not in dependency graph)` section.
 
-  ### Stage 4: Index & Apply Review Workflow
+  ### Stage 4: Index & dispatch the review fan-out
 
-  1. Call `index_codebase(full=false)` to ensure the graph reflects current changes
-  2. Apply the review workflow using the diff, file list, intent summary, the **subgraph context block** (from Stage 3, including importance scores, structural health, and semantic matches), and the plan (if provided).
+  1. Call `index_codebase(full=false)` so the graph reflects current changes (a run boundary).
+  2. Write the curated Stage 3 subgraph context as the Context Bundle to
+     `.pawprints/runs/<run-id>/bundle.md` per
+     [`kitty/references/bundle-format.md`](kitty/references/bundle-format.md), then
+     dispatch the review fan-out via the orchestration script
+     [`kitty/references/workflows/review.orch.js`](kitty/references/workflows/review.orch.js).
+     The conductor computes each dimension's `(model, effort)` tier from
+     [`kitty/references/dispatch-policy.md`](kitty/references/dispatch-policy.md) and
+     passes the resolved tiers in `args`; the MCP-free reviewer agents read one bundle
+     section each and never call MCP.
 
-  Optional delegation path:
-
-  If the active runtime supports delegation cleanly, dispatch reviewer agents in parallel with the same inputs:
+  The script runs `pipeline(dimensions, review → adversarial-verify)`:
 
   **Always-on (every review):**
-  - **`expert-kitten-correctness`** — Logic errors, edge cases, state bugs
-  - **`expert-kitten-testing`** — Test coverage gaps via dependency analysis
+  - **`expert-kitten-correctness`** — logic errors, edge cases, state bugs
+  - **`expert-kitten-testing`** — test-coverage gaps via dependency analysis
 
   **Conditional:**
-  - **`expert-kitten-impact`** — When diff touches 3+ files or modifies public symbols
-  - **`expert-kitten-structure`** — When new files are created or modules are added
+  - **`expert-kitten-impact`** — diff touches 3+ files or modifies public symbols
+  - **`expert-kitten-structure`** — new files created or module boundaries change
+  - **`expert-kitten-context`** — Context Bundle exceeds ~10k tokens (audits over-fetching)
+
+  **Two-gate review + adversarial verify.** Every finding is judged on both the
+  spec-compliance gate (does the change do what it claims?) and the code-quality gate. Each
+  P0/P1 finding is then adversarially re-verified at the hard tier (`opus`, `xhigh`) before
+  it is kept — a finding that fails verification is dropped. A reviewer that throws / returns
+  empty / returns a schema-invalid result is recorded `failed` in the per-item ledger and
+  re-dispatched once, never silently dropped (spec §6).
+
+  On the Task fallback path the orchestrator runs the same dimensions and validates each
+  return against the schema; model tiering is advisory-only there (#43869), effort travels
+  as a prompt hint.
 
   ### Stage 5: Merge & Deduplicate
 
