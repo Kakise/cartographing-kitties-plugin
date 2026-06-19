@@ -31,7 +31,8 @@ units:
     implemented_in: 811f92a
   - id: 6
     title: kitty conductor + redundant phase gates
-    state: pending
+    state: complete
+    implemented_in: 0721299
   - id: 7
     title: Rewrite plan / work / review / lfg
     state: pending
@@ -453,7 +454,7 @@ harness runs in `uv run pytest` and (added in Unit 9) pre-commit.
 
 ### Unit 6 — kitty conductor + redundant phase gates
 
-**State:** pending
+**State:** complete — implemented in 0721299
 
 Rewrite the `kitty` router into the conductor and add the redundant entry self-checks to
 every phase skill. (Spec §7.)
