@@ -39,7 +39,8 @@ units:
     implemented_in: 103986e
   - id: 8
     title: Rewrite explore / impact / annotate / brainstorm
-    state: pending
+    state: complete
+    implemented_in: 93ed3c4
   - id: 9
     title: Codex removal, docs, full regen, green CI
     state: pending
@@ -519,7 +520,7 @@ pass; no bare unfenced `workflow` trigger token (#63725 rule).
 
 ### Unit 8 — Rewrite explore / impact / annotate / brainstorm
 
-**State:** pending
+**State:** complete — implemented in 93ed3c4
 
 Rewrite the lighter skills to the same model. (Spec §9.)
 
