@@ -44,9 +44,15 @@ Cartographing Kittens' transitive graph traversal.
 
 ## Workflow
 
-The orchestrator pre-computes the full impact context, then dispatches the
-`librarian-kitten-impact` agent with the assembled subgraph context. Agents CANNOT
-call MCP tools — the orchestrator gathers all data.
+The orchestrator pre-computes the full blast-radius context, writes it as the Context Bundle
+to `.pawprints/runs/<run-id>/bundle.md`
+([`kitty/references/bundle-format.md`](kitty/references/bundle-format.md)), and dispatches a
+single `librarian-kitten` under the **impact lens** via
+[`kitty/references/workflows/impact.orch.js`](kitty/references/workflows/impact.orch.js).
+Agents are MCP-free — the orchestrator gathers all data. impact stays orchestrator-inline: the
+librarian synthesis is an optional optimization, and for small blast radii the orchestrator may
+present the pre-computed result directly. Tier the dispatch by `blast_radius` per
+[`kitty/references/dispatch-policy.md`](kitty/references/dispatch-policy.md).
 
 ### Step 1: Index & Check Coverage
 
@@ -112,10 +118,12 @@ Assemble the collected data into a structured text block:
 - Issues: [list any cycles, orphans, or missing edges]
 ```
 
-### Step 4: Dispatch Agent
+### Step 4: Dispatch the impact lens (optional)
 
-Dispatch **`librarian-kitten-impact`** with the full subgraph context, the target
-symbol name, and the user's question/intent.
+Dispatch a single **`librarian-kitten`** under the impact lens via `impact.orch.js`, passing
+the bundle path, the target symbol name, and the user's question/intent. A return that throws /
+is empty / is schema-invalid is recorded `failed` in the ledger, never dropped (spec §6). For
+small blast radii the orchestrator may skip the dispatch and summarize inline.
 
 ### Step 5: Present Results
 
@@ -156,3 +164,8 @@ Relay the agent's findings to the user, including:
 - Use `rank_nodes` to focus attention on the most important dependents
 - `validate_graph` catches pre-existing structural issues that a change might worsen
 - See `kitty/references/tool-reference/` for full parameter details
+
+## Orchestration
+
+- **Orchestration script:** `kitty/references/workflows/impact.orch.js`
+- **Dispatch policy:** `kitty/references/dispatch-policy.md`

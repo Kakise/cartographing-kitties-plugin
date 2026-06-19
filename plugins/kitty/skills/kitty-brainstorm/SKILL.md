@@ -136,15 +136,22 @@ Build the subgraph context before any optional delegation:
 - Depth 2: `consumer::consumer::symbol` (kind, role)
 ```
 
-Optional delegation path:
+Research fan-out (`brainstorm.orch.js`):
 
-If the runtime supports delegation cleanly, the orchestrator may dispatch these framework agents
-in parallel, passing each the feature description and the formatted subgraph context:
+The orchestrator writes the subgraph context as the Context Bundle
+([`kitty/references/bundle-format.md`](kitty/references/bundle-format.md)) and dispatches the
+parallel research swarm via
+[`kitty/references/workflows/brainstorm.orch.js`](kitty/references/workflows/brainstorm.orch.js):
+the consolidated `librarian-kitten` runs under two lenses in parallel, each reading one bundle
+section with its injected lens prompt and tiered per
+[`kitty/references/dispatch-policy.md`](kitty/references/dispatch-policy.md):
 
-- **`librarian-kitten-researcher`** — Pass: full subgraph context (annotation status, target nodes, file structures, symbol details, dependencies, dependents, edges). Scope: architecture, technology stack, module organization
-- **`librarian-kitten-pattern`** — Pass: search results, file structures, and dependency/dependent context from the subgraph. Scope: existing patterns relevant to the feature area
+- **architecture lens** — architecture, technology stack, module organization.
+- **pattern lens** — existing patterns relevant to the feature area.
 
-Otherwise, the orchestrator synthesizes the same findings inline:
+A lens that throws / returns empty / returns schema-invalid is recorded `failed` in the
+per-lens ledger and re-dispatched once, never dropped (spec §6). On the Task fallback the two
+lenses run sequentially. The orchestrator then synthesizes the lens returns inline:
 - technology stack
 - relevant patterns
 - key files
@@ -165,7 +172,7 @@ to the previous question can shape the next:
    readings of the request that match research findings (e.g., "Fix the auth
    middleware bug", "Replace the auth middleware altogether").
 2. **Scope boundaries** — header: `"Scope"`. Options enumerate the related
-   areas surfaced by `librarian-kitten-pattern` / `find_dependents` (e.g.,
+   areas surfaced by the `librarian-kitten` pattern lens / `find_dependents` (e.g.,
    "Just `src/auth/`", "Auth + session storage", "Auth + session + audit log").
 3. **Success criteria** — header: `"Success"`. Options enumerate observable
    outcomes (e.g., "All callers migrate", "New callers use new API; old callers
@@ -258,4 +265,6 @@ options:
 
 ## Orchestration
 
+- **Orchestration script:** `kitty/references/workflows/brainstorm.orch.js`
+- **Dispatch policy:** `kitty/references/dispatch-policy.md`
 - **Entry self-check:** required — attaches the run journal and confirms there is a topic to explore
