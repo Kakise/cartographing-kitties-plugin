@@ -38,6 +38,17 @@ requires:
 Structured code review with **Cartographing Kittens-powered structural analysis** beyond the diff.
 The review contract is inline-first; reviewer delegation is optional when runtime support is clear.
 
+<!-- entry-self-check -->
+## Entry self-check (run first)
+
+Slash-command invocation (`/kitty:kitty-review …`) bypasses the `kitty` conductor, so this
+gate runs at the top of the body regardless (spec §7):
+
+- **Reviewable change required.** Assert a since-baseline diff or uncommitted changes exist
+  (e.g. `git diff`, `git status`). If there is nothing to review, explain that and stop.
+- **Attach the run journal.** Lazily create/attach `.pawprints/runs/<run-id>/` if the
+  conductor did not.
+
 ## Mode Detection
 
 | Mode | Token | Behavior |
@@ -320,3 +331,7 @@ Record durable lessons from the review:
 - Must issue every interactive triage prompt via `AskUserQuestion` per
   `kitty/references/ask-user-protocol.md`. `mode:autofix` and
   `mode:report-only` must not call `AskUserQuestion`.
+
+## Orchestration
+
+- **Entry self-check:** required — refuses unless a since-baseline diff or uncommitted changes exist

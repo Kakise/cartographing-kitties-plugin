@@ -105,6 +105,48 @@ Pipeline: `kitty:brainstorm` → `kitty:plan` → `kitty:work` → `kitty:review
 
 Or use `kitty:lfg` to run plan → work → review autonomously.
 
+## Conductor: run boundaries, bundles & dispatch
+
+For the workflow pipeline, `kitty` is the **conductor**, not a passive router: it detects
+intent, routes to the phase skill, enforces the pipeline gates, owns the run journal,
+applies the AskUserQuestion gating contract, and builds the Context Bundle before
+dispatching one fan-out. The **main-loop orchestrator is the sole MCP client** — agents are
+MCP-free and never re-read the codebase.
+
+**Run boundaries (spec §3).** Every MCP-gated step returns to the main loop: graph fetch,
+bundle write, re-index / `graph_diff` / `validate_graph`, `submit_annotations`, plan-state
+mutation, and memory writes are all run boundaries. Each dispatched fan-out is exactly one
+MCP-free batch; the conductor reconciles results, performs the MCP-gated post-steps, then
+advances. Never call MCP from inside a dispatched script or agent.
+
+**Context Bundle handoff.** The conductor fetches graph context (graph-first, no raw
+reads), writes ONE curated bundle to `.pawprints/runs/<run-id>/bundle.md`, computes a
+per-item `(model, effort)` tier per
+[`references/dispatch-policy.md`](references/dispatch-policy.md), and passes a SMALL args
+object (bundle path + ids + resolved tiers) to the script. The bundle layout, the agent
+read-prologue, and the `ok`/`bundle_unreadable`/`needs_more_context` status envelope are
+defined in [`references/bundle-format.md`](references/bundle-format.md).
+
+**Run identity (spec §10.3).** `<run-id> = <plan-slug>-<UTC-yyyymmddThhmmssZ>-<6char>`
+(sortable, collision-free, plan-derived); plan-less phases (`explore`, `impact`) use a
+`phase-` prefix. Each run dir holds `bundle.md`, `args.json`, and the run journal; the
+journal header and `args.json` both record the absolute `plan_path` (the run→plan binding).
+`.pawprints/runs/` is git-ignored and disposable — **git-tracked plan-state is the only
+durable resume authority**. On cross-session resume, rebuild from plan-state and
+re-dispatch any unit not `complete`-with-commit; recorded workflow run IDs are dead.
+
+**Dispatch path (spec §5.3).** `args.dispatch` defaults to `auto`: the conductor runs one
+cheap Workflow probe before dispatching work items; a tool-unavailable / version-gate /
+flag-off / org-disabled error commits the run to the Task fallback, other errors surface.
+Override with `args.dispatch ∈ {workflow, task, auto}`. The path is fixed once per run and
+recorded in the journal. Model tiering is real on the Workflow path and advisory-only on
+the Task fallback (#43869) — there, effort travels as a prompt hint.
+
+**Redundant gates (spec §7).** Skills fire by description match and slash-command
+invocation bypasses `kitty` entirely, so each pipeline phase skill **self-checks its entry
+preconditions at the top of its body**, independent of whether the conductor ran. Gate
+enforcement is redundant, not conductor-exclusive.
+
 ## Agent Spawn Map
 
 Each workflow skill spawns a fixed roster of framework subagents declared in

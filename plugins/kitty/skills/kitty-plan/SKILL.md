@@ -38,6 +38,18 @@ requires:
 Define **HOW** to build through Cartographing Kittens-powered research and structured planning.
 Produces an implementation plan that feeds into `kitty:work`.
 
+<!-- entry-self-check -->
+## Entry self-check (run first)
+
+Slash-command invocation (`/kitty:kitty-plan …`) bypasses the `kitty` conductor, so this
+gate runs at the top of the body regardless (spec §7):
+
+- **Brainstorm output for net-new features.** For a net-new feature, confirm a brainstorm
+  requirements doc exists (e.g. under `docs/brainstorms/`); if missing, route to
+  `kitty:brainstorm` first. Refinements to an existing plan skip this.
+- **Attach the run journal.** Lazily create/attach `.pawprints/runs/<run-id>/` if the
+  conductor did not, recording the absolute `plan_path` in the journal header.
+
 ## Runtime Posture
 
 This workflow is **inline-first**. The orchestrator gathers the research context and can produce
@@ -314,3 +326,7 @@ options:
 - Must issue every interactive prompt (resume offer, material decisions in
   Phase 2, handoff menu) via `AskUserQuestion` per
   `kitty/references/ask-user-protocol.md`. Pipeline mode skips prompts.
+
+## Orchestration
+
+- **Entry self-check:** required — for a net-new feature, confirms brainstorm output exists first

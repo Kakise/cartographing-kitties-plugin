@@ -35,6 +35,17 @@ requires:
 Explore **WHAT** to build through dialogue and Cartographing Kittens-powered codebase analysis.
 Produces a requirements document that feeds into `kitty:plan`.
 
+<!-- entry-self-check -->
+## Entry self-check (run first)
+
+Brainstorm is the pipeline entry point and is otherwise ungated, but slash-command
+invocation bypasses the `kitty` conductor, so this still runs at the top of the body (spec §7):
+
+- **Topic present.** Confirm the request names a feature or problem to explore; if it is
+  empty, ask the user what to brainstorm before proceeding.
+- **Attach the run journal.** Lazily create/attach `.pawprints/runs/<run-id>/` if the
+  conductor did not.
+
 ## Runtime Posture
 
 This workflow is **inline-first**. The orchestrator gathers graph context and can complete the
@@ -244,3 +255,7 @@ options:
 - Must issue every interactive prompt via `AskUserQuestion` per
   `kitty/references/ask-user-protocol.md`, except for the single free-form
   feature-description question in Phase 1 step 3.
+
+## Orchestration
+
+- **Entry self-check:** required — attaches the run journal and confirms there is a topic to explore

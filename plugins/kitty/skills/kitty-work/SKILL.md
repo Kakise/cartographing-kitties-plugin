@@ -39,6 +39,18 @@ requires:
 Execute plans with **Cartographing Kittens-first workflow steps**. Delegation is optional; the
 default contract is inline execution with graph context gathered by the orchestrator.
 
+<!-- entry-self-check -->
+## Entry self-check (run first)
+
+Slash-command invocation (`/kitty:kitty-work <plan>`) bypasses the `kitty` conductor, so this
+gate runs at the top of the body regardless (spec §7):
+
+- **Approved plan required.** Assert the plan file is present AND its frontmatter `status`
+  is `ready`/`approved`, via the `plan_status` MCP tool. Otherwise refuse and route to
+  `kitty:plan`.
+- **Attach the run journal.** Lazily create/attach `.pawprints/runs/<run-id>/` if the
+  conductor did not, recording the absolute `plan_path` in the journal header.
+
 ## Workflow
 
 ### Phase 1: Setup
@@ -247,3 +259,7 @@ Carry forward execution notes from the plan:
   or frontmatter `state:` values.
 - Must issue branch-strategy and commit-strategy prompts via `AskUserQuestion`
   per `kitty/references/ask-user-protocol.md`. Pipeline mode skips both prompts.
+
+## Orchestration
+
+- **Entry self-check:** required — refuses unless an approved plan exists via the plan_status MCP tool, else routes to kitty-plan

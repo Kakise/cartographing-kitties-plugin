@@ -65,6 +65,13 @@ KNOWN_TOOLS: frozenset[str] = frozenset(
 ORCH_ARGS_PROLOGUE = "typeof args === 'string' ? JSON.parse(args)"
 MAX_ORCH_LINES = 200
 ENTRY_SELF_CHECK_SENTINEL = "<!-- entry-self-check -->"
+# Phase skills whose body must carry the entry self-check sentinel (spec §7, plan Unit 6).
+# Keyed by skill directory name (== plugins/kitty/skills/<dir>/SKILL.md). kitty-lfg is absent
+# by design (its work-gate is satisfied by its own plan phase, not a self-check); the kitty
+# router is absent because the conductor enforces gates, it is not itself gated.
+GATED_SELF_CHECK_SKILLS: frozenset[str] = frozenset(
+    {"kitty-work", "kitty-review", "kitty-plan", "kitty-brainstorm"}
+)
 EXPECTED_AGENT_ROSTER: frozenset[str] = frozenset(
     {
         "librarian-kitten",
@@ -271,6 +278,9 @@ def validate_skill(path: Path) -> list[str]:
         if not any(candidate.exists() for candidate in candidates):
             errors.append(f"{display}: missing referenced file `{reference}`")
 
+    if path.parent.name in GATED_SELF_CHECK_SKILLS:
+        errors.extend(f"{display}: {err}" for err in check_entry_self_check(body, required=True))
+
     return errors
 
 
@@ -331,8 +341,8 @@ def validate_all() -> list[str]:
     errors.extend(_validate_kitty_router_spawn_map())
     errors.extend(_validate_orchestration_scripts())
     errors.extend(check_exact_roster(_manifest_agent_names(), set(EXPECTED_AGENT_ROSTER)))
-    # check_entry_self_check: wired live in Unit 6 (entry self-check) — phase skills do
-    # not yet carry the sentinel, so enforcing it now would fail CI.
+    # check_entry_self_check is wired per-skill in validate_skill() for the
+    # GATED_SELF_CHECK_SKILLS set (spec §7 / plan Unit 6).
     return errors
 
 
