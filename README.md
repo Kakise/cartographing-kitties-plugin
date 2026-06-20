@@ -4,92 +4,22 @@ AST-powered codebase intelligence for AI coding agents.
 
 Cartographing Kittens parses your code with [tree-sitter](https://tree-sitter.github.io/tree-sitter/), builds a structural graph in SQLite, and exposes it as an [MCP](https://modelcontextprotocol.io/) server. It answers questions that grep can't: *what depends on this function?*, *what breaks if I change this class?*, *show me all the auth-related code*.
 
-It is also available with repo-local integrations for **Codex** and **Claude Code**, plus a complete engineering workflow framework for brainstorm, plan, implement, and review loops powered by Cartographing Kittens.
-
-## Install as Codex Plugin
-
-This repository is a root-level Codex plugin. The repository entrypoint manifest lives at [`.codex-plugin/plugin.json`](./.codex-plugin/plugin.json), and it uses generated `kitty` skills under [`plugins/kitty/skills`](./plugins/kitty/skills).
-
-The MCP server config used by the root plugin lives at [`.mcp.json`](./.mcp.json).
-
-### Install from Git
-
-Clone the repository anywhere on disk:
-
-```bash
-git clone https://github.com/Kakise/cartographing-kitties-plugin.git ~/src/cartographing-kitties-plugin
-```
-
-Then point Codex at that clone as the plugin path. If you use the home-local marketplace, add this entry to `~/.agents/plugins/marketplace.json`:
-
-```json
-{
-  "name": "local-plugins",
-  "interface": {
-    "displayName": "Local Plugins"
-  },
-  "plugins": [
-    {
-      "name": "kitty",
-      "source": {
-        "source": "local",
-        "path": "../src/cartographing-kitties-plugin"
-      },
-      "policy": {
-        "installation": "AVAILABLE",
-        "authentication": "ON_INSTALL"
-      },
-      "category": "Developer Tools"
-    }
-  ]
-}
-```
-
-If your Codex setup supports installing directly from a Git checkout path, use the clone root itself because `.codex-plugin/plugin.json` now exists at the repository root.
-
-The marketplace-ready layout under [`plugins/kitty`](./plugins/kitty) is still preserved.
-
-### Manual Codex Asset Install
-
-Codex custom agents and prompt commands can also be installed into a specific Codex config path:
-
-```bash
-uv run python scripts/generate_agents.py
-uv run python scripts/generate_skills.py
-uv run python scripts/generate_commands.py
-uv run python scripts/install_codex_assets.py ~/.codex --delete-old
-```
-
-For JetBrains' Codex cache layout, pass the cache root and let the installer auto-detect it:
-
-```bash
-uv run python scripts/install_codex_assets.py /path/to/aia/codex --delete-old
-```
-
-The installer copies:
-
-- generated Codex custom agents from [`plugins/kitty/.codex/agents`](./plugins/kitty/.codex/agents)
-- generated skills from [`plugins/kitty/skills`](./plugins/kitty/skills)
-- generated Codex prompt commands from [`plugins/kitty/prompts`](./plugins/kitty/prompts)
-
-`--delete-old` only removes previously installed Kitty-owned assets before copying.
+It is also available with a repo-local integration for **Claude Code**, plus a complete engineering workflow framework for brainstorm, plan, implement, and review loops powered by Cartographing Kittens.
 
 ## Install as Claude Code Plugin
 
-Claude support is still preserved through [`plugins/kitty/.claude-plugin/plugin.json`](./plugins/kitty/.claude-plugin/plugin.json).
+Claude Code support is provided through [`plugins/kitty/.claude-plugin/plugin.json`](./plugins/kitty/.claude-plugin/plugin.json).
 
-The Claude plugin layout under [`plugins/kitty`](./plugins/kitty) preserves the framework components used by Claude Code:
+The Claude plugin layout under [`plugins/kitty`](./plugins/kitty) provides the framework components used by Claude Code:
 
 - `commands/`
 - `skills/`
 - `agents/`
 - `.mcp.json`
 
-The framework subagents remain part of the repository for both Claude Code and Codex. Their
-canonical source lives in [`plugins/kitty/_source/agents`](./plugins/kitty/_source/agents).
-In Claude Code, agents are generated as markdown files under
-[`plugins/kitty/agents`](./plugins/kitty/agents). In Codex, they are generated as custom-agent
-TOML files under [`plugins/kitty/.codex/agents`](./plugins/kitty/.codex/agents).
+The framework subagents are part of the repository. Their canonical source lives in
+[`plugins/kitty/_source/agents`](./plugins/kitty/_source/agents) and they are generated as
+markdown files under [`plugins/kitty/agents`](./plugins/kitty/agents).
 
 ## Generated Plugin Assets
 
@@ -97,10 +27,10 @@ Agents, skills, and command prompts are generated from YAML sources:
 
 | Surface | Source | Generated output |
 |---|---|---|
-| Agents | `plugins/kitty/_source/agents/*.yaml` | Claude markdown in `plugins/kitty/agents/`, Codex TOML in `plugins/kitty/.codex/agents/` |
-| Skills | `plugins/kitty/_source/skills/*.yaml` | `plugins/kitty/skills/*/SKILL.md` and optional `agents/openai.yaml` |
-| Commands | `plugins/kitty/_source/commands/*.yaml` | Claude command markdown in `plugins/kitty/commands/`, Codex prompt markdown in `plugins/kitty/prompts/` |
-| Plugin manifests | `plugins/kitty/_source/manifests/plugin.yaml` | `.codex-plugin`, `.claude-plugin`, and `.mcp.json` manifests |
+| Agents | `plugins/kitty/_source/agents/*.yaml` | Claude markdown in `plugins/kitty/agents/` |
+| Skills | `plugins/kitty/_source/skills/*.yaml` | `plugins/kitty/skills/*/SKILL.md` |
+| Commands | `plugins/kitty/_source/commands/*.yaml` | Claude command markdown in `plugins/kitty/commands/` |
+| Plugin manifests | `plugins/kitty/_source/manifests/plugin.yaml` | `.claude-plugin` and `.mcp.json` manifests |
 
 Regenerate after editing sources:
 
@@ -129,26 +59,23 @@ uv tool install cartographing-kittens
 ```
 
 Once installed this way, the following entry points are available globally
-and the `kitty:bump-version`, `kitty:validate-skills`, and
-`kitty:sync-agent-md` utility skills will prefer them over the in-repo
-fallbacks:
+and the `kitty:bump-version` and `kitty:validate-skills` utility skills will
+prefer them over the in-repo fallbacks:
 
 | Command | Purpose |
 |---|---|
 | `cartographing-kittens` / `kitty-graph` | Run the MCP server over stdio |
 | `kitty-validate-skills` | Lint SKILL.md frontmatter against the Claude Code spec |
-| `kitty-sync-agent-md` | Drift-check paired CLAUDE.md / AGENTS.md memory files |
 | `kitty-plan-status` | Inspect / mutate plan documents under `docs/plans/` |
-| `kitty-install-codex-assets` | Copy generated kitty assets into a Codex config |
 | `kitty-generate-agents` | Regenerate `agents/` from `_source/agents/*.yaml` |
 | `kitty-generate-skills` | Regenerate `skills/*/SKILL.md` from `_source/skills/*.yaml` |
-| `kitty-generate-commands` | Regenerate Claude commands and Codex prompts from `_source/commands/*.yaml` |
+| `kitty-generate-commands` | Regenerate Claude commands from `_source/commands/*.yaml` |
 | `kitty-generate-manifests` | Regenerate plugin and MCP manifests |
 | `kitty-generate-tool-reference` | Regenerate the MCP tool reference docs |
 
 The generators are project-internal (they assume the kitty `_source/`
-layout); the validation, sync, and plan-status commands work on any
-project that follows the same conventions.
+layout); the validation and plan-status commands work on any project that
+follows the same conventions.
 
 Then add to your MCP client config (`.mcp.json`):
 
@@ -223,10 +150,7 @@ Use these skills when you need specific structural information from the codebase
 ### Workflow Skills — Engineering Pipeline
 
 Use these skills to go from idea to shipped code with Cartographing Kittens-powered workflow orchestration.
-The framework subagents remain part of the repository, but runtime behavior differs by tool:
-Claude Code preserves the `agents/` layout directly, while Codex uses generated custom-agent
-TOML under [`plugins/kitty/.codex/agents`](./plugins/kitty/.codex/agents).
-The canonical cross-runtime contract lives in [`docs/architecture/codex-workflow-contract.md`](./docs/architecture/codex-workflow-contract.md).
+The framework subagents are part of the repository, and Claude Code uses the `agents/` layout directly.
 The product vs integration boundary is documented in [`docs/architecture/repo-boundaries.md`](./docs/architecture/repo-boundaries.md).
 
 | Skill | Trigger | What it does |
@@ -236,7 +160,6 @@ The product vs integration boundary is documented in [`docs/architecture/repo-bo
 | `kitty:work` | "Build this", "Implement the plan" | Execute plans with Cartographing Kittens-first workflow steps and optional delegation. Updates per-unit `**State:**` and plan-level `status:` via `kitty-plan-status set-unit`/`set-status` on every transition. |
 | `kitty:review` | "Review this", "Check my code" | Structural code review, inline first with optional reviewer delegation |
 | `kitty:lfg` | Full autonomous mode | Chains plan, work, and review without interaction |
-| `kitty:install-codex` | "Install into this Codex path" | Copies generated agents, skills, and prompt commands into a Codex config directory |
 
 ### Utility Skills — Reusable Across Projects
 
@@ -249,7 +172,6 @@ above) and falls back to inline agent work when the binary isn't on `PATH`.
 |-------|---------|--------------|
 | `kitty:bump-version` | "Cut a release", "bump version", "tag vX.Y.Z" | Pick the next SemVer level from commit history, create the annotated tag, push it, and optionally drive a `release: published` GitHub Actions workflow. Procedure-only — no script dependency. |
 | `kitty:validate-skills` | "Validate skills", "lint SKILL.md" | Validate Claude Code SKILL.md frontmatter against the official spec (name regex, length caps, allowed-tools naming, body line limit, referenced-file existence) |
-| `kitty:sync-agent-md` | "Sync AGENTS.md", "CLAUDE/AGENTS drift" | Audit paired CLAUDE.md/AGENTS.md for H2 section structure and body parity outside the project's allow-list |
 
 ## How to Use the Framework
 
@@ -330,8 +252,7 @@ may be used where available, but it is not the only execution path.
 
 ## Agents
 
-The files under [`plugins/kitty/agents`](./plugins/kitty/agents) and
-[`plugins/kitty/.codex/agents`](./plugins/kitty/.codex/agents) are generated first-class
+The files under [`plugins/kitty/agents`](./plugins/kitty/agents) are generated first-class
 framework components. The runtime-neutral declaration lives in
 [`plugins/kitty/agents/manifest.json`](./plugins/kitty/agents/manifest.json).
 

@@ -21,7 +21,7 @@ REPO_ROOT = _repo_root()
 PLUGIN_ROOT = REPO_ROOT / "plugins" / "kitty"
 TEMPLATE_DIR = PLUGIN_ROOT / "_source" / "templates"
 REFERENCE_DIR = PLUGIN_ROOT / "skills" / "kitty" / "references" / "tool-reference"
-FAMILY_ORDER = ["index", "query", "analysis", "annotate", "memory", "reactive"]
+FAMILY_ORDER = ["index", "query", "analysis", "annotate", "memory", "plan", "reactive"]
 
 
 def _schema_type(schema: dict[str, Any]) -> str:

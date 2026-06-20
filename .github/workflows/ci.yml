@@ -151,8 +151,8 @@ jobs:
         run: |
           count=$(find plugins/kitty/agents -name '*.md' -type f | wc -l | tr -d ' ')
           echo "Found $count agents"
-          if [ "$count" -lt 9 ]; then
-            echo "ERROR: Expected at least 9 agents, found $count"
+          if [ "$count" -lt 7 ]; then
+            echo "ERROR: Expected at least 7 agents, found $count"
             find plugins/kitty/agents -name '*.md' -type f | sort
             exit 1
           fi

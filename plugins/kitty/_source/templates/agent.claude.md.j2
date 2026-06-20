@@ -9,10 +9,18 @@ tools: {{ tools|join(", ") }}
 {% if color %}
 color: {{ color }}
 {% endif %}
+{% if lens %}
+lens: {{ lens|join(", ") }}
+{% endif %}
+{% if default_model %}
+default_model: {{ default_model }}
+{% endif %}
+{% if default_effort %}
+default_effort: {{ default_effort }}
+{% endif %}
 framework_status: {{ framework_status }}
 runtime_support:
   claude_code: {{ runtime_support.claude_code }}
-  codex: {{ runtime_support.codex }}
 ---
 
 {{ developer_instructions }}

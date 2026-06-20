@@ -71,7 +71,6 @@ body: |
   | `kitty:explore` | Structural exploration — browse definitions, imports, relationships, importance |
   | `kitty:impact` | Impact analysis — blast radius, dependency chains, importance, structural health |
   | `kitty:annotate` | Enrich graph with summaries and tags for semantic search |
-  | `kitty:install-codex` | Install generated agents, skills, and prompt commands into a Codex path |
 
   ## Direct tools (for ad-hoc use outside sub-skills)
 
@@ -99,28 +98,77 @@ body: |
   | `kitty:work` | Execute plans with Cartographing Kittens-first worker swarms |
   | `kitty:review` | Multi-agent code review with structural impact analysis |
   | `kitty:lfg` | Full autonomous pipeline: plan → work → review (no interaction needed) |
-  | `kitty:install-codex` | Manual Codex asset installation helper |
 
   Pipeline: `kitty:brainstorm` → `kitty:plan` → `kitty:work` → `kitty:review`
 
   Or use `kitty:lfg` to run plan → work → review autonomously.
 
+  ## Conductor: run boundaries, bundles & dispatch
+
+  For the workflow pipeline, `kitty` is the **conductor**, not a passive router: it detects
+  intent, routes to the phase skill, enforces the pipeline gates, owns the run journal,
+  applies the AskUserQuestion gating contract, and builds the Context Bundle before
+  dispatching one fan-out. The **main-loop orchestrator is the sole MCP client** — agents are
+  MCP-free and never re-read the codebase.
+
+  **Run boundaries (spec §3).** Every MCP-gated step returns to the main loop: graph fetch,
+  bundle write, re-index / `graph_diff` / `validate_graph`, `submit_annotations`, plan-state
+  mutation, and memory writes are all run boundaries. Each dispatched fan-out is exactly one
+  MCP-free batch; the conductor reconciles results, performs the MCP-gated post-steps, then
+  advances. Never call MCP from inside a dispatched script or agent.
+
+  **Context Bundle handoff.** The conductor fetches graph context (graph-first, no raw
+  reads), writes ONE curated bundle to `.pawprints/runs/<run-id>/bundle.md`, computes a
+  per-item `(model, effort)` tier per
+  [`references/dispatch-policy.md`](references/dispatch-policy.md), and passes a SMALL args
+  object (bundle path + ids + resolved tiers) to the script. The bundle layout, the agent
+  read-prologue, and the `ok`/`bundle_unreadable`/`needs_more_context` status envelope are
+  defined in [`references/bundle-format.md`](references/bundle-format.md).
+
+  **Run identity (spec §10.3).** `<run-id> = <plan-slug>-<UTC-yyyymmddThhmmssZ>-<6char>`
+  (sortable, collision-free, plan-derived); plan-less phases (`explore`, `impact`) use a
+  `phase-` prefix. Each run dir holds `bundle.md`, `args.json`, and the run journal; the
+  journal header and `args.json` both record the absolute `plan_path` (the run→plan binding).
+  `.pawprints/runs/` is git-ignored and disposable — **git-tracked plan-state is the only
+  durable resume authority**. On cross-session resume, rebuild from plan-state and
+  re-dispatch any unit not `complete`-with-commit; recorded workflow run IDs are dead.
+
+  **Dispatch path (spec §5.3).** `args.dispatch` defaults to `auto`: the conductor runs one
+  cheap Workflow probe before dispatching work items; a tool-unavailable / version-gate /
+  flag-off / org-disabled error commits the run to the Task fallback, other errors surface.
+  Override with `args.dispatch ∈ {workflow, task, auto}`. The path is fixed once per run and
+  recorded in the journal. Model tiering is real on the Workflow path and advisory-only on
+  the Task fallback (#43869) — there, effort travels as a prompt hint.
+
+  **Redundant gates (spec §7).** Skills fire by description match and slash-command
+  invocation bypasses `kitty` entirely, so each pipeline phase skill **self-checks its entry
+  preconditions at the top of its body**, independent of whether the conductor ran. Gate
+  enforcement is redundant, not conductor-exclusive.
+
   ## Agent Spawn Map
 
   Each workflow skill spawns a fixed roster of framework subagents declared in
-  `plugins/kitty/agents/manifest.json`. Every agent must appear in at least one
-  column below — `scripts/validate_skills.py` enforces it.
+  `plugins/kitty/agents/manifest.json`. The roster is exactly seven agents — one
+  consolidated researcher (`librarian-kitten`, run under a per-dispatch lens), the
+  five reviewers (`expert-kitten-correctness`, `expert-kitten-testing`,
+  `expert-kitten-impact`, `expert-kitten-structure`, `expert-kitten-context`), and
+  the batch annotator (`cartographing-kitten`). Every agent must appear in at
+  least one column below — `scripts/validate_skills.py` enforces it.
 
   | Skill | Always-on | Conditional |
   |---|---|---|
-  | `kitty:plan` | `librarian-kitten-researcher`, `librarian-kitten-pattern` | `librarian-kitten-flow`, `librarian-kitten-impact` |
-  | `kitty:work` | (none — inline orchestrator) | `librarian-kitten-researcher`, `librarian-kitten-pattern` (per unit, when graph context is dense) |
-  | `kitty:review` | `expert-kitten-correctness`, `expert-kitten-testing` | `expert-kitten-impact` (≥3 files changed), `expert-kitten-structure` (new files / module boundary changes), `expert-kitten-context` (subgraph context ≥10k tokens) |
+  | `kitty:plan` | `librarian-kitten` — lenses: architecture + pattern + flow + impact | — |
+  | `kitty:work` | (none — inline orchestrator) | `librarian-kitten` (per unit, when graph context is dense) — lenses: architecture, pattern |
+  | `kitty:review` | `expert-kitten-correctness`, `expert-kitten-testing` | `expert-kitten-impact` (≥3 files changed), `expert-kitten-structure` (new files / module boundary changes), `expert-kitten-context` (Context Bundle ≥10k tokens) |
   | `kitty:annotate` | `cartographing-kitten` | — |
-  | `kitty:brainstorm` | `librarian-kitten-researcher` | `librarian-kitten-pattern` |
+  | `kitty:brainstorm` | `librarian-kitten` — lenses: architecture + pattern | — |
+  | `kitty:impact` | (none — inline orchestrator) | `librarian-kitten` — lens: impact |
   | `kitty:lfg` | (delegates to `kitty:plan` → `kitty:work` → `kitty:review`) | — |
   | `kitty:explore` | (none — inline orchestrator only) | — |
-  | `kitty:impact` | (none — inline orchestrator only) | — |
+
+  `librarian-kitten` is a single agent applied under one lens per dispatch
+  (`architecture`, `pattern`, `flow`, or `impact`); the orchestrator names the
+  lens and injects the matching guidance from `references/lenses/`.
 
   Output contract: every agent returns the unified shape documented in
   [`references/agent-output-contract.md`](references/agent-output-contract.md).
@@ -132,7 +180,6 @@ body: |
   3. **Assess change impact** → use `kitty:impact`
   4. **Enable semantic search** → use `kitty:annotate`
   5. **Build a feature** → use `kitty:lfg "feature description"` for full autonomous pipeline
-  6. **Install Codex assets manually** → use `kitty:install-codex <codex-path> --delete-old`
 
   ## Key conventions
 

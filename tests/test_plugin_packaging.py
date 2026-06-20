@@ -11,27 +11,6 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 SKILLS_ROOT = REPO_ROOT / "plugins" / "kitty" / "skills"
 
 
-def test_root_codex_plugin_manifest_paths_exist() -> None:
-    manifest_path = REPO_ROOT / ".codex-plugin" / "plugin.json"
-    manifest = json.loads(manifest_path.read_text())
-
-    skills_path = REPO_ROOT / manifest["skills"]
-    mcp_path = REPO_ROOT / manifest["mcpServers"]
-
-    assert skills_path.exists()
-    assert mcp_path.exists()
-
-    codex_config = REPO_ROOT / "plugins" / "kitty" / ".codex" / "config.toml"
-    assert codex_config.exists(), "missing plugins/kitty/.codex/config.toml"
-
-    for skill_name in ("kitty-lfg", "kitty-work"):
-        openai_yaml = SKILLS_ROOT / skill_name / "agents" / "openai.yaml"
-        assert openai_yaml.exists(), (
-            f"missing {openai_yaml.relative_to(REPO_ROOT)} — orchestrator skills must "
-            f"declare an implicit-invocation policy for Codex"
-        )
-
-
 def test_agent_manifest_declares_all_framework_agents() -> None:
     agents_dir = REPO_ROOT / "plugins" / "kitty" / "agents"
     manifest_path = agents_dir / "manifest.json"
@@ -51,29 +30,26 @@ def test_agent_manifest_declares_all_framework_agents() -> None:
 def test_agent_manifest_declares_all_generated_sources() -> None:
     agents_dir = REPO_ROOT / "plugins" / "kitty" / "agents"
     source_dir = REPO_ROOT / "plugins" / "kitty" / "_source" / "agents"
-    codex_dir = REPO_ROOT / "plugins" / "kitty" / ".codex" / "agents"
     manifest = json.loads((agents_dir / "manifest.json").read_text())
 
     declared_names = {entry["name"] for entry in manifest["agents"]}
     source_names = {path.stem for path in source_dir.glob("*.yaml")}
-    codex_names = {path.stem for path in codex_dir.glob("*.toml")}
 
     assert declared_names == source_names
-    assert declared_names == codex_names
 
 
-def test_agent_manifest_marks_dual_runtime_intent() -> None:
+def test_agent_manifest_marks_claude_runtime() -> None:
     manifest_path = REPO_ROOT / "plugins" / "kitty" / "agents" / "manifest.json"
     manifest = json.loads(manifest_path.read_text())
 
     for entry in manifest["agents"]:
         runtimes = entry["runtimes"]
         assert runtimes["claude_code"] == "directory-discovered"
-        assert runtimes["codex"] == "custom-agent-toml"
+        assert "codex" not in runtimes
 
 
 def test_workflow_contract_docs_exist() -> None:
-    assert (REPO_ROOT / "docs" / "architecture" / "codex-workflow-contract.md").exists()
+    assert (REPO_ROOT / "docs" / "architecture" / "orchestration-model.md").exists()
     assert (REPO_ROOT / "docs" / "architecture" / "repo-boundaries.md").exists()
 
 
@@ -134,10 +110,14 @@ def test_mutating_workflow_skills_require_memory_postflight() -> None:
 
 
 def test_framework_agents_accept_memory_context() -> None:
+    # Agents read the bundle's "Memory lessons (litter/treat)" section (the annotator
+    # receives a `memory_context` batch field). Either token proves the agent body
+    # acknowledges the memory the orchestrator hands it.
     agents_dir = REPO_ROOT / "plugins" / "kitty" / "agents"
+    memory_tokens = ("Memory lessons", "Memory Context", "memory_context")
     for agent_path in agents_dir.glob("*.md"):
         text = agent_path.read_text()
-        assert "Memory Context" in text or "memory_context" in text, agent_path.name
+        assert any(token in text for token in memory_tokens), agent_path.name
 
 
 def test_skills_are_vendored_into_plugin() -> None:
@@ -163,8 +143,6 @@ def _parse_skill_frontmatter(path: Path) -> dict[str, object]:
 _UTILITY_SKILLS_WITHOUT_MCP_REQUIREMENT = frozenset(
     {
         "kitty-bump-version",
-        "kitty-install-codex",
-        "kitty-sync-agent-md",
         "kitty-validate-skills",
     }
 )

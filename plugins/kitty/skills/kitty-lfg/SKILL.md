@@ -16,6 +16,7 @@ allowed-tools:
 - mcp__plugin_kitty_kitty__add_litter_box_entry
 - mcp__plugin_kitty_kitty__add_treat_box_entry
 - mcp__plugin_kitty_kitty__index_codebase
+- mcp__plugin_kitty_kitty__plan_set_status
 metadata:
   short-description: Run plan → work → review autonomously, with graph-aware orchestration.
 requires:
@@ -23,8 +24,24 @@ requires:
   - kitty
 ---
 
-Cartographing Kittens LFG — autonomous pipeline. Run all steps in order. Default to inline
-execution and only use delegation where the runtime supports it cleanly.
+Cartographing Kittens LFG — autonomous pipeline. Run all steps in order.
+
+## Orchestration model
+
+`kitty:lfg` runs in **pipeline mode**: no `AskUserQuestion` prompts — every gated decision
+picks the recommended option silently, and a permission wall fails the item into the §6 ledger
+rather than hanging. It **sequences the three phase skills** (`kitty:plan` → `kitty:work` →
+`kitty:review`), each of which builds its own Context Bundle and dispatches its own `*.orch.js`
+fan-out; `lfg` has no orchestration script of its own.
+
+- **One shared run-id** spans the whole pipeline; the phases append the run journal strictly
+  sequentially (`<plan-slug>-<UTC>-<6char>`, per
+  [`kitty/references/bundle-format.md`](kitty/references/bundle-format.md)).
+- **Advisory lock.** Take `.pawprints/runs/<plan-slug>.lock` at run start (spec §10.4); refuse
+  or wait if it is held by another run.
+- **No work without an approved plan.** After the plan phase, auto-approve the recommended plan
+  via `plan_set_status(path, "ready")` so `kitty:work`'s entry self-check passes — the gate is
+  satisfied by lfg's own plan phase, never bypassed.
 
 ## Memory Contract
 
@@ -40,8 +57,9 @@ Every phase must use the shared memory protocol from
 
 ## Sequential Phase
 
-1. `/kitty:plan $ARGUMENTS` — Record the plan file path for steps 3 and 5.
-2. `/kitty:work` — Execute the plan using the inline-first workflow contract.
+1. `/kitty:plan $ARGUMENTS` — Record the plan file path for steps 3 and 5, then auto-approve
+   the recommended plan (`plan_set_status(path, "ready")`) so step 2's entry gate passes.
+2. `/kitty:work <plan-path>` — Execute the plan via its per-unit run-boundary loop.
 
 ## Parallel Phase
 

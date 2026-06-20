@@ -26,8 +26,6 @@ TEMPLATE_DIR = PLUGIN_ROOT / "_source" / "templates"
 
 TARGETS = {
     "manifest.claude.json.j2": PLUGIN_ROOT / ".claude-plugin" / "plugin.json",
-    "manifest.codex.json.j2": PLUGIN_ROOT / ".codex-plugin" / "plugin.json",
-    "manifest.codex.root.json.j2": REPO_ROOT / ".codex-plugin" / "plugin.json",
     "manifest.mcp.json.j2": PLUGIN_ROOT / ".mcp.json",
 }
 

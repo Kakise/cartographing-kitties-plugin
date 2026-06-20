@@ -27,6 +27,9 @@ allowed-tools:
 - mcp__plugin_kitty_kitty__query_treat_box
 - mcp__plugin_kitty_kitty__add_litter_box_entry
 - mcp__plugin_kitty_kitty__add_treat_box_entry
+- mcp__plugin_kitty_kitty__plan_status
+- mcp__plugin_kitty_kitty__plan_set_unit_state
+- mcp__plugin_kitty_kitty__plan_set_status
 metadata:
   short-description: Execute an implementation plan with graph-aware blast-radius checks per unit.
 requires:
@@ -38,6 +41,18 @@ requires:
 
 Execute plans with **Cartographing Kittens-first workflow steps**. Delegation is optional; the
 default contract is inline execution with graph context gathered by the orchestrator.
+
+<!-- entry-self-check -->
+## Entry self-check (run first)
+
+Slash-command invocation (`/kitty:kitty-work <plan>`) bypasses the `kitty` conductor, so this
+gate runs at the top of the body regardless (spec §7):
+
+- **Approved plan required.** Assert the plan file is present AND its frontmatter `status`
+  is `ready`/`approved`, via the `plan_status` MCP tool. Otherwise refuse and route to
+  `kitty:plan`.
+- **Attach the run journal.** Lazily create/attach `.pawprints/runs/<run-id>/` if the
+  conductor did not, recording the absolute `plan_path` in the journal header.
 
 ## Workflow
 
@@ -119,27 +134,21 @@ For each task:
      hash), commit if logical unit is complete
 ```
 
-**Plan-state updates:**
+**Plan-state updates (MCP plan tools — a run boundary).**
 
-Each unit transition must be reflected in the plan file's frontmatter and
-per-unit `**State:**` line so the dashboard (`kitty-plan-status report` or
-`/kitty:kitty-plans`) and downstream skills see live progress. Use the
-installed console script when available; fall back to the in-repo path:
+Each unit transition is written to plan-state via the kitty MCP plan tools so the dashboard
+(`/kitty:kitty-plans`) and downstream skills see live progress. Plan-state is the **sole
+durable resume authority** (the run journal under `.pawprints/runs/` is disposable), so these
+writes are run boundaries owned by the main loop:
 
-```bash
-# When starting a unit (OBSERVE):
-kitty-plan-status set-unit <plan-path> <unit-id> in_progress
-# In-repo fallback:
-uv run python scripts/plan_status.py set-unit <plan-path> <unit-id> in_progress
+- When starting a unit (OBSERVE): `plan_set_unit_state(path, unit_id, "in_progress")`.
+- When the unit lands (COMPOUND): `plan_set_unit_state(path, unit_id, "complete", commit=<sha>)`.
 
-# When the unit lands (COMPOUND), include the commit hash:
-kitty-plan-status set-unit <plan-path> <unit-id> complete --commit "$(git rev-parse HEAD)"
-```
-
-Never hand-edit the unit `**State:**` lines or frontmatter `state:` values —
-go through `kitty-plan-status` so the parser stays the single source of
-truth. If a unit is intentionally dropped, use `--reason "<why>"` with
-`state=skipped` rather than deleting the unit.
+Per spec §10.4, treat ANY non-success result from a `plan_set_*` call as a
+HARD FAILURE — do not append the run journal or claim progress unless the mutation
+succeeded. Never hand-edit the `**State:**` lines or frontmatter `state:` values; a dropped
+unit uses `plan_set_unit_state(..., "skipped", reason="<why>")`. The `scripts/plan_status.py`
+CLI remains the fallback when MCP is unavailable.
 
 **Memory postflight:**
 
@@ -149,18 +158,32 @@ After each completed unit, record durable lessons only when validated:
 - Call `add_treat_box_entry` for patterns validated by code changes and tests.
 - Use `source_agent="kitty:work"` unless a delegated worker is clearly responsible.
 
-**Optional delegation template:**
+**Per-unit fan-out (`work.orch.js`) + run boundary.**
 
-For each worker agent, provide:
-- The full plan file path
-- The specific unit (Goal, Files, Approach, Patterns, Test scenarios, Verification)
-- The pre-computed graph context (file structures, node data with summaries, roles, and tags)
-- Instruction: "Review the graph context provided, understand the purpose of each file/symbol from summaries and roles, then implement"
+For each unit the conductor writes the pre-computed graph context as the Context Bundle to
+`.pawprints/runs/<run-id>/bundle.md`
+([`kitty/references/bundle-format.md`](kitty/references/bundle-format.md)) and dispatches
+ONE MCP-free fan-out via
+[`kitty/references/workflows/work.orch.js`](kitty/references/workflows/work.orch.js):
+parallel sub-task implementers (the consolidated `librarian-kitten`, tiered per
+[`kitty/references/dispatch-policy.md`](kitty/references/dispatch-policy.md)) followed by a
+**two-gate self-review** — `spec-compliance` (does the unit meet its Goal/Approach?) AND
+`code-quality` — that must both pass before the unit is accepted. A sub-task that throws /
+returns empty / returns schema-invalid is recorded `failed` in the per-item ledger and
+re-dispatched once, never dropped (spec §6).
 
-**Runtime-specific delegation:**
-If the active runtime supports delegation cleanly, pass the plan unit plus the pre-computed graph
-context to the preserved framework subagents. Do not assume `TaskCreate`, agent teams, or a swarm
-registry as part of the required contract.
+Everything MCP-gated stays in the main loop as the **run boundary** after the script returns:
+`index_codebase(full=false)` → `graph_diff(changed_files)` →
+`validate_graph(scope=changed_files)` → `plan_set_unit_state(...)` → commit. Never call MCP
+from inside the script or an agent. Record the `graph_diff` / `validate_graph` evidence in the
+run journal (verification-before-completion).
+
+**Produced-code LOC discipline (spec §12).** Code the workers WRITE into the user's repo
+follows soft **300** / hard **400** physical lines per file (comments counted, blank-only
+excluded; generated + vendored exempt). Design-time modularity is primary — plan file
+boundaries before writing. The hard cap is a tripwire: split at a pre-identified seam, and if
+no clean seam exists STOP and surface the decision rather than silently exceeding it.
+`expert-kitten-structure` raises a flag-only finding on any over-cap file at review.
 
 ### Phase 4: Quality & Ship
 
@@ -168,19 +191,11 @@ registry as part of the required contract.
 2. Run linter
 3. Verify all tasks are completed
 4. If plan has Requirements Trace, verify each requirement is satisfied
-5. When every unit reaches `complete`, mark the plan itself complete and
-   stamp it with the final commit hash so the dashboard reflects shipped
-   state:
-
-   ```bash
-   kitty-plan-status set-status <plan-path> complete --implemented-in "$(git rev-parse HEAD)"
-   # In-repo fallback:
-   uv run python scripts/plan_status.py set-status <plan-path> complete --implemented-in "$(git rev-parse HEAD)"
-   ```
-
-   Skip this step if any unit is still `pending` or `in_progress` — leave
-   the plan at `in_progress` so a future `kitty:work` session can resume
-   from where it stopped.
+5. When every unit reaches `complete`, mark the plan complete via
+   `plan_set_status(path, "complete", implemented_in=<sha>)` so the dashboard reflects
+   shipped state (a run boundary; `scripts/plan_status.py set-status` is the CLI fallback).
+   Skip this step if any unit is still `pending` or `in_progress` — leave the plan at
+   `in_progress` so a future `kitty:work` session can resume from where it stopped.
 6. Summarize memory usage: queried entries, applied lessons, and newly recorded lessons
 7. When uncommitted changes exist and the user has not specified a commit
    strategy, issue an `AskUserQuestion` (single-select, header `"Commit"`,
@@ -241,9 +256,15 @@ Carry forward execution notes from the plan:
 - May delegate when the runtime supports it cleanly.
 - Must not require swarm primitives, background task registries, or automatic PR creation.
 - Must query litter/treat memory before implementation and record validated durable lessons after work.
-- Must update plan state via `kitty-plan-status set-unit` (or
-  `scripts/plan_status.py` in-repo) on every unit transition so the plan
+- Must update plan state via the `plan_set_unit_state` MCP tool (or
+  `scripts/plan_status.py` in-repo as fallback) on every unit transition so the plan
   file stays the source of truth for progress — never hand-edit `**State:**`
   or frontmatter `state:` values.
 - Must issue branch-strategy and commit-strategy prompts via `AskUserQuestion`
   per `kitty/references/ask-user-protocol.md`. Pipeline mode skips both prompts.
+
+## Orchestration
+
+- **Orchestration script:** `kitty/references/workflows/work.orch.js`
+- **Dispatch policy:** `kitty/references/dispatch-policy.md`
+- **Entry self-check:** required — refuses unless an approved plan exists via the plan_status MCP tool, else routes to kitty-plan

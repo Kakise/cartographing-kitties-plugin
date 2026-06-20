@@ -97,19 +97,15 @@ plugins/
       kitty-work/                # Execution with Cartographing Kittens-first workers
       kitty-review/              # Multi-agent review with structural analysis
       kitty-lfg/                 # Full autonomous pipeline (plan → work → review)
-      kitty-install-codex/       # Manual Codex asset installer helper
-    prompts/                     # Codex prompt commands generated from _source/commands
     agents/
-      manifest.json             # Runtime-neutral declaration of framework subagents
+      manifest.json             # Declaration of the 7-agent framework roster
+      librarian-kitten.md        # Consolidated researcher (lens: architecture|pattern|flow|impact)
       cartographing-kitten.md    # Batch annotation specialist
-      librarian-kitten-researcher.md   # General codebase researcher
-      librarian-kitten-pattern.md # Pattern and convention finder
-      librarian-kitten-impact.md  # Blast radius analyzer
-      librarian-kitten-flow.md   # Call chain and data flow tracer
       expert-kitten-correctness.md # Logic errors, edge cases (always-on)
       expert-kitten-testing.md     # Test coverage gaps (always-on)
       expert-kitten-impact.md      # Blast radius review (conditional)
       expert-kitten-structure.md   # Architecture review (conditional)
+      expert-kitten-context.md     # Bundle over-fetch audit (conditional)
     _source/
       agents/*.yaml             # Single source of truth for generated agents
       commands/*.yaml           # Single source of truth for command/prompt outputs
@@ -119,7 +115,6 @@ plugins/
 src/cartograph/                  # Python source (MCP server + core library)
 tests/                           # Test suite
 .claude-plugin/                  # Claude Code plugin marketplace manifest
-.codex-plugin/                   # Codex runtime plugin manifest (dual-runtime support)
 scripts/                         # Repo-level developer scripts
 ```
 
@@ -133,7 +128,7 @@ matching `--check` commands plus `scripts/validate_skills.py` to catch drift.
 
 `plugins/kitty/skills/` is vendored in this repository and generated from
 `plugins/kitty/_source/skills/*.yaml`. Framework agents under `plugins/kitty/agents/`
-and `plugins/kitty/.codex/agents/` are generated from `plugins/kitty/_source/agents/*.yaml`.
+are generated from `plugins/kitty/_source/agents/*.yaml`.
 
 ## Workflow Pipeline
 
@@ -165,8 +160,6 @@ project that follows the same conventions, not just on this repo.
 |-----------|-------|---------------------|
 | Cut a SemVer release for a VCS-versioned project | `kitty:bump-version` | (procedure only — no script needed) |
 | Validate SKILL.md frontmatter against the Claude Code spec | `kitty:validate-skills` | `kitty-validate-skills` |
-| Audit CLAUDE.md ↔ AGENTS.md section parity | `kitty:sync-agent-md` | `kitty-sync-agent-md` |
-| Install kitty assets into a Codex configuration | `kitty:install-codex` | `kitty-install-codex-assets` |
 
 ## MCP Tool Surface
 
@@ -179,39 +172,45 @@ project that follows the same conventions, not just on this repo.
 | `find_low_quality_annotations` | Audit annotated nodes for placeholder summaries, too-short summaries, missing name references, and generic fallback roles. |
 | `requeue_low_quality_annotations` | Move low-quality annotations back to pending; dry-run by default and caps repeat requeues by marking failed. |
 
+### Planning (plan-state)
+
+Plan-state ships in the package (`cartograph.planning`) and is exposed as MCP tools — the
+**sole durable resume authority** (the run journal under `.pawprints/runs/` is disposable).
+
+| Tool | Purpose |
+|------|---------|
+| `plan_create` | Create a plan file + register its units (frontmatter + per-unit state). |
+| `plan_status` | Read a plan's rollup status and per-unit states. |
+| `plan_set_unit_state` | Flip one unit's state (`in_progress`/`complete`/`skipped`), recording the commit. |
+| `plan_set_status` | Set the plan's overall status (e.g. `ready`, `complete`). |
+| `plan_audit` | Validate a plan against the plan-state conventions. |
+
+The `kitty` conductor owns the run journal at `.pawprints/runs/<run-id>/` (`bundle.md`,
+`args.json`, journal) and treats any non-success `plan_*` result as a hard failure.
+
 ### Workflow Contract
 
-The framework subagents remain part of the repository for both Claude Code and Codex.
+The `kitty` conductor is the **sole MCP client**: it fetches graph context, writes one
+Context Bundle, and dispatches an MCP-free agent fan-out per run boundary. Framework
+subagents are discovered from `plugins/kitty/agents/` and never call MCP themselves.
 
-- Claude Code is expected to discover `agents/` from the preserved plugin directory layout.
-- Codex preserves the same subagents through generated custom-agent TOML files under
-  `plugins/kitty/.codex/agents/*.toml`.
-- Skills must still make sense without assuming swarm orchestration.
-
-Canonical reference: `docs/architecture/codex-workflow-contract.md`.
+Canonical reference: `docs/architecture/orchestration-model.md`.
 Repository boundary reference: `docs/architecture/repo-boundaries.md`.
 
-When runtime support is available, the framework may delegate as follows:
+The consolidated `librarian-kitten` runs under one lens per dispatch
+(`architecture`/`pattern`/`flow`/`impact`); the conductor dispatches as follows:
 
-**kitty:brainstorm** may use:
-- `librarian-kitten-researcher` (architecture, stack)
-- `librarian-kitten-pattern` (existing patterns)
+**kitty:brainstorm** — `librarian-kitten` lenses: architecture, pattern.
 
-**kitty:plan** may use:
-- `librarian-kitten-researcher` (architecture)
-- `librarian-kitten-pattern` (patterns)
-- `librarian-kitten-flow` (call chains)
-- `librarian-kitten-impact` (blast radius)
+**kitty:plan** — `librarian-kitten` lenses: architecture, pattern, flow, impact.
 
-**kitty:work** may use worker delegation per implementation unit:
-- Each worker calls `get_file_structure` + `query_node` before implementing
-- Independent units can run in parallel when the runtime supports it cleanly
+**kitty:work** — per-unit fan-out: implement → two-gate self-review. The post-write
+re-index / `graph_diff` / `validate_graph`, plan-state update, and commit are main-loop
+run boundaries, not in the dispatched script.
 
-**kitty:review** may use:
-- `expert-kitten-correctness` (always)
-- `expert-kitten-testing` (always)
-- `expert-kitten-impact` (when 3+ files changed)
-- `expert-kitten-structure` (when new files created)
+**kitty:review** — always-on `expert-kitten-correctness` + `expert-kitten-testing`;
+conditional `expert-kitten-impact` (3+ files / public API), `expert-kitten-structure`
+(new files / module boundary), `expert-kitten-context` (Context Bundle ≥10k tokens).
 
 ## Agent Output Contracts
 
@@ -237,7 +236,9 @@ Review agents return JSON:
 
 ## Cartographing Kittens-First Principle
 
-All agents and skills use Cartographing Kittens MCP tools as primary codebase intelligence:
+The main-loop orchestrator (the `kitty` conductor) is the **sole MCP client** — it uses
+Cartographing Kittens MCP tools as the primary codebase intelligence and distills the results
+into a Context Bundle for MCP-free agents. The orchestrator and skills use:
 
 | Need | Tool | NOT |
 |------|------|----|

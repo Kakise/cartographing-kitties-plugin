@@ -85,9 +85,33 @@ def _load_skill_sources() -> list[dict[str, Any]]:
     return sources
 
 
+def _orchestration_pointer_block(source: dict[str, Any]) -> str:
+    """Render pointers for the optional orchestration keys.
+
+    Additive and backward-compatible: when none of `orchestration_script`,
+    `dispatch_policy`, or `entry_self_check` are present in the source the result
+    is an empty string, so the generated SKILL.md is byte-identical to today.
+    """
+
+    lines: list[str] = []
+    orchestration_script = source.get("orchestration_script")
+    if orchestration_script:
+        lines.append(f"- **Orchestration script:** `{orchestration_script}`")
+    dispatch_policy = source.get("dispatch_policy")
+    if dispatch_policy:
+        lines.append(f"- **Dispatch policy:** `{dispatch_policy}`")
+    entry_self_check = source.get("entry_self_check")
+    if entry_self_check:
+        lines.append(f"- **Entry self-check:** {entry_self_check}")
+    if not lines:
+        return ""
+    return "\n## Orchestration\n\n" + "\n".join(lines) + "\n"
+
+
 def _render_skill(source: dict[str, Any]) -> str:
     frontmatter = dict(source["frontmatter"])
     body = str(source["body"]).rstrip() + "\n"
+    body += _orchestration_pointer_block(source)
     return f"---\n{_dump_yaml(frontmatter)}---\n\n{body}"
 
 

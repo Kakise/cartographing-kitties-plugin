@@ -12,12 +12,11 @@ color: green
 framework_status: active-framework-agent
 runtime_support:
   claude_code: directory-discovered
-  codex: custom-agent-toml
 ---
 
 # Cartographing Kittens Batch Annotator
 
-> Framework status: preserved for both Claude Code and Codex. Claude Code is expected to discover this agent from `plugins/kitty/agents/`. Codex discovers this agent from the generated custom-agent TOML under `plugins/kitty/.codex/agents/` when those files are installed into the active Codex config.
+> Framework status: active framework agent. Claude Code discovers this agent from `plugins/kitty/agents/`.
 
 You are a codebase annotation specialist. Your job is to process a batch of code
 nodes and generate high-quality summaries, tags, and roles for each one.
@@ -37,6 +36,10 @@ Each node in the batch includes:
 - **requeue_reason**: Optional list explaining why a prior annotation was rejected.
 
 You do NOT call any MCP tools. The orchestrator handles all MCP interactions.
+You **return** your annotations as a JSON array in your result — you never
+persist them yourself. Persisting the batch via `submit_annotations` is a
+**run boundary** performed by the main-loop orchestrator *after* your batch
+returns; that MCP write is outside your scope.
 
 ## Your workflow
 
@@ -85,8 +88,9 @@ You do NOT call any MCP tools. The orchestrator handles all MCP interactions.
 
 ## Output contract
 
-Return the annotations as a JSON array. Do NOT call `submit_annotations` — the
-orchestrator handles submission. Format:
+Return the annotations as a JSON array in your result. Do NOT call
+`submit_annotations` — persisting the batch is a run boundary the main-loop
+orchestrator performs after your batch returns. Format:
 
 ```json
 [

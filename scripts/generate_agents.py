@@ -25,7 +25,6 @@ PLUGIN_ROOT = REPO_ROOT / "plugins" / "kitty"
 SOURCE_DIR = PLUGIN_ROOT / "_source" / "agents"
 TEMPLATE_DIR = PLUGIN_ROOT / "_source" / "templates"
 CLAUDE_AGENT_DIR = PLUGIN_ROOT / "agents"
-CODEX_AGENT_DIR = PLUGIN_ROOT / ".codex" / "agents"
 MANIFEST_PATH = CLAUDE_AGENT_DIR / "manifest.json"
 SUBGRAPH_CONTEXT_POINTER = "plugins/kitty/skills/kitty/references/subgraph-context-format.md"
 # Valid color values per https://code.claude.com/docs/en/sub-agents — `color` accepts
@@ -117,18 +116,24 @@ def _load_agent_sources() -> list[dict[str, Any]]:
                 f"{path}: color `{color}` not in Claude Code's accepted set "
                 f"({', '.join(sorted(VALID_AGENT_COLORS))})"
             )
+        # Optional orchestration-model keys (additive; absent on current sources so output
+        # is unchanged). `lens` is a list of librarian lenses; `default_model`/`default_effort`
+        # are the orchestrator's per-agent dispatch hints. Normalise to None/[] so the
+        # template variables are always defined.
+        lens = agent.get("lens")
+        if lens is None:
+            agent["lens"] = []
+        elif isinstance(lens, str):
+            agent["lens"] = [item.strip() for item in lens.split(",") if item.strip()]
+        elif isinstance(lens, list):
+            agent["lens"] = [str(item) for item in lens]
+        else:
+            raise ValueError(f"{path}: lens must be a string or list, got {type(lens).__name__}")
+        agent.setdefault("default_model", None)
+        agent.setdefault("default_effort", None)
         agent.setdefault("framework_status", "active-framework-agent")
-        agent.setdefault(
-            "runtime_support",
-            {
-                "claude_code": "directory-discovered",
-                "codex": "custom-agent-toml",
-            },
-        )
-        agent.setdefault(
-            "runtimes",
-            {"claude_code": "directory-discovered", "codex": "custom-agent-toml"},
-        )
+        agent.setdefault("runtime_support", {"claude_code": "directory-discovered"})
+        agent.setdefault("runtimes", {"claude_code": "directory-discovered"})
         agent.setdefault("expected_context_pointer", SUBGRAPH_CONTEXT_POINTER)
         sources.append(agent)
     if not sources:
@@ -156,13 +161,11 @@ def render_outputs() -> dict[Path, str]:
     agents = _load_agent_sources()
     env = _environment()
     claude_template = env.get_template("agent.claude.md.j2")
-    codex_template = env.get_template("agent.codex.toml.j2")
     manifest_template = env.get_template("manifest.agents.json.j2")
 
     outputs: dict[Path, str] = {}
     for agent in agents:
         outputs[CLAUDE_AGENT_DIR / f"{agent['name']}.md"] = claude_template.render(**agent)
-        outputs[CODEX_AGENT_DIR / f"{agent['name']}.toml"] = codex_template.render(**agent)
 
     manifest = manifest_template.render(agents=agents)
     manifest = json.dumps(json.loads(manifest), indent=2, ensure_ascii=False) + "\n"
@@ -188,14 +191,11 @@ def bootstrap_from_current() -> None:
             "framework_status": frontmatter.get("framework_status", "active-framework-agent"),
             "runtime_support": frontmatter.get(
                 "runtime_support",
-                {
-                    "claude_code": "directory-discovered",
-                    "codex": "custom-agent-toml",
-                },
+                {"claude_code": "directory-discovered"},
             ),
             "runtimes": manifest_runtimes.get(
                 name,
-                {"claude_code": "directory-discovered", "codex": "custom-agent-toml"},
+                {"claude_code": "directory-discovered"},
             ),
             "output_contract": None,
             "scaling_rules": [],

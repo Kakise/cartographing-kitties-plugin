@@ -26,6 +26,8 @@ allowed-tools:
 - mcp__plugin_kitty_kitty__query_litter_box
 - mcp__plugin_kitty_kitty__query_treat_box
 - mcp__plugin_kitty_kitty__index_codebase
+- mcp__plugin_kitty_kitty__plan_create
+- mcp__plugin_kitty_kitty__plan_audit
 metadata:
   short-description: Turn requirements into an actionable implementation plan with graph-powered research.
 requires:
@@ -37,6 +39,18 @@ requires:
 
 Define **HOW** to build through Cartographing Kittens-powered research and structured planning.
 Produces an implementation plan that feeds into `kitty:work`.
+
+<!-- entry-self-check -->
+## Entry self-check (run first)
+
+Slash-command invocation (`/kitty:kitty-plan …`) bypasses the `kitty` conductor, so this
+gate runs at the top of the body regardless (spec §7):
+
+- **Brainstorm output for net-new features.** For a net-new feature, confirm a brainstorm
+  requirements doc exists (e.g. under `docs/brainstorms/`); if missing, route to
+  `kitty:brainstorm` first. Refinements to an existing plan skip this.
+- **Attach the run journal.** Lazily create/attach `.pawprints/runs/<run-id>/` if the
+  conductor did not, recording the absolute `plan_path` in the journal header.
 
 ## Runtime Posture
 
@@ -170,19 +184,26 @@ Build the subgraph context that the orchestrator and any optional research agent
   - Depth 3: `far_consumer` (role, tags)
 ```
 
-### Phase 1b: Research Synthesis
+### Phase 1b: Research fan-out (`plan.orch.js`)
 
-Optional delegation path:
+The conductor writes the Phase 1 subgraph context as the Context Bundle to
+`.pawprints/runs/<run-id>/bundle.md`
+([`kitty/references/bundle-format.md`](kitty/references/bundle-format.md)) and dispatches
+the research fan-out via
+[`kitty/references/workflows/plan.orch.js`](kitty/references/workflows/plan.orch.js): the
+consolidated `librarian-kitten` runs in parallel under four lenses, each reading one bundle
+section with its injected lens prompt from `kitty/references/lenses/`:
 
-If the runtime supports delegation cleanly, the orchestrator may dispatch these framework agents
-in parallel, passing each the feature description, origin requirements, and the formatted subgraph context:
+- **architecture** — stack, layering, and key abstractions of the target area.
+- **pattern** — existing patterns/conventions the new work should follow.
+- **flow** — call chains and data flow (the bundle's call-edge section).
+- **impact** — blast radius (the bundle's transitive-dependents section).
 
-- **`librarian-kitten-researcher`** — Pass: full subgraph context (annotation status, target nodes, file structures, symbol details, dependencies)
-- **`librarian-kitten-pattern`** — Pass: search results, file structures, and symbol details from the subgraph context
-- **`librarian-kitten-flow`** — Pass: call-edge dependencies section specifically (depth 3-4 call chains with node data and roles)
-- **`librarian-kitten-impact`** — Pass: blast radius section specifically (transitive dependents with depth annotations, roles, and tags)
-
-Whether delegated or done inline, consolidate findings into:
+Tiers come from [`kitty/references/dispatch-policy.md`](kitty/references/dispatch-policy.md);
+a lens that throws / returns empty / returns schema-invalid is recorded `failed` in the per-item
+ledger and re-dispatched once, never dropped (spec §6). On the Task fallback the four lenses run
+sequentially with schema validation, and an optional second round resolves lens cross-talk. The
+orchestrator then synthesizes the lens returns into:
 - Relevant patterns and file paths
 - Dependency chains and blast radius
 - Technology constraints
@@ -199,8 +220,8 @@ For each question, decide:
 When the answer materially affects architecture, scope, or risk AND research can
 enumerate 2-4 alternatives, ask the user via `AskUserQuestion` per
 `kitty/references/ask-user-protocol.md`. Each question's options come from the
-subgraph context (e.g., the existing patterns surfaced by
-`librarian-kitten-pattern`, the blast radius surfaced by `find_dependents`).
+subgraph context (e.g., the existing patterns surfaced by the `librarian-kitten`
+pattern lens, the blast radius surfaced by `find_dependents`).
 
 Issue one prompt at a time so each answer can shape the next. Skip the prompt
 when the answer is non-material or when no enumerable options exist — defer
@@ -219,7 +240,7 @@ Break work into implementation units. Each unit:
 - **Dependencies** — what must exist first
 - **Files** — exact paths to create/modify/test
 - **Approach** — key design decisions
-- **Patterns to follow** — from `librarian-kitten-pattern` findings
+- **Patterns to follow** — from the `librarian-kitten` pattern-lens findings
 - **Test scenarios** — specific input -> expected outcome for each category:
   - Happy path (always)
   - Edge cases (when meaningful boundaries exist)
@@ -259,12 +280,12 @@ Context & Research, Key Technical Decisions, Open Questions,
 Memory Context, Implementation Units (with checkbox syntax), System-Wide Impact,
 Risks & Dependencies, Sources & References.
 
-After writing the plan file, validate it against the plan-state
-conventions so the dashboard and downstream skills can read it. Prefer the
-installed console script when available; fall back to the in-repo path:
+Register the plan and its units through the MCP plan tool
+`plan_create(path, title, type, units)` so plan-state is authoritative from creation, then add
+the body sections above. Validate against the plan-state conventions so the dashboard and
+downstream skills can read it — `plan_audit(path)` via MCP, or the CLI fallback:
 
 ```bash
-kitty-plan-status audit <plan-path>          # if `uv tool install cartographing-kittens` is on PATH
 uv run python scripts/plan_status.py audit   # in-repo fallback (runs against docs/plans/)
 ```
 
@@ -314,3 +335,9 @@ options:
 - Must issue every interactive prompt (resume offer, material decisions in
   Phase 2, handoff menu) via `AskUserQuestion` per
   `kitty/references/ask-user-protocol.md`. Pipeline mode skips prompts.
+
+## Orchestration
+
+- **Orchestration script:** `kitty/references/workflows/plan.orch.js`
+- **Dispatch policy:** `kitty/references/dispatch-policy.md`
+- **Entry self-check:** required — for a net-new feature, confirms brainstorm output exists first

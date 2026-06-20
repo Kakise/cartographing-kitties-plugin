@@ -23,14 +23,13 @@ Changes here should improve the reusable code-intelligence system itself.
 
 It owns:
 
-- runtime packaging
+- Claude Code plugin packaging
 - commands
-- Codex prompt commands
 - framework subagent prompts (sourced from `_source/agents/*.yaml`)
 - skill content (sourced from `_source/skills/*.yaml`)
 - workflow conventions
 
-Changes here should improve how runtimes consume the product, not redefine the product boundary.
+Changes here should improve how Claude Code consumes the product, not redefine the product boundary.
 
 ## Skills
 
@@ -44,7 +43,6 @@ It owns:
 
 - per-skill `SKILL.md` content, frontmatter, and reference docs
 - the `requires` schema and local validator that enforce each skill's runtime requirements
-- per-skill Codex invocation policies under `agents/openai.yaml`
 
 Rules:
 
@@ -58,9 +56,9 @@ Rules:
 ## Rule of Thumb
 
 - If a change adds or changes a reusable AST/MCP capability, it belongs in `src/cartograph/`.
-- If a change alters how Codex or Claude Code invokes that capability, it belongs in
-  `plugins/kitty/` or runtime-specific docs.
+- If a change alters how Claude Code invokes that capability, it belongs in
+  `plugins/kitty/` or the plugin docs.
 - If a change touches skill content or the skills catalog convention, edit
   `plugins/kitty/_source/skills/*.yaml` and regenerate.
 - If documentation mixes the layers, prefer describing `src/cartograph/` first,
-  `plugins/kitty/` second, and generated runtime artifacts third.
+  `plugins/kitty/` second, and generated plugin artifacts third.

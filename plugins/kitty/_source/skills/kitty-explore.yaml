@@ -48,8 +48,11 @@ body: |
 
   ## Workflow
 
-  The orchestrator builds all context directly — no agent dispatch needed for exploration.
-  Agents CANNOT call MCP tools, so the orchestrator IS the explorer.
+  The orchestrator builds all context directly — exploration is orchestrator-inline and needs no
+  agent dispatch. Agents CANNOT call MCP tools, so the orchestrator IS the explorer. For an
+  unusually large or dense area the orchestrator MAY dispatch a single `librarian-kitten`
+  (architecture lens) over a Context Bundle to synthesize the summary, but this is an optional
+  optimization — there is no `explore.orch.js` and no required fan-out.
 
   ### Step 1: Ensure Index & Check Coverage
 

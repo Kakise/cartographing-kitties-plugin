@@ -121,14 +121,20 @@ or generic fallback roles. To repair them, call
 
 ## Parallel processing for large codebases
 
-For codebases with **50+ pending nodes**, use parallel annotator agents:
+For codebases with **50+ pending nodes**, dispatch the annotation fan-out via
+[`kitty/references/workflows/annotate.orch.js`](kitty/references/workflows/annotate.orch.js):
 
-1. Check total pending count with `annotation_status`
-2. Fetch multiple non-overlapping batches via `get_pending_annotations`
-3. Format each batch as context and dispatch 2-3 `cartographing-kitten` agents in parallel
-4. Collect JSON results from each agent
-5. Call `submit_annotations` for each agent's results
-6. The orchestrator always owns the MCP calls — agents never call MCP tools directly
+1. Check total pending count with `annotation_status`.
+2. Fetch non-overlapping batches via `get_pending_annotations`; tier each batch by its
+   `recommended_model_tier` per
+   [`kitty/references/dispatch-policy.md`](kitty/references/dispatch-policy.md).
+3. Write each batch into the Context Bundle and dispatch `cartographing-kitten` agents in
+   parallel; each returns its annotation JSON (it does NOT submit).
+4. **Submit run boundary (spec §8):** back in the main loop, call `submit_annotations(...)`
+   for each batch's results — agents are MCP-free, so the orchestrator owns every
+   `submit_annotations` call. A batch that throws / returns empty / returns schema-invalid is
+   recorded `failed` in the ledger and re-dispatched once, never dropped (spec §6). Loop until
+   the pending set is drained.
 
 See the `cartographing-kitten` agent definition for the agent's input/output contract.
 
@@ -156,3 +162,8 @@ Create new tags for domain-specific concepts (e.g., "payment-processing", "webso
 - See `kitty/references/annotation-workflow.md` only as documentation for the
   MCP workflow, never as permission to run helper scripts
 - See `kitty/references/tool-reference/` for MCP parameter details
+
+## Orchestration
+
+- **Orchestration script:** `kitty/references/workflows/annotate.orch.js`
+- **Dispatch policy:** `kitty/references/dispatch-policy.md`

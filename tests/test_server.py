@@ -843,6 +843,11 @@ class TestStdioToolDiscovery:
             "batch_query_nodes",
             "get_context_summary",
             "validate_graph",
+            "plan_create",
+            "plan_status",
+            "plan_set_unit_state",
+            "plan_set_status",
+            "plan_audit",
         }
         assert tool_names == expected_tools
 

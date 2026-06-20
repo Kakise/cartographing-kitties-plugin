@@ -20,7 +20,6 @@ REPO_ROOT = _repo_root()
 PLUGIN_ROOT = REPO_ROOT / "plugins" / "kitty"
 SOURCE_DIR = PLUGIN_ROOT / "_source" / "commands"
 CLAUDE_COMMAND_DIR = PLUGIN_ROOT / "commands"
-CODEX_PROMPT_DIR = PLUGIN_ROOT / "prompts"
 
 
 def _literal_presenter(dumper: yaml.Dumper, value: str) -> yaml.Node:
@@ -63,7 +62,7 @@ def _load_command_sources() -> list[dict[str, Any]]:
         if path.name.startswith("_"):
             continue
         source = _load_yaml(path)
-        required = {"name", "description", "claude", "codex_prompt"}
+        required = {"name", "description", "claude"}
         missing = sorted(required - source.keys())
         if missing:
             raise ValueError(f"{path} missing required keys: {', '.join(missing)}")
@@ -72,8 +71,6 @@ def _load_command_sources() -> list[dict[str, Any]]:
         claude = source["claude"]
         if not isinstance(claude, dict) or not isinstance(claude.get("body"), str):
             raise ValueError(f"{path}: claude.body must be a string")
-        if not isinstance(source["codex_prompt"], str) or not source["codex_prompt"].strip():
-            raise ValueError(f"{path}: codex_prompt must be a non-empty string")
         sources.append(source)
     if not sources:
         raise ValueError(f"No command source files found in {SOURCE_DIR}")
@@ -100,7 +97,6 @@ def render_outputs() -> dict[Path, str]:
     for source in _load_command_sources():
         name = str(source["name"])
         outputs[CLAUDE_COMMAND_DIR / f"{name}.md"] = _render_claude_command(source)
-        outputs[CODEX_PROMPT_DIR / f"{name}.md"] = str(source["codex_prompt"]).rstrip() + "\n"
     return outputs
 
 
@@ -108,7 +104,6 @@ def bootstrap_from_current() -> None:
     SOURCE_DIR.mkdir(parents=True, exist_ok=True)
     for command_path in sorted(CLAUDE_COMMAND_DIR.glob("*.md")):
         frontmatter, body = _parse_frontmatter(command_path)
-        prompt_path = CODEX_PROMPT_DIR / command_path.name
         source = {
             "name": command_path.stem,
             "description": frontmatter["description"],
@@ -117,9 +112,6 @@ def bootstrap_from_current() -> None:
                 "allowed_tools": frontmatter.get("allowed-tools"),
                 "body": body,
             },
-            "codex_prompt": prompt_path.read_text(encoding="utf-8")
-            if prompt_path.exists()
-            else body,
         }
         (SOURCE_DIR / f"{command_path.stem}.yaml").write_text(_dump_yaml(source), encoding="utf-8")
 

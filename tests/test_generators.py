@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
-import tomllib
 from pathlib import Path
 
 import pytest
@@ -15,14 +14,6 @@ ANNOTATOR_NAMES = {"cartographing-kitten"}
 MCP_PREFIX = "mcp__plugin_kitty_kitty__"
 RESEARCH_REVIEW_BUILTIN_TOOL_BUDGET = {"Read", "Grep", "Glob"}
 ANNOTATOR_BUILTIN_TOOL_BUDGET = {"Read", "Grep", "Glob", "Bash"}
-EXPECTED_LIBRARIAN_EXPERT_MCP_TOOLS = {
-    f"{MCP_PREFIX}query_node",
-    f"{MCP_PREFIX}search",
-    f"{MCP_PREFIX}get_file_structure",
-    f"{MCP_PREFIX}find_dependencies",
-    f"{MCP_PREFIX}find_dependents",
-    f"{MCP_PREFIX}rank_nodes",
-}
 
 
 def _run_script(*args: str) -> subprocess.CompletedProcess[str]:
@@ -59,18 +50,15 @@ def test_command_generator_check_is_clean() -> None:
     assert result.returncode == 0, result.stderr
 
 
-def test_agent_sources_drive_manifest_and_codex_outputs() -> None:
+def test_agent_sources_drive_manifest_outputs() -> None:
     source_dir = REPO_ROOT / "plugins" / "kitty" / "_source" / "agents"
     source_names = {path.stem for path in source_dir.glob("*.yaml")}
     manifest = json.loads(
         (REPO_ROOT / "plugins" / "kitty" / "agents" / "manifest.json").read_text()
     )
     manifest_names = {entry["name"] for entry in manifest["agents"]}
-    codex_names = {
-        path.stem for path in (REPO_ROOT / "plugins" / "kitty" / ".codex" / "agents").glob("*.toml")
-    }
 
-    assert source_names == manifest_names == codex_names
+    assert source_names == manifest_names
 
 
 def test_agent_source_schema_has_required_contract_fields() -> None:
@@ -89,18 +77,6 @@ def test_agent_source_schema_has_required_contract_fields() -> None:
         assert data["developer_instructions"].startswith("# ")
 
 
-def test_generated_codex_agent_toml_parses() -> None:
-    codex_dir = REPO_ROOT / "plugins" / "kitty" / ".codex" / "agents"
-
-    for path in codex_dir.glob("*.toml"):
-        data = tomllib.loads(path.read_text())
-        assert data["name"] == path.stem
-        assert set(data) == {"name", "description", "developer_instructions"}
-        assert data["developer_instructions"].startswith("# ")
-        assert "prompt" not in data
-        assert "model" not in data
-
-
 def test_skill_sources_drive_skill_outputs() -> None:
     source_dir = REPO_ROOT / "plugins" / "kitty" / "_source" / "skills"
     output_dir = REPO_ROOT / "plugins" / "kitty" / "skills"
@@ -112,50 +88,19 @@ def test_skill_sources_drive_skill_outputs() -> None:
     assert source_dirs == output_dirs
 
 
-def test_command_sources_drive_claude_and_codex_outputs() -> None:
+def test_command_sources_drive_claude_outputs() -> None:
     source_dir = REPO_ROOT / "plugins" / "kitty" / "_source" / "commands"
     command_dir = REPO_ROOT / "plugins" / "kitty" / "commands"
-    prompt_dir = REPO_ROOT / "plugins" / "kitty" / "prompts"
     source_names = {path.stem for path in source_dir.glob("*.yaml")}
     claude_names = {path.stem for path in command_dir.glob("*.md")}
-    codex_names = {path.stem for path in prompt_dir.glob("*.md")}
 
-    assert source_names == claude_names == codex_names
+    assert source_names == claude_names
     assert not list(command_dir.glob("*.toml"))
-
-
-def test_install_codex_assets_supports_delete_old(tmp_path: Path) -> None:
-    sys.path.insert(0, str(REPO_ROOT))
-    try:
-        from scripts.install_codex_assets import install
-
-        old_agent_dir = tmp_path / ".codex" / "agents"
-        old_skill_dir = tmp_path / "skills" / "kitty"
-        old_prompt_dir = tmp_path / "prompts"
-        old_agent_dir.mkdir(parents=True)
-        old_skill_dir.mkdir(parents=True)
-        old_prompt_dir.mkdir(parents=True)
-        (old_agent_dir / "librarian-kitten-researcher.toml").write_text("old")
-        (old_skill_dir / "SKILL.md").write_text("old")
-        (old_prompt_dir / "kitty-index.md").write_text("old")
-        (old_prompt_dir / "unrelated.md").write_text("keep")
-
-        result = install(tmp_path, layout_name="auto", delete_old=True)
-
-        assert result["deleted"] >= 3
-        assert (old_agent_dir / "librarian-kitten-researcher.toml").read_text() != "old"
-        assert (old_skill_dir / "SKILL.md").read_text() != "old"
-        assert (old_prompt_dir / "kitty-index.md").read_text() != "old"
-        assert (old_prompt_dir / "unrelated.md").read_text() == "keep"
-    finally:
-        sys.path.pop(0)
 
 
 def test_generated_manifest_json_parses() -> None:
     manifest_paths = [
         REPO_ROOT / "plugins" / "kitty" / ".claude-plugin" / "plugin.json",
-        REPO_ROOT / "plugins" / "kitty" / ".codex-plugin" / "plugin.json",
-        REPO_ROOT / ".codex-plugin" / "plugin.json",
         REPO_ROOT / "plugins" / "kitty" / ".mcp.json",
         REPO_ROOT / "plugins" / "kitty" / "agents" / "manifest.json",
     ]
@@ -198,24 +143,22 @@ def test_tool_budgets_are_minimum_viable_per_role() -> None:
             )
 
 
-def test_librarians_and_experts_share_mcp_tool_baseline() -> None:
+def test_all_agents_are_mcp_free() -> None:
+    """Every framework agent is MCP-free — it reads a Context Bundle, never the graph.
+
+    The orchestrator gathers all structural intelligence via MCP and distills it into
+    the bundle; agents only `Read` that bundle (plus targeted source lines). No agent —
+    researcher, reviewer, or annotator — may list an `mcp__` tool.
+    """
+
     for path in sorted(SOURCE_DIR.glob("*.yaml")):
         if path.name.startswith("_"):
             continue
         data = yaml.safe_load(path.read_text(encoding="utf-8"))
-        name = data["name"]
         mcp_tools = {t for t in data["tools"] if t.startswith(MCP_PREFIX)}
-        if name in ANNOTATOR_NAMES:
-            # Annotator's body explicitly says "You do NOT call any MCP tools" —
-            # the orchestrator handles MCP for it.
-            assert mcp_tools == set(), (
-                f"{path.name}: annotator must not list MCP tools (body says it does not call them)"
-            )
-        else:
-            assert mcp_tools == EXPECTED_LIBRARIAN_EXPERT_MCP_TOOLS, (
-                f"{path.name}: librarians/experts must share the standard MCP tool baseline; "
-                f"got {mcp_tools}"
-            )
+        assert mcp_tools == set(), (
+            f"{path.name}: agents are MCP-free; remove {sorted(mcp_tools)} from tools"
+        )
 
 
 def test_research_and_review_agents_embed_scaling_rules() -> None:
